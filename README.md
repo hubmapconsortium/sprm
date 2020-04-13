@@ -64,22 +64,22 @@ One “legend” CSV is produced for each clustering method that contains the me
 
 The outputs can be grouped into six types:
 
-OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]__
-CSVs containing features for each cell (in some cases for each nucleus, cell membrane and nuclear membrane also) [16 per input image]__
-Master CSV containing clustering results for each cell (row) for each method (column) [1 per input image]__
-CSVs containing mean values of “markers” for each cluster for each clustering method [8 per input image]__
-PNGs showing coloring by cluster [8 per input image]__
-DOTs showing channel spatial dependency graphs [2 per input image]__
+OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]\
+CSVs containing features for each cell (in some cases for each nucleus, cell membrane and nuclear membrane also) [16 per input image]\
+Master CSV containing clustering results for each cell (row) for each method (column) [1 per input image]\
+CSVs containing mean values of “markers” for each cluster for each clustering method [8 per input image]\
+PNGs showing coloring by cluster [8 per input image]\
+DOTs showing channel spatial dependency graphs [2 per input image]\
 
 ## Prerequisites
 
-Aicsimageio__
-Numpy__
-Sklearn__
-Pandas__
-Matplotlib__
+Aicsimageio\ 
+Numpy\ 
+Sklearn\ 
+Pandas\ 
+Matplotlib\ 
 
 ## Contact
 
-Robert F. Murphy - murphy@cmu.edu__
+Robert F. Murphy - murphy@cmu.edu\ 
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
