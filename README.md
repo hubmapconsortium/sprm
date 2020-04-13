@@ -79,7 +79,7 @@ Aicsimageio\
 Numpy\
 Sklearn\
 Pandas\
-Matplotlib\
+Matplotlib
 
 ## Contact
 
