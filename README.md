@@ -1,25 +1,28 @@
-# sprm
-
-SPRM - Spatial Process & Relationship Modeling
+#SPRM - Spatial Process & Relationship Modeling
 Ted Zhang and Bob Murphy, Carnegie Mellon University
-
 V0.51 April 7,2020
-Description
+
+##Description
 SPRM is a statistical modeling program used to calculate a range of descriptors/features from multichannel cell images.  It uses these descriptors for clustering of cells and saves them for use for comparison and content-based search of the images.  It can be used with any type of multichannel 2D or 3D image (e.g., CODEX, IMS).
 
-Inputs
+##Inputs
 
 Two OMETIFF files from the output of CytoKit -
 4D Multiplexed intensity Image (3D for multiple channels)
 4D Indexed Image (3D for multiple segmentations) containing one channel for each type of segmentation (currently “cells”, “nucleus”, “cell membrane” and “nuclear membrane”).
 
-Execution: (SPRM.py [img_dir_path] [mask_dir_path] [options_path])
+##Execution: (assuming SPRM.py is in working directory)
+```bash
+[python_path] SPRM.py [img_dir_path] [mask_dir_path] [options_path]
+```
+
 SPRM takes in three command line arguments that specify the path in the following order:
 Image directory path
 Mask directory path
 Options file path
 
-Analyses: Descriptors
+##Analyses: Descriptors
+
 (* items are in progress)
 Converting multiple channels into the top 3 principal components of channel intensity (finding major components of variation in the multiple channels) (output: OME-TIFF, “xxx-channel_pca.ome.tiff”)
 Converting pixels into “superpixels” by clustering them based on intensities in all channels (output: OME-TIFF, “xxx-superpixel.ome.tiff”)
@@ -35,7 +38,7 @@ Calculating cell shape descriptors (using PCA of parametric outlines) (output: C
 
 Note that the descriptors/features above flagged with **comparable between images** are “global” and can be used for comparison or searching between images (e.g., find cells in other images that are similar to this cell).  Others are only for comparison of different cells within an image (“local”).
 
-Analyses: Clustering
+##Analyses: Clustering
 
 Clustering cells by a) mean intensity, b) total intensity, c) covariance, and d) concatenation of intensities and covariances
 Clustering cells by cell shape descriptors
@@ -47,7 +50,7 @@ A single “master” clustering CSV file (“cell_cluster.csv”) is output con
 
 One “legend” CSV is produced for each clustering method that contains the mean values of each marker for each cluster (number of cells by number of markers).  This is intended to accompany display of the clustering results by showing the major contributors to the choice of the clusters.  One PNG is also produced for each clustering that shows the image with each cell colored by cluster number (this is mainly provided for checking downstream display of clusters).
 
-Outputs:
+##Outputs:
 
 The outputs can be grouped into six types
 OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]
@@ -56,12 +59,14 @@ Master CSV containing clustering results for each cell (row) for each method (co
 CSVs containing mean values of “markers” for each cluster for each clustering method [8 per input image]
 PNGs showing coloring by cluster [8 per input image]
 DOTs showing channel spatial dependency graphs [2 per input image]
-Prerequisites
+
+##Prerequisites
 Aicsimageio
 Numpy
 Sklearn
 Pandas
 Matplotlib
-Contact
+
+##Contact
 Robert F. Murphy - murphy@cmu.edu
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
