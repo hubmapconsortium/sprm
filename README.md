@@ -60,7 +60,7 @@ A single “master” clustering CSV file (“cell_cluster.csv”) is output con
 
 One “legend” CSV is produced for each clustering method that contains the mean values of each marker for each cluster (number of cells by number of markers).  This is intended to accompany display of the clustering results by showing the major contributors to the choice of the clusters.  One PNG is also produced for each clustering that shows the image with each cell colored by cluster number (this is mainly provided for checking downstream display of clusters).
 
-## Outputs:
+## Outputs
 
 The outputs can be grouped into six types:
 
@@ -72,6 +72,7 @@ PNGs showing coloring by cluster [8 per input image]
 DOTs showing channel spatial dependency graphs [2 per input image]
 
 ## Prerequisites
+
 Aicsimageio
 Numpy
 Sklearn
@@ -79,5 +80,6 @@ Pandas
 Matplotlib
 
 ## Contact
+
 Robert F. Murphy - murphy@cmu.edu
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
