@@ -21,7 +21,7 @@ SPRM takes in three command line arguments that specify the path in the followin
 
 Image directory path\
 Mask directory path\
-Options file path\
+Options file path
 
 ## Analyses: Descriptors
 
