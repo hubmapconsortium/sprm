@@ -16,19 +16,14 @@ Version:   0.50
 """
 
 
-def main():
-    # directories for input images
-    img_dir = sys.argv[1]
-    mask_dir = sys.argv[2]
+def main(img_dir,mask_dir,options_path):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_imgs(img_dir)
     mask_files = get_imgs(mask_dir)
-    options = {"debug": False, "num_cellclusters": 6, "num_voxelclusters": 6, "num_markers": 3, "n_components": 3}
-    options["num_outlinepoints"] = 100
-    options["num_shapeclusters"] = 3
-    options["precluster_sampling"] = 0.07 #percentage of pixels to have for precluster to get accurate centroids
-    options["precluster_threshold"] = 10000 #min pixels to precluster with
-
+    
+    #read in options.txt 
+    options = read_options(options_path)
+    
     covar_matrix = []
     mean_vector = []
     total_vector = []
@@ -45,7 +40,10 @@ def main():
         mask = MaskStruct(mask_file, options)
 
         bestz = mask.get_bestz()
-
+        
+        #start time of processing a single img
+        stime = time.time()
+        
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
             print('IN TIMEPOINTS LOOP')
@@ -94,9 +92,11 @@ def main():
 
             # do cell analyze
             cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, options, mean_vector, covar_matrix, total_vector, shape_vectors)
-
+       
+        print('Per image runtime: ' + str(time.time() - stime))
+    
     mask.quit()
     im.quit()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[0],sys.argv[1],sys.argv[2])

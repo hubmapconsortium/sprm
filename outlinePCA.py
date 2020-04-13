@@ -1,5 +1,5 @@
 import numpy as np
-import skimage
+from skimage import measure
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -150,7 +150,7 @@ def fillimage(cmask):
 
 def paramshape(cellmask,npoints):
 
-    polyg = skimage.measure.find_contours(cellmask,0.5,fully_connected='low', positive_orientation='low')
+    polyg = measure.find_contours(cellmask,0.5,fully_connected='low', positive_orientation='low')
     #print(len(polyg))
     #print(polyg)
     
