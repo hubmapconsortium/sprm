@@ -73,13 +73,13 @@ DOTs showing channel spatial dependency graphs [2 per input image]\
 
 ## Prerequisites
 
-Aicsimageio\ 
-Numpy\ 
-Sklearn\ 
-Pandas\ 
-Matplotlib\ 
+Aicsimageio\
+Numpy\
+Sklearn\
+Pandas\
+Matplotlib\
 
 ## Contact
 
-Robert F. Murphy - murphy@cmu.edu\ 
+Robert F. Murphy - murphy@cmu.edu\
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
