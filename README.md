@@ -1,6 +1,6 @@
 # SPRM - Spatial Process & Relationship Modeling
 Ted Zhang and Bob Murphy, Carnegie Mellon University\
-V0.51\ 
+V0.51\
 April 13,2020
 
 ## Description
