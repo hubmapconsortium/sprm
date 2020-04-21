@@ -18,8 +18,8 @@ import math
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 04/07/2020
-Version: 0.50
+01/21/2020 - 04/21/2020
+Version: 0.53
 
 
 """
@@ -347,10 +347,10 @@ def mask_img(mask, dir, j, options):
 
 def get_masked_imgs(labeled_mask, maskIDs):
     '''
-        Returns the masked image as a 4D image ---> this might change as it creates more memory in allocation
+        Returns the masked image as a set of coordinates
     '''
     # img = im.get_data()
-    masked_imgs = []
+    masked_imgs_coord = []
     for i in range(1, len(maskIDs)):
 
         coor = np.where(labeled_mask == maskIDs[i])
@@ -361,9 +361,9 @@ def get_masked_imgs(labeled_mask, maskIDs):
         # channel_all_mask = temp[0, t, :, z, y, x]
         # channel_all_mask = np.transpose(channel_all_mask)
 
-        masked_imgs.append(coor)
+        masked_imgs_coord.append(coor)
 
-    return masked_imgs
+    return masked_imgs_coord
 
 
 def SRM(img_files, mask_files, options):
@@ -519,9 +519,12 @@ def plotprincomp(reducedim, bestz, filename):
         print(cmin, cmax)
     plotim = plotim.round()
     plotim = plotim.astype(int)
+    plt.clf()
     plt.imshow(plotim)
-    plt.show(block=False)
+    plt.axis('off')
+    #plt.show(block=False)
     plt.savefig(filename, box_inches='tight')
+    plt.close()
     return plotim
 
 
@@ -602,25 +605,25 @@ def findmarkers(clustercenters, options):
         # print(hivar)
         if vartemp[hivar] == 0:
             if len(markerlist) == markergoal:
-                print('Just right')
-                print(markerlist)
+                # print('Just right')
+                # print(markerlist)
                 return markerlist
             else:
                 if len(markerlist) > markergoal:
-                    print('Too many')
+                    # print('Too many')
                     thresh = thresh - increment
                     if increment < 0.001:
                         print('Truncating')
                         markerlist = markerlist[0:markergoal]
-                        print(markerlist)
+                        # print(markerlist)
                         return markerlist
                 else:
                     if len(markerlist) < markergoal:
-                        print('Not enough')
+                        # print('Not enough')
                         increment = increment / 2
                         thresh = thresh + increment
                 # reset to redo search
-                print('Resetting')
+                # print('Resetting')
                 vartemp = varianc.copy()
                 cctemp = cc.copy()
                 markerlist = []
@@ -637,8 +640,8 @@ def findmarkers(clustercenters, options):
             cctemp[hivar, :] = 0
             cctemp[:, hivar] = 0
             markerlist.append(hivar)
-            print('Continuing')
-            print(markerlist)
+            # print('Continuing')
+            # print(markerlist)
 
 
 def matchNShow_markers(clustercenters, markerlist, features):
@@ -727,8 +730,11 @@ def cell_cluster_IDs(filename, *argv):
 
 def plot_img(cluster_im, filename):
     plt.imshow(cluster_im, interpolation='nearest')
-    plt.show(block=False)
+    plt.axis('off')
+    #plt.show(block=False)
     plt.savefig(filename, box_inches='tight')
+    plt.close()
+
     
 def plot_imgs(filename, *argv):
     plot_img(argv[0], filename + '-ClusterByMeansPerCell.png')
@@ -748,28 +754,32 @@ def make_legends(im, filename, options, *argv):
     retmarkers = findmarkers(argv[0], options)
     table, markers = matchNShow_markers(argv[0], retmarkers, feature_names)
     write_2_csv(markers, table, filename + '-clustercells_cellmean_legend')
-
+    showlegend(markers, table, filename + '-clustercells_cellmean_legend.png')
+    
     print('Finding cell covariance cluster markers...')
     retmarkers = findmarkers(argv[1], options)
     table, markers = matchNShow_markers(argv[1], retmarkers, feature_covar)
     write_2_csv(markers, table, filename + '-clustercells_cellcovariance_legend')
-
+    showlegend(markers, table, filename + '-clustercells_cellcovariance_legend.png')
+    
     print('Finding cell total cluster markers...')
     retmarkers = findmarkers(argv[2], options)
     table, markers = matchNShow_markers(argv[2], retmarkers, feature_names)
     write_2_csv(markers, table, filename + '-clustercells_celltotal_legend')
+    showlegend(markers, table, filename + '-clustercells_celltotal_legend.png')
 
     print('Finding cell mean ALL cluster markers...')
     retmarkers = findmarkers(argv[3], options)
     table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall)
     write_2_csv(markers, table, filename + '-clustercells_cellmeanALL_legend')
-
+    showlegend(markers, table, filename + '-clustercells_cellmeanALL_legend.png')
+    
     print('Finding cell shape cluster markers...')
     retmarkers = findmarkers(argv[4], options)
     table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape)
     write_2_csv(markers, table, filename + '-clustercells_cellshape_legend')
-
-
+    showlegend(markers, table, filename + '-clustercells_cellshape_legend.png')
+    
 def save_all(filename, im, seg_n, options, *argv):
     # hard coded for now
     mean_vector = argv[0]
@@ -811,7 +821,7 @@ def cell_analysis(im, mask, filename, bestz, seg_n, options, *argv):
     print('Getting markers for separate cluster to make legend...')
     make_legends(im, filename, options, clustercells_uvcenters, clustercells_covcenters, clustercells_totalcenters,
                  clustercells_uvallcenters, shapeclcenters)
-    # save each cluster to one csv
+    # save all clusterings to one csv
     print('Writing out all cell cluster IDs for each different cell clusters...')
     cell_cluster_IDs(filename, clustercells_uv, clustercells_cov, clustercells_total, clustercells_uvall,
                      clustercells_shapevectors)
@@ -861,3 +871,24 @@ def check_results_dir():
         os.mkdir(path)
         os.chdir(path)
     return os.getcwd()
+
+def showlegend(markernames, markertable, outputfile):
+    mmin = []
+    mmax = []
+    for k in range(0,len(markernames)):
+        mmin.append(min(markertable[:,k]))
+        mmax.append(max(markertable[:,k]))
+    for i in range(0,len(markertable)):
+        tplot = [(markertable[i,k]-mmin[k])/(mmax[k]-mmin[k]) 
+                 for k in range(0,len(markernames))]
+        plt.plot(tplot,label=['cluster '+str(i)])
+    plt.xlabel('-'.join(markernames))
+    plt.ylabel('Relative value')
+    plt.legend()
+    plt.tick_params(axis = "x", which = "both", bottom = False, top = False)
+    frame1 = plt.gca()
+    frame1.axes.get_xaxis().set_ticks([])
+    #plt.show(block=False)
+    plt.savefig(outputfile, box_inches='tight')
+    plt.close()
+    

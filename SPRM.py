@@ -9,8 +9,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.50
-01/21/2020 - 04/7/2020
+Version:   0.53
+01/21/2020 - 04/21/2020
  
 
 """
@@ -98,8 +98,8 @@ def main(img_dir,mask_dir,options_path):
        
         print('Per image runtime: ' + str(time.time() - stime))
     
-    mask.quit()
-    im.quit()
+        mask.quit()
+        im.quit()
     os.chdir(cwd)
 
 if __name__ == "__main__":
