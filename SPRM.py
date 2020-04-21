@@ -28,6 +28,9 @@ def main(img_dir,mask_dir,options_path):
     mean_vector = []
     total_vector = []
         
+    #store results in a dir 
+    cwd = check_results_dir()
+    
     #loop of img files
     for idx in range(0, len(img_files)):
         print('IN IMAGE FILE LOOP')
@@ -52,16 +55,16 @@ def main(img_dir,mask_dir,options_path):
             print(baseoutputfilename)
    
             # do clustering on the individual pixels to find 'pixel types'
-            superpixels = voxel_cluster(im, options)
-            plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png')
+            # superpixels = voxel_cluster(im, options)
+            # plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png')
 
-            #do PCA on the channel values to find channel components
-            reducedim = clusterchannels(im, options)
-            PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png')
+            # #do PCA on the channel values to find channel components
+            # reducedim = clusterchannels(im, options)
+            # PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png')
 
-            # writing out as a ometiff file of visualizations by channels
-            print('Writing out ometiffs for visualizations...')
-            write_ometiff(im,PCA_img, superpixels[bestz])
+            # # writing out as a ometiff file of visualizations by channels
+            # print('Writing out ometiffs for visualizations...')
+            # write_ometiff(im,PCA_img, superpixels[bestz])
    
             seg_n = mask.get_labels('cells')
             # get normalized shape representation of each cell
@@ -76,16 +79,16 @@ def main(img_dir,mask_dir,options_path):
                 labeled_mask, maskIDs = mask_img(mask, mask_dir, j, options)
                 # convert indexed image into lists of pixels
                 # in each object (ROI) of this segmentation
-                masked_imgs = get_masked_imgs(im, labeled_mask, maskIDs, options, t)
+                masked_imgs_coord = get_masked_imgs(labeled_mask, maskIDs)
                 # make the matrix and vectors to hold calculations
-                covar_matrix = build_matrix(im, mask, masked_imgs, j, covar_matrix)
-                mean_vector = build_vector(im, mask, masked_imgs, j, mean_vector)
-                total_vector = build_vector(im, mask, masked_imgs, j, total_vector)
+                covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
+                mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
+                total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
 
                 # loop of ROIs
-                for i in range(1, len(masked_imgs)-1):
-                    covar_matrix[t, j, i-1, :, :], mean_vector[t, j, i-1, :, :], total_vector[t, j, i-1, :, :] = calculations(masked_imgs[i], img_file, i, t)
-
+                for i in range(0, len(masked_imgs_coord)):
+                    covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(masked_imgs_coord[i], im, t)
+            
             # save the means, covars, shape and total for each cell
             print('Writing to csv all matrices...')
             save_all(baseoutputfilename, im, seg_n, options, mean_vector, covar_matrix, total_vector, shape_vectors)
@@ -97,6 +100,7 @@ def main(img_dir,mask_dir,options_path):
     
     mask.quit()
     im.quit()
+    os.chdir(cwd)
 
 if __name__ == "__main__":
-    main(sys.argv[0],sys.argv[1],sys.argv[2])
+    main(sys.argv[1],sys.argv[2],sys.argv[3])

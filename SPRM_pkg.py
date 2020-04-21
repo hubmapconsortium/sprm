@@ -165,10 +165,17 @@ class MaskStruct:
         return img.get_channel_names(scene=0)
 
 
-def calculations(ROI, img_file, ROI_idx, t):
+def calculations(coord, im, t):
     '''
         Returns covariance matrix, mean vector, and total vector
     '''
+    
+    z, y, x = coord[0], coord[1], coord[2]
+    
+    temp = im.get_data()
+    
+    channel_all_mask = temp[0,t,:,z,y,x]
+    ROI = np.transpose(channel_all_mask)
     # stime = time.time()
     # dims = get_dims(ROI)
     # c, z, y, x = dims[0], dims[1], dims[2], dims[3]
@@ -265,8 +272,9 @@ def cell_map(mask, cc_v, seg_n):
     print('Mapping...')
     mask_img = mask.get_data()
     mask_img = mask_img[0, 0, seg_n, :, :, :]
-    #cluster_img = np.zeros(mask_img.shape)
-    #start_time = time.time()
+    temp = mask_img.copy()
+    # cluster_img = np.zeros(mask_img.shape)
+    # start_time = time.time()
     cc_v += 1
     clusters = np.unique(cc_v)
     
@@ -280,20 +288,14 @@ def cell_map(mask, cc_v, seg_n):
     
     stime = time.time()
     for i in range(0, len(clusters)):
-        cell_num = np.where(cc_v == i+1)[0] + 1
+        cell_num = np.where(cc_v == clusters[i])[0] + 1
         bit_mask = np.isin(mask_img, cell_num)
-        mask_img[bit_mask] = i+1
+        temp[bit_mask] = clusters[i]
     
-    elapsed_time = time.time() - stime
-    print('Elapsed time for cell mapping <vectorized>: ', elapsed_time)
-    #print('Elapsed time for cell mapping <loop>: ', elapsed_time2)
-    return mask_img
-
-
-def plot_img(cluster_im, filename):
-    plt.imshow(cluster_im, interpolation='nearest')
-    plt.show(block=False)
-    plt.savefig(filename, box_inches='tight')
+    print('Elapsed time for cell mapping <vectorized>: ', time.time() - stime)
+    # print('Elapsed time for cell mapping <loop>: ', time.time() - start_time)
+    return temp
+    # return cluster_img
 
 
 def mask_img(mask, dir, j, options):
@@ -343,68 +345,24 @@ def mask_img(mask, dir, j, options):
         exit()
 
 
-def get_masked_imgs(im, labeled_mask, maskIDs, options, t):
+def get_masked_imgs(labeled_mask, maskIDs):
     '''
         Returns the masked image as a 4D image ---> this might change as it creates more memory in allocation
     '''
     # img = im.get_data()
     masked_imgs = []
     for i in range(1, len(maskIDs)):
-        # for i in range(1, 5):
-        # hard-coded will change later but for some reason the actual img is getting augmented
-        # img = AICSImage(im.path).data
-        # plt.imshow(im.data[0][0][0][0][:][:], cmap='gray', interpolation='nearest')
-        # plt.show()
-        #        print(im.data.shape)
-        #        print(labeled_mask.shape)
-        # ROI_mask = np.zeros(labeled_mask.shape)
-        # c = np.where(labeled_mask == maskIDs[i])
-        # print(len(c))
-        # breakpoint()
-        #        z = np.where(labeled_mask == maskIDs[i])[0]
-        #        y = np.where(labeled_mask == maskIDs[i])[1]
-        #        x = np.where(labeled_mask == maskIDs[i])[2]
+
         coor = np.where(labeled_mask == maskIDs[i])
-        z, y, x = coor[0], coor[1], coor[2]
-        # ROI_mask[z,y,x] = i
-        # print(np.unique(ROI_mask))
-        temp = im.get_data()
-        #        print(temp.shape)
-        channel_all_mask = temp[0, t, :, z, y, x]
-        channel_all_mask = np.transpose(channel_all_mask)
-        # print(channel_all_mask.shape)
-        # channel_all_mask = np.multiply(temp[0][t][:][:][:][:], ROI_mask, dtype='double')
-        masked_imgs.append(channel_all_mask)
-    #        ROI_mask = np.zeros(labeled_mask.shape)
-    #        x = np.where(labeled_mask == maskIDs[i])[0]
-    #        y = np.where(labeled_mask == maskIDs[i])[1]
-    #        ROI_mask[x, y] = i+1
-    # plt.imshow(ROI_mask, cmap='gray', interpolation='nearest')
-    # plt.show()
-    # print(np.argwhere(ROI_mask == 1))
-    # print(len(np.argwhere(ROI_mask == 1)))
-    # print(img.shape[2])
-    # print(ROI_mask.shape)
-    # img_channels_2D = img[0][0][:][0][:][:]
-    # print(img_channels_2D.shape)
-    # breakpoint()
-    # masked_channels = []
-    #        for c in range(0,img.data.shape[2]):
-    #            #gets masked_img by matrix multi since img is binary
-    #            #img_channels = img[0][0][c][0][:][:]
-    #            channel_mask = np.multiply(temp[0][0][c][0][:][:],ROI_mask, dtype='double')
-    #            temp[0][0][c][0][:][:] = channel_mask
-    #
-    #            # options["debug"] = True
-    #            if options.get("debug"):
-    #                plt.imshow(channel_mask, cmap='gray', interpolation='nearest')
-    #                plt.show()
-    #
-    #            #masked_channels.append(channel_mask)
-    #
-    #        # breakpoint()
-    #        masked_imgs.append(temp)
-    #        # ROIIDs.append(i+1)
+        # z, y, x = coor[0], coor[1], coor[2]
+
+        # temp = im.get_data()
+        
+        # channel_all_mask = temp[0, t, :, z, y, x]
+        # channel_all_mask = np.transpose(channel_all_mask)
+
+        masked_imgs.append(coor)
+
     return masked_imgs
 
 
@@ -498,16 +456,16 @@ def write_2_csv(header, sub_matrix, s):
     #             writer.writerow(list[i])
 
 
-def build_matrix(im, mask, masked_imgs, j, omatrix):
+def build_matrix(im, mask, masked_imgs_coord, j, omatrix):
     if j == 0:
-        return np.zeros((im.data.shape[1], mask.data.shape[2], len(masked_imgs), im.data.shape[2], im.data.shape[2]))
+        return np.zeros((im.data.shape[1], mask.data.shape[2], len(masked_imgs_coord), im.data.shape[2], im.data.shape[2]))
     else:
         return omatrix
 
 
-def build_vector(im, mask, masked_imgs, j, omatrix):
+def build_vector(im, mask, masked_imgs_coord, j, omatrix):
     if j == 0:
-        return np.zeros((im.data.shape[1], mask.data.shape[2], len(masked_imgs), im.data.shape[2], 1))
+        return np.zeros((im.data.shape[1], mask.data.shape[2], len(masked_imgs_coord), im.data.shape[2], 1))
     else:
         return omatrix
 
@@ -767,7 +725,11 @@ def cell_cluster_IDs(filename, *argv):
     # write_2_csv(list(['cluster ID']),clustercells_uvall,filename+'-clustermeansbyallmasks')
     # write_2_csv(list(['cluster ID']),clustercells_shapevectors,filename+'-clusterbyshape')
 
-
+def plot_img(cluster_im, filename):
+    plt.imshow(cluster_im, interpolation='nearest')
+    plt.show(block=False)
+    plt.savefig(filename, box_inches='tight')
+    
 def plot_imgs(filename, *argv):
     plot_img(argv[0], filename + '-ClusterByMeansPerCell.png')
     plot_img(argv[1], filename + '-ClusterByCovarPerCell.png')
@@ -890,4 +852,12 @@ def is_number(val):
         except ValueError:
             val = val
     return val
-        
+
+def check_results_dir():
+    path = './results'
+    if os.path.exists(path):
+        os.chdir(path)
+    else:
+        os.mkdir(path)
+        os.chdir(path)
+    return os.getcwd()
