@@ -1,6 +1,12 @@
 # SPRM - Spatial Process & Relationship Modeling
+<<<<<<< HEAD
 Ted Zhang and Bob Murphy, Carnegie Mellon University
 V0.52 April 20,2020
+=======
+Ted Zhang and Bob Murphy, Carnegie Mellon University\
+V0.51\
+April 13,2020
+>>>>>>> e731c9e1df64027e4c0746d67a028eeeb07c71c0
 
 ## Description
 SPRM is a statistical modeling program used to calculate a range of descriptors/features from multichannel cell images.  It uses these descriptors for clustering of cells and saves them for use for comparison and content-based search of the images.  It can be used with any type of multichannel 2D or 3D image (e.g., CODEX, IMS).
@@ -17,8 +23,9 @@ Two OMETIFF files from the output of CytoKit -
 ```
 
 SPRM takes in three command line arguments that specify the path in the following order:
-Image directory path
-Mask directory path
+
+Image directory path\
+Mask directory path\
 Options file path
 
 ## Analyses: Descriptors
@@ -77,7 +84,7 @@ Aicsimageio\
 Numpy\
 Sklearn\
 Pandas\
-Matplotlib\
+Matplotlib
 
 ## Contact
 
