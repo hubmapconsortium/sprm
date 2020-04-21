@@ -55,16 +55,16 @@ def main(img_dir,mask_dir,options_path):
             print(baseoutputfilename)
    
             # do clustering on the individual pixels to find 'pixel types'
-            # superpixels = voxel_cluster(im, options)
-            # plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png')
+            superpixels = voxel_cluster(im, options)
+            plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png')
 
-            # #do PCA on the channel values to find channel components
-            # reducedim = clusterchannels(im, options)
-            # PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png')
+            #do PCA on the channel values to find channel components
+            reducedim = clusterchannels(im, options)
+            PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png')
 
-            # # writing out as a ometiff file of visualizations by channels
-            # print('Writing out ometiffs for visualizations...')
-            # write_ometiff(im,PCA_img, superpixels[bestz])
+            # writing out as a ometiff file of visualizations by channels
+            print('Writing out ometiffs for visualizations...')
+            write_ometiff(im,PCA_img, superpixels[bestz])
    
             seg_n = mask.get_labels('cells')
             # get normalized shape representation of each cell
