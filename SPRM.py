@@ -1,8 +1,10 @@
+from argparse import ArgumentParser
+from pathlib import Path
+
 from SPRM_pkg import *
 import sys
 
 """
-
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
 Inputs:    channel OME-TIFFs in "img_hubmap" folder
            paired segmentation OME-TIFFs in "mask_hubmap" folder
@@ -16,7 +18,7 @@ Version:   0.53
 """
 
 
-def main(img_dir,mask_dir,options_path):
+def main(img_dir: Path, mask_dir: Path, options_path: Path):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_imgs(img_dir)
     mask_files = get_imgs(mask_dir)
@@ -103,4 +105,10 @@ def main(img_dir,mask_dir,options_path):
     os.chdir(cwd)
 
 if __name__ == "__main__":
-    main(sys.argv[1],sys.argv[2],sys.argv[3])
+    p = ArgumentParser()
+    p.add_argument('img_dir', type=Path)
+    p.add_argument('mask_dir', type=Path)
+    p.add_argument('options_file', type=Path)
+    args = p.parse_args()
+
+    main(args.img_dir, args.mask_dir, args.options_file)

@@ -12,6 +12,8 @@ import pandas as pd
 from itertools import product, chain, combinations
 from outlinePCA import *
 import math
+from pathlib import Path
+from typing import Sequence, Union
 
 """
 
@@ -26,7 +28,7 @@ Version: 0.53
 
 
 class IMGstruct:
-    def __init__(self, path, options):
+    def __init__(self, path: Path, options):
         self.img = self.read_img(path)
         self.data = self.read_data()
         self.path = path
@@ -52,12 +54,12 @@ class IMGstruct:
     def quit(self):
         return self.img.close()
 
-    def read_img(self, path):
-        img = AICSImage(os.path.join(path))
+    def read_img(self, path: Path):
+        img = AICSImage(path)
         if not img.metadata:
             print('Metadata not found in input image')
             # might be a case-by-basis
-            img = AICSImage(os.path.join(path), known_dims="CYX")
+            img = AICSImage(path, known_dims="CYX")
         else:
             print('Metadata found in input image')
         return img
@@ -75,8 +77,7 @@ class IMGstruct:
         return img.get_channel_names(scene=0)
 
     def set_name(self):
-        s = self.path.split("/")
-        return s[-1]
+        return self.path.name
 
     def get_name(self):
         return self.name
@@ -86,7 +87,7 @@ class IMGstruct:
 
 
 class MaskStruct:
-    def __init__(self, path, options):
+    def __init__(self, path: Path, options):
         self.img = self.read_img(path)
         self.data = self.read_data()
         self.path = path
@@ -121,11 +122,11 @@ class MaskStruct:
     def quit(self):
         return self.img.close()
 
-    def read_img(self, path):
-        img = AICSImage(os.path.join(path))
+    def read_img(self, path: Path):
+        img = AICSImage(path)
         if not img.metadata:
             print('Metadata not found in mask image...')
-            img = AICSImage(os.path.join(path), known_dims="CYX")
+            img = AICSImage(path, known_dims="CYX")
         print('Metadata found in mask image')
         return img
 
@@ -375,37 +376,39 @@ def SRM(img_files, mask_files, options):
     answer = eng.main_HPA(img_files, mask_files, options, nargout=1)
     # print(answer)
 
+INTEGER_PATTERN = re.compile(r'(\d+)')
 
-def sort(l):
-    '''
-        Sorts the 
-    '''
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
-    return sorted(l, key=alphanum_key)
+def try_parse_int(value: str) -> Union[int, str]:
+    if value.isdigit():
+        return int(value)
+    return value
 
+def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
+    """
+    Produces a sort key for file names, alternating strings and integers.
+    Always [string, (integer, string)+] in quasi-regex notation.
 
-def get_imgs(img_dir):
-    
-    try:
-        img_files = sort(os.listdir(img_dir))
-        # hidden file in mac_os system will raise unexpected file error
-        if ".DS_Store" in img_files:
-            img_files.remove(".DS_Store")
-        img_files = [img_dir + '/' + i for i in img_files]
-        img_files = [os.path.abspath(i) for i in img_files]
-        
-    except FileNotFoundError:
-        s = img_dir.split('/')
-        img_dir = '/'.join(s[:-1])
-        pattern = s[-1]
-        img_files = glob.glob(img_dir+'/'+pattern)
-        img_files = sort(img_files)
-    
-    return img_files
+    >>> alphanum_sort_key(Path('s1 1 t.tiff'))
+    ['s', 1, ' ', 1, ' t.tiff']
+    >>> alphanum_sort_key(Path('0_4_reg001'))
+    ['', 0, '_', 4, '_reg', 1, '']
+    """
+    return [try_parse_int(c) for c in INTEGER_PATTERN.split(path.name)]
+
+FILENAMES_TO_IGNORE = frozenset({'.DS_Store'})
+
+def get_imgs(img_dir: Path) -> Sequence[Path]:
+    if img_dir.is_dir():
+        img_files = [c for c in img_dir.iterdir() if c.name not in FILENAMES_TO_IGNORE]
+    else:
+        # assume it's a pattern, like Path('some/dir/*.tiff')
+        # don't need to filter filenames, because the user passed a
+        # glob pattern of exactly what is wanted
+        img_files = list(img_dir.parent.glob(img_dir.name))
+
+    return sorted(img_files, key=alphanum_sort_key)
 
 def get_regex_files(pattern, directory):
-    
     pass
 
 def get_df_format(sub_matrix, s, img, options):
