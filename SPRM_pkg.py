@@ -169,11 +169,11 @@ def calculations(coord, im, t):
     '''
         Returns covariance matrix, mean vector, and total vector
     '''
-    
+
     z, y, x = coord[0], coord[1], coord[2]
-    
+
     temp = im.get_data()
-    
+
     channel_all_mask = temp[0,t,:,z,y,x]
     ROI = np.transpose(channel_all_mask)
     # stime = time.time()
@@ -219,10 +219,10 @@ def calculations(coord, im, t):
 
 def cell_cluster(cell_matrix, segnum, options):
     '''
-    Receives out_matrix and extracts information to output a vector: 
+    Receives out_matrix and extracts information to output a vector:
     len # of cells with corresponding cluster number
     '''
-    # extracting all cells through all timepoints --> 4D matrix 
+    # extracting all cells through all timepoints --> 4D matrix
     # cell_matrix = outmatrix[:,0,:,:,:]
     # dims = get_dims(cell_matrix)
     # t, cl, cha, chb  = dims[0], dims[1], dims[2], dims[3]
@@ -277,22 +277,22 @@ def cell_map(mask, cc_v, seg_n):
     # start_time = time.time()
     cc_v += 1
     clusters = np.unique(cc_v)
-    
-    
+
+
     # for i in range(0, len(cc_v)):
     #     coord = np.where(mask_img == i + 1)
     #     cluster_img[coord[0], coord[1], coord[2]] = cc_v[i] + 1
     # # cluster_imgt = [mask_img == i+1]
     # # cluster_imgt = cluster_img * (cc_v[i]+1)
     # elapsed_time2 = time.time() - start_time
-    
-    stime = time.time()
+
+    stime = time.monotonic()
     for i in range(0, len(clusters)):
         cell_num = np.where(cc_v == clusters[i])[0] + 1
         bit_mask = np.isin(mask_img, cell_num)
         temp[bit_mask] = clusters[i]
-    
-    print('Elapsed time for cell mapping <vectorized>: ', time.time() - stime)
+
+    print('Elapsed time for cell mapping <vectorized>:', time.monotonic() - stime)
     # print('Elapsed time for cell mapping <loop>: ', time.time() - start_time)
     return temp
     # return cluster_img
@@ -315,7 +315,7 @@ def mask_img(mask, dir, j, options):
         #     y= np.sum(x)
         #     print(x)
         #     print(y)
-        #     if y > 0: 
+        #     if y > 0:
         #         z = i
         #         break
         #     else:
@@ -357,7 +357,7 @@ def get_masked_imgs(labeled_mask, maskIDs):
         # z, y, x = coor[0], coor[1], coor[2]
 
         # temp = im.get_data()
-        
+
         # channel_all_mask = temp[0, t, :, z, y, x]
         # channel_all_mask = np.transpose(channel_all_mask)
 
@@ -378,7 +378,7 @@ def SRM(img_files, mask_files, options):
 
 def sort(l):
     '''
-        Sorts the 
+        Sorts the
     '''
     convert = lambda text: int(text) if text.isdigit() else text
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
@@ -386,7 +386,7 @@ def sort(l):
 
 
 def get_imgs(img_dir):
-    
+
     try:
         img_files = sort(os.listdir(img_dir))
         # hidden file in mac_os system will raise unexpected file error
@@ -394,18 +394,18 @@ def get_imgs(img_dir):
             img_files.remove(".DS_Store")
         img_files = [img_dir + '/' + i for i in img_files]
         img_files = [os.path.abspath(i) for i in img_files]
-        
+
     except FileNotFoundError:
         s = img_dir.split('/')
         img_dir = '/'.join(s[:-1])
         pattern = s[-1]
         img_files = glob.glob(img_dir+'/'+pattern)
         img_files = sort(img_files)
-    
+
     return img_files
 
 def get_regex_files(pattern, directory):
-    
+
     pass
 
 def get_df_format(sub_matrix, s, img, options):
@@ -415,7 +415,7 @@ def get_df_format(sub_matrix, s, img, options):
         # if 'mean' in s:
         #     header_num = np.sum(sub_matrix, axis = 0) / sub_matrix.shape[0]
         # elif 'total' in s:
-        #     header_num = np.sum(sub_matrix, axis = 0) 
+        #     header_num = np.sum(sub_matrix, axis = 0)
         # header_num = np.array(["%f" % w for w in header_num.reshape(header_num.shape)])
         # header_num = header_num.reshape(header_num.shape)
         # header_list = header_num.tolist()
@@ -557,16 +557,16 @@ def voxel_cluster(im, options):
     print(channvals_random.shape)
     # kmeans clustering of random sampling
     print('Clustering random sample of voxels...')
-    stime = time.time()
+    stime = time.monotonic()
     voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters"), random_state=0).fit(channvals_random)
-    print('random sample voxel cluster runtime: ' + str(time.time() - stime))
+    print('random sample voxel cluster runtime:', time.monotonic() - stime)
     cluster_centers = voxelbycluster.cluster_centers_
     # fast kmeans clustering with inital centers
     print('Clustering voxels with initialized centers...')
-    stime = time.time()
+    stime = time.monotonic()
     voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters"), init=cluster_centers, random_state=0, max_iter=100, verbose=0, n_init=1).fit(channvals)
     #voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters"), random_state=0).fit(channvals)
-    print('Voxel cluster runtime: ', time.time() - stime)
+    print('Voxel cluster runtime:', time.monotonic() - stime)
     # returns a vector of len number of voxels and the vals are the cluster numbers
     voxelbycluster_labels = voxelbycluster.labels_
     print(voxelbycluster_labels.shape)
@@ -735,7 +735,7 @@ def plot_img(cluster_im, filename):
     plt.savefig(filename, box_inches='tight')
     plt.close()
 
-    
+
 def plot_imgs(filename, *argv):
     plot_img(argv[0], filename + '-ClusterByMeansPerCell.png')
     plot_img(argv[1], filename + '-ClusterByCovarPerCell.png')
@@ -755,13 +755,13 @@ def make_legends(im, filename, options, *argv):
     table, markers = matchNShow_markers(argv[0], retmarkers, feature_names)
     write_2_csv(markers, table, filename + '-clustercells_cellmean_legend')
     showlegend(markers, table, filename + '-clustercells_cellmean_legend.png')
-    
+
     print('Finding cell covariance cluster markers...')
     retmarkers = findmarkers(argv[1], options)
     table, markers = matchNShow_markers(argv[1], retmarkers, feature_covar)
     write_2_csv(markers, table, filename + '-clustercells_cellcovariance_legend')
     showlegend(markers, table, filename + '-clustercells_cellcovariance_legend.png')
-    
+
     print('Finding cell total cluster markers...')
     retmarkers = findmarkers(argv[2], options)
     table, markers = matchNShow_markers(argv[2], retmarkers, feature_names)
@@ -773,13 +773,13 @@ def make_legends(im, filename, options, *argv):
     table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall)
     write_2_csv(markers, table, filename + '-clustercells_cellmeanALL_legend')
     showlegend(markers, table, filename + '-clustercells_cellmeanALL_legend.png')
-    
+
     print('Finding cell shape cluster markers...')
     retmarkers = findmarkers(argv[4], options)
     table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape)
     write_2_csv(markers, table, filename + '-clustercells_cellshape_legend')
     showlegend(markers, table, filename + '-clustercells_cellshape_legend.png')
-    
+
 def save_all(filename, im, seg_n, options, *argv):
     # hard coded for now
     mean_vector = argv[0]
@@ -797,7 +797,7 @@ def cell_analysis(im, mask, filename, bestz, seg_n, options, *argv):
         cluster and statisical analysis done on cell:
         clusters/maps and makes a legend out of the most promient channels and writes them to a csv
     '''
-    stime = time.time()
+    stime = time.monotonic()
     # hard coded for now
     mean_vector = argv[0]
     covar_matrix = argv[1]
@@ -829,7 +829,7 @@ def cell_analysis(im, mask, filename, bestz, seg_n, options, *argv):
     print('Saving pngs of cluster plots by best focal plane...')
     plot_imgs(filename, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
               cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
-    print('Elapsed time for cluster img saving: ', time.time() - stime)
+    print('Elapsed time for cluster img saving:', time.monotonic() - stime)
 
 
 def make_DOT(mc, fc, coeffs, ll):
@@ -857,7 +857,7 @@ def is_number(val):
     try:
         val = int(val)
     except ValueError:
-        try: 
+        try:
             val = float(val)
         except ValueError:
             val = val
@@ -879,7 +879,7 @@ def showlegend(markernames, markertable, outputfile):
         mmin.append(min(markertable[:,k]))
         mmax.append(max(markertable[:,k]))
     for i in range(0,len(markertable)):
-        tplot = [(markertable[i,k]-mmin[k])/(mmax[k]-mmin[k]) 
+        tplot = [(markertable[i,k]-mmin[k])/(mmax[k]-mmin[k])
                  for k in range(0,len(markernames))]
         plt.plot(tplot,label=['cluster '+str(i)])
     plt.xlabel('-'.join(markernames))
@@ -891,4 +891,4 @@ def showlegend(markernames, markertable, outputfile):
     #plt.show(block=False)
     plt.savefig(outputfile, box_inches='tight')
     plt.close()
-    
+

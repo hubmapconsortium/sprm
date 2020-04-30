@@ -20,17 +20,17 @@ def main(img_dir,mask_dir,options_path):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_imgs(img_dir)
     mask_files = get_imgs(mask_dir)
-    
-    #read in options.txt 
+
+    #read in options.txt
     options = read_options(options_path)
-    
+
     covar_matrix = []
     mean_vector = []
     total_vector = []
-        
-    #store results in a dir 
+
+    #store results in a dir
     cwd = check_results_dir()
-    
+
     #loop of img files
     for idx in range(0, len(img_files)):
         print('IN IMAGE FILE LOOP')
@@ -43,17 +43,17 @@ def main(img_dir,mask_dir,options_path):
         mask = MaskStruct(mask_file, options)
 
         bestz = mask.get_bestz()
-        
+
         #start time of processing a single img
-        stime = time.time()
-        
+        stime = time.monotonic()
+
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
             print('IN TIMEPOINTS LOOP')
             # get base file name for all output files
             baseoutputfilename = im.get_name()
             print(baseoutputfilename)
-   
+
             # do clustering on the individual pixels to find 'pixel types'
             superpixels = voxel_cluster(im, options)
             plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png')
@@ -65,7 +65,7 @@ def main(img_dir,mask_dir,options_path):
             # writing out as a ometiff file of visualizations by channels
             print('Writing out ometiffs for visualizations...')
             write_ometiff(im,PCA_img, superpixels[bestz])
-   
+
             seg_n = mask.get_labels('cells')
             # get normalized shape representation of each cell
             outline_vectors = getparametricoutline(mask, seg_n, options.get("num_outlinepoints"))
@@ -88,16 +88,16 @@ def main(img_dir,mask_dir,options_path):
                 # loop of ROIs
                 for i in range(0, len(masked_imgs_coord)):
                     covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(masked_imgs_coord[i], im, t)
-            
+
             # save the means, covars, shape and total for each cell
             print('Writing to csv all matrices...')
             save_all(baseoutputfilename, im, seg_n, options, mean_vector, covar_matrix, total_vector, shape_vectors)
 
             # do cell analyze
             cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, options, mean_vector, covar_matrix, total_vector, shape_vectors)
-       
-        print('Per image runtime: ' + str(time.time() - stime))
-    
+
+        print('Per image runtime:', time.monotonic() - stime)
+
         mask.quit()
         im.quit()
     os.chdir(cwd)
