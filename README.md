@@ -1,6 +1,6 @@
 # SPRM - Spatial Process & Relationship Modeling
 Ted Zhang and Bob Murphy, Carnegie Mellon University\
-V0.52 April 20,2020
+V0.54 May 5,2020
 
 
 ## Description
@@ -14,13 +14,14 @@ Two OMETIFF files from the output of CytoKit -
 
 ## Execution: (assuming SPRM.py is in working directory)
 ```bash
-[python_path] SPRM.py [img_dir_path] [mask_dir_path] [options_path]
+[python_path] SPRM.py [img_dir_path] [mask_dir_path] [output_dir_path] [options_path]
 ```
 
 SPRM takes in three command line arguments that specify the path in the following order:
 
 Image directory path\
 Mask directory path\
+Output directory path\
 Options file path
 
 ## Analyses: Descriptors
