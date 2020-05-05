@@ -299,7 +299,7 @@ def get_masked_imgs(labeled_mask: np.ndarray, maskIDs: np.ndarray) -> List[np.nd
     '''
         Returns the masked image as a set of coordinates
     '''
-    print('Getting coordinates that corresponds with ROIs from indexed mask...')
+    print('Getting coordinates that correspond with ROIs from indexed mask...')
     masked_imgs_coord = []
     # need to implement a more efficient algo
     for i in range(1, len(maskIDs)):
@@ -746,11 +746,11 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     cluster_cell_imguall = cell_map(mask, clustercells_uvall, seg_n, options)  # 0=use first segmentation to map
     clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
     # get markers for each respective cluster & then save the legend/markers
-    print('Getting markers for separate cluster to make legend...')
+    print('Getting markers that separate clusters to make legend...')
     make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters, clustercells_totalcenters,
                  clustercells_uvallcenters, shapeclcenters)
     # save all clusterings to one csv
-    print('Writing out all cell cluster IDs for each different cell clusters...')
+    print('Writing out all cell cluster IDs for all cell clusterings...')
     cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total, clustercells_uvall,
                      clustercells_shapevectors)
     # plots the cluster imgs for the best z plane
