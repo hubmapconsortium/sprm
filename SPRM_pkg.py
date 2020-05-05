@@ -72,7 +72,7 @@ class IMGstruct:
         if t > 1:
             data = data.reshape((s, 1, t * c, z, y, x))
         if z < 2: # turn 2d image into 3d
-            data = data.repeat(data, 2, axis=3)
+            data = np.repeat(data, 2, axis=3)
         return data
 
     def read_channel_names(self):
