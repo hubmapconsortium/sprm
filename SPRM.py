@@ -1,7 +1,6 @@
 from SPRM_pkg import *
+from outlinePCA import getparametricoutline, getcellshapefeatures
 from argparse import ArgumentParser
-from pathlib import Path
-import sys
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline

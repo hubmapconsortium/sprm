@@ -3,7 +3,6 @@ from skimage import measure
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from shapely.geometry import Polygon
 from typing import List, Dict
 
 """

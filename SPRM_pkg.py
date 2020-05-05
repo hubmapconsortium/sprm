@@ -1,8 +1,6 @@
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-import os
 import re
-import glob
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
@@ -10,11 +8,10 @@ import time
 from sklearn.decomposition import PCA
 import pandas as pd
 from itertools import product, chain, combinations
-from outlinePCA import *
 import math
 from typing import Dict, List, Any, Sequence, Union
 from pathlib import Path
-
+from outlinePCA import shape_cluster
 
 """
 
