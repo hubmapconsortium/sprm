@@ -53,16 +53,16 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
             baseoutputfilename = im.get_name()
             if options.get("debug"): print('filename: ', baseoutputfilename)
 
-            # # do clustering on the individual pixels to find 'pixel types'
-            # superpixels = voxel_cluster(im, options)
-            # plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png', output_dir)
-            #
-            # # do PCA on the channel values to find channel components
-            # reducedim = clusterchannels(im, options)
-            # PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
-            #
-            # # writing out as a ometiff file of visualizations by channels
-            # write_ometiff(im, output_dir, PCA_img, superpixels[bestz])
+            # do clustering on the individual pixels to find 'pixel types'
+            superpixels = voxel_cluster(im, options)
+            plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png', output_dir)
+
+            # do PCA on the channel values to find channel components
+            reducedim = clusterchannels(im, options)
+            PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
+
+            # writing out as a ometiff file of visualizations by channels
+            write_ometiff(im, output_dir, PCA_img, superpixels[bestz])
 
             seg_n = mask.get_labels('cells')
             # debug of cell_coordinates
