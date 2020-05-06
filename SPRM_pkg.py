@@ -71,8 +71,7 @@ class IMGstruct:
         s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
         if t > 1:
             data = data.reshape((s, 1, t * c, z, y, x))
-        if z < 2: # turn 2d image into 3d
-            data = data.repeat(data, 2, axis=3)
+
         return data
 
     def read_channel_names(self):
@@ -137,8 +136,6 @@ class MaskStruct:
         data = self.img.data
         dims = data.shape
         # s,t,c,z,y,x = dims[0],dims[1],dims[2],dims[3],dims[4],dims[5]
-        if dims[3] < 2: # turn 2d image into 3d
-            data = np.repeat(data, 2, axis=3)
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
         if check_sum == 0: #assumes the best z is not the first slice
@@ -283,14 +280,9 @@ def mask_img(mask: MaskStruct, j: int) -> (np.ndarray, np.ndarray):
     print('Getting indexed mask from ' + mask.labels[j] + ' channel')
     sMask = mask.get_data()
 
-    if sMask.shape[3] > 1:
-        # print(sMask.shape)
-        sMask = sMask[0, 0, j, :, :, :]
-        unique = np.unique(sMask)
-
-    else:
-        print('Mask is 2D, SPRM requires a 3D mask')
-        exit()
+    # print(sMask.shape)
+    sMask = sMask[0, 0, j, :, :, :]
+    unique = np.unique(sMask)
 
     return sMask, unique
 
@@ -334,6 +326,7 @@ def try_parse_int(value: str) -> Union[int, str]:
 
 def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
     """
+    By: Matt Ruffalo
     Produces a sort key for file names, alternating strings and integers.
     Always [string, (integer, string)+] in quasi-regex notation.
     >>> alphanum_sort_key(Path('s1 1 t.tiff'))
