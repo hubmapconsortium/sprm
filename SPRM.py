@@ -1,6 +1,8 @@
 from SPRM_pkg import *
 from outlinePCA import getparametricoutline, getcellshapefeatures
 from argparse import ArgumentParser
+import gc
+
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -34,9 +36,10 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
     for idx in range(0, len(img_files)):
         print('Reading in image and corresponding mask files...')
         img_file = img_files[idx]
+        print('Image name: ', img_file.name)
 
         im = IMGstruct(img_file, options)
-        if options.get("debug"): print('Image path: ', img_file + '\n', 'Image dimensions: ', im.get_data().shape)
+        if options.get("debug"): print('Image dimensions: ', im.get_data().shape)
 
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
@@ -48,6 +51,7 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
+            if mask.get_bestz is None: break
             if options.get("debug"): print('IN TIMEPOINTS LOOP ' + str(t))
             # get base file name for all output files
             baseoutputfilename = im.get_name()
@@ -67,12 +71,12 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
             seg_n = mask.get_labels('cells')
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
-            
+
             # get normalized shape representation of each cell
             outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, options)
             shape_vectors = getcellshapefeatures(outline_vectors, options)
             write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
-            
+
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, mask.get_data().shape[2]):
                 # get the mask for this particular segmentation
@@ -92,17 +96,20 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
                         masked_imgs_coord[i], im, t, i)
 
             # save the means, covars, shape and total for each cell
-            save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector, shape_vectors)
+            save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+                     shape_vectors)
 
             # do cell analyze
-            cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+            cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
+                          total_vector,
                           shape_vectors)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
-        print('Finished analyzing ' + str(idx+1) + ' image(s)')
+        print('Finished analyzing ' + str(idx + 1) + ' image(s)')
+        gc.collect()
         mask.quit()
         im.quit()
-        
+
 
 if __name__ == "__main__":
     p = ArgumentParser()
