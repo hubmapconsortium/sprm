@@ -133,6 +133,7 @@ class MaskStruct:
         return img
 
     def read_data(self, options):
+        bestz = None
         data = self.img.data
         dims = data.shape
         # s,t,c,z,y,x = dims[0],dims[1],dims[2],dims[3],dims[4],dims[5]
@@ -164,11 +165,8 @@ class MaskStruct:
             bestz=0
 
         #set bestz
-        try:
-            self.set_bestz(bestz)
-        except UnboundLocalError:
-            print('Mask is empty')
-            self.set_bestz(None)
+        self.set_bestz(bestz)
+
 
         return data
 
@@ -770,7 +768,7 @@ def powerset(iterable: List[int]):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
-def read_options(options_path: Path) -> Path:
+def read_options(options_path: Path) -> Dict[Union]:
     # read in options
     options = {}
     with open(options_path) as f:

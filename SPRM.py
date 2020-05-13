@@ -1,7 +1,6 @@
 from SPRM_pkg import *
 from outlinePCA import getparametricoutline, getcellshapefeatures
 from argparse import ArgumentParser
-import gc
 
 """
 
@@ -106,7 +105,6 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')
-        gc.collect()
         mask.quit()
         im.quit()
 
