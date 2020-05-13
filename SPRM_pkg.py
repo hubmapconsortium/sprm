@@ -768,7 +768,7 @@ def powerset(iterable: List[int]):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
-def read_options(options_path: Path) -> Path:
+def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
     # read in options
     options = {}
     with open(options_path) as f:
