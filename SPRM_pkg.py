@@ -165,8 +165,8 @@ class MaskStruct:
             bestz=0
 
         #set bestz
-        self.set_bestz(bestz)
 
+        self.set_bestz(bestz)
 
         return data
 
@@ -768,7 +768,8 @@ def powerset(iterable: List[int]):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
-def read_options(options_path: Path) -> Dict[Union]:
+def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
+
     # read in options
     options = {}
     with open(options_path) as f:
