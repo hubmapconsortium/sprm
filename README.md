@@ -1,7 +1,6 @@
 # SPRM - Spatial Process & Relationship Modeling
-Ted Zhang and Bob Murphy, Carnegie Mellon University\
-V0.54 May 5,2020
-
+Ted Zhang and Bob Murphy, Carnegie Mellon University
+V0.52 April 20,2020
 
 ## Description
 SPRM is a statistical modeling program used to calculate a range of descriptors/features from multichannel cell images.  It uses these descriptors for clustering of cells and saves them for use for comparison and content-based search of the images.  It can be used with any type of multichannel 2D or 3D image (e.g., CODEX, IMS).
@@ -14,14 +13,12 @@ Two OMETIFF files from the output of CytoKit -
 
 ## Execution: (assuming SPRM.py is in working directory)
 ```bash
-[python_path] SPRM.py [img_dir_path] [mask_dir_path] [output_dir_path] [options_path]
+[python_path] SPRM.py [img_dir_path] [mask_dir_path] [options_path]
 ```
 
 SPRM takes in three command line arguments that specify the path in the following order:
-
-Image directory path\
-Mask directory path\
-Output directory path\
+Image directory path
+Mask directory path
 Options file path
 
 ## Analyses: Descriptors
@@ -68,11 +65,31 @@ One “legend” CSV is produced for each clustering method that contains the me
 The outputs can be grouped into six types:
 
 OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]\
-CSVs containing features for each cell (in some cases for each nucleus, cell membrane and nuclear membrane also) [16 per input image]\
+	* xxx-channel_pca.ome.tiff
+	* xxx-superpixel.ome.tiff
+CSV showing interpolated cell outlines & polygons [2 per input image]
+	* xxx-cell_shape.csv
+	* xxx-cell_polygons_spatial.csv
+CSVs containing features for each cell [3 per input image]\
+	* xxx-cell_channel_covar.csv
+	* xxx-cell_channel_mean.csv
+	* xxx-cell_channel_total.csv
 Master CSV containing clustering results for each cell (row) for each method (column) [1 per input image]\
-CSVs containing mean values of “markers” for each cluster for each clustering method [8 per input image]\
-PNGs showing coloring by cluster [8 per input image]\
-DOTs showing channel spatial dependency graphs [2 per input image]\
+	* xxx-cell_cluster.csv
+CSVs containing mean values of “markers” for each cluster for each clustering method [5 per input image]\
+	* xxx-clustercells_cellcovariance_legend.csv
+	* xxx-clustercells_cellmeanALL_legend.csv
+	* xxx-clustercells_cellmean_legend.csv
+	* xxx-clustercells_cellshape_legend.csv
+	* xxx-clustercells_celltotal_legend.csv
+PNGs showing coloring by cluster [7 per input image]\
+	* xxx-ClusterByCovarPerCell.png
+	* xxx-ClusterByMeansAllMasks.png
+	* xxx-ClusterByMeansPerCell.png
+	* xxx-ClusterByShape.png
+	* xxx-ClusterByTotalPerCell.png
+	* xxx-Superpixels.png
+	* xxx-Top3ChannelPCA.png
 
 ## Prerequisites
 
@@ -80,7 +97,7 @@ Aicsimageio\
 Numpy\
 Sklearn\
 Pandas\
-Matplotlib
+Matplotlib\
 
 ## Contact
 
