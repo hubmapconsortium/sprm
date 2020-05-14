@@ -18,7 +18,12 @@ Version: 0.54
 
 
 def shape_cluster(cell_matrix, options):
-    cellbycluster = KMeans(n_clusters=options.get("num_shapeclusters"), \
+    num_shapeclusters = options.get("num_shapeclusters")
+    if num_shapeclusters > cell_matrix.shape[0]:
+        print('reducing shape clusters to ', cell_matrix.shape[0])
+        num_shapeclusters = cell_matrix.shape[0]
+        
+    cellbycluster = KMeans(n_clusters=num_shapeclusters, \
                            random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers

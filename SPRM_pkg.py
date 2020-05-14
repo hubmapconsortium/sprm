@@ -165,8 +165,8 @@ class MaskStruct:
             bestz=0
 
         #set bestz
-
         self.set_bestz(bestz)
+
 
         return data
 
@@ -232,7 +232,12 @@ def cell_cluster(cell_matrix: np.ndarray, segnum: int, options: Dict) -> (np.nda
             (cell_matrix.shape[0], cell_matrix.shape[1] * cell_matrix.shape[2] * cell_matrix.shape[3]))
     # kmeans clustering
     print('Clustering cells...')
-    cellbycluster = KMeans(n_clusters=options.get("num_cellclusters"), random_state=0).fit(cell_matrix)
+    #check of clusters vs. n_sample wanted
+    num_cellclusters = options.get("num_cellclusters")
+    if num_cellclusters > cell_matrix.shape[0]:
+        print('reducing cell clusters to ', cell_matrix.shape[0])
+        num_cellclusters = cell_matrix.shape[0]
+    cellbycluster = KMeans(n_clusters= num_cellclusters, random_state=0).fit(cell_matrix)
     # returns a vector of len cells and the vals are the cluster numbers
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
@@ -352,25 +357,6 @@ def get_imgs(img_dir: Path) -> Sequence[Path]:
 
     return sorted(img_files, key=alphanum_sort_key)
 
-# def get_imgs(img_dir: Path) -> List[Path]:
-#     try:
-#         img_files = sort(os.listdir(img_dir))
-#         # hidden file in mac_os system will raise unexpected file error
-#         if ".DS_Store" in img_files:
-#             img_files.remove(".DS_Store")
-#         img_files = [img_dir + '/' + i for i in img_files]
-#         img_files = [os.path.abspath(i) for i in img_files]
-#
-#     except FileNotFoundError:
-#         s = img_dir.split('/')
-#         img_dir = '/'.join(s[:-1])
-#         pattern = s[-1]
-#         img_files = glob.glob(img_dir + '/' + pattern)
-#         img_files = sort(img_files)
-#
-#     return img_files
-
-
 def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[str], Any):
     # can use dict switch to speed up access if the formats get > 5
     names = img.get_channel_labels()
@@ -397,7 +383,7 @@ def write_2_file(sub_matrix, s: str, img: IMGstruct, output_dir: Path, options: 
     write_2_csv(header, sub_matrix, s, output_dir, options)
 
 
-def write_2_csv(header: List[str], sub_matrix, s: str, output_dir: Path, options: Dict):
+def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dict):
     df = pd.DataFrame(sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)))
     if options.get("debug"): print(df)
     f = output_dir / (s+'.csv')
@@ -539,14 +525,18 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     return voxelbycluster_labels
 
 
-def findmarkers(clustercenters: np.ndarray, options: Dict) -> List[np.ndarray]:
+def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
     '''
         find a set of markers that have the largest variance without correlations among them
     '''
     clustercenters = np.transpose(clustercenters)
+    if clustercenters.shape[1] < 2:
+        return [i for i in range(0, clustercenters.shape[0])]
+
+    
     covar = np.cov(clustercenters)
-    varianc = np.diagonal(covar).copy()
     cc = np.corrcoef(clustercenters)
+    varianc = np.diagonal(covar).copy()
     thresh = 0.9
     increment = 0.1
     lowerthresh = 0.5
@@ -598,11 +588,12 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List[np.ndarray]:
             # print(markerlist)
 
 
-def matchNShow_markers(clustercenters: np.ndarray, markerlist: List[np.ndarray], features: List[str],
-                       options: Dict) -> (np.ndarray, List[str]):
+def matchNShow_markers(clustercenters: np.ndarray, markerlist: List, features: List[str],
+                       options: Dict) -> (Any, List[str]):
     '''
         get the markers to indicate what the respective clusters represent
     '''
+
     markers = [features[i] for i in markerlist]
     table = clustercenters[:, markerlist]
 
@@ -769,7 +760,6 @@ def powerset(iterable: List[int]):
 
 
 def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
-
     # read in options
     options = {}
     with open(options_path) as f:

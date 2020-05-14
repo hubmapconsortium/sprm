@@ -50,7 +50,11 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
-            if mask.get_bestz is None: break
+            # if bestz is None or np.max(mask.get_data()) < 2: 
+            if bestz is None:
+                print('Skipping tile...(mask is empty)')
+                break
+            
             if options.get("debug"): print('IN TIMEPOINTS LOOP ' + str(t))
             # get base file name for all output files
             baseoutputfilename = im.get_name()
@@ -59,6 +63,7 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
             # do clustering on the individual pixels to find 'pixel types'
             superpixels = voxel_cluster(im, options)
             plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png', output_dir)
+
 
             # do PCA on the channel values to find channel components
             reducedim = clusterchannels(im, options)
