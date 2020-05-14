@@ -530,8 +530,11 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
         find a set of markers that have the largest variance without correlations among them
     '''
     clustercenters = np.transpose(clustercenters)
+    markerlist = []
+    markergoal = options.get('num_markers')
     if clustercenters.shape[1] < 2:
-        return [i for i in range(0, clustercenters.shape[0])]
+        markerlist = list(np.argsort(-clustercenters.ravel())[:markergoal])
+        return markerlist
 
     
     covar = np.cov(clustercenters)
@@ -540,10 +543,10 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
     thresh = 0.9
     increment = 0.1
     lowerthresh = 0.5
-    markergoal = options.get('num_markers')
+  
     vartemp = varianc.copy()
     cctemp = cc.copy()
-    markerlist = []
+
     while True:
         hivar = np.argmax(vartemp)
         # print(hivar)
