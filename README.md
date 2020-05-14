@@ -64,36 +64,37 @@ One “legend” CSV is produced for each clustering method that contains the me
 
 The outputs can be grouped into six types:
 
-OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]\
-Markup :	
-		* xxx-channel_pca.ome.tiff
-		* xxx-superpixel.ome.tiff
+OME-TIFFs showing pixel level results (remapping of channels) [2 per input image]	
+-  xxx-channel_pca.ome.tiff
+-  xxx-superpixel.ome.tiff
+
 CSV showing interpolated cell outlines & polygons [2 per input image]
-Markup :	* xxx-cell_shape.csv
-		* xxx-cell_polygons_spatial.csv
-CSVs containing features for each cell [3 per input image]\
-Markup :	
-		* xxx-cell_channel_covar.csv
-		* xxx-cell_channel_mean.csv
-		* xxx-cell_channel_total.csv
-Master CSV containing clustering results for each cell (row) for each method (column) [1 per input image]\
-Markup:	* xxx-cell_cluster.csv
-CSVs containing mean values of “markers” for each cluster for each clustering method [5 per input image]\
-Markup :	
-		* xxx-clustercells_cellcovariance_legend.csv
-		* xxx-clustercells_cellmeanALL_legend.csv
-		* xxx-clustercells_cellmean_legend.csv
-		* xxx-clustercells_cellshape_legend.csv
-		* xxx-clustercells_celltotal_legend.csv
-PNGs showing coloring by cluster [7 per input image]\
-Markup :	
-		* xxx-ClusterByCovarPerCell.png
-		* xxx-ClusterByMeansAllMasks.png
-		* xxx-ClusterByMeansPerCell.png
-		* xxx-ClusterByShape.png
-		* xxx-ClusterByTotalPerCell.png
-		* xxx-Superpixels.png
-		* xxx-Top3ChannelPCA.png
+-  xxx-cell_shape.csv
+-  xxx-cell_polygons_spatial.csv
+
+CSVs containing features for each cell [3 per input image]
+-  xxx-cell_channel_covar.csv
+-  xxx-cell_channel_mean.csv
+-  xxx-cell_channel_total.csv
+
+Master CSV containing clustering results for each cell (row) for each method (column) [1 per input image]
+-  xxx-cell_cluster.csv
+
+CSVs containing mean values of “markers” for each cluster for each clustering method [5 per input image]
+-  xxx-clustercells_cellcovariance_legend.csv
+-  xxx-clustercells_cellmeanALL_legend.csv
+-  xxx-clustercells_cellmean_legend.csv
+-  xxx-clustercells_cellshape_legend.csv
+-  xxx-clustercells_celltotal_legend.csv
+
+PNGs showing coloring by cluster [7 per input image]
+-  xxx-ClusterByCovarPerCell.png
+-  xxx-ClusterByMeansAllMasks.png
+-  xxx-ClusterByMeansPerCell.png
+-  xxx-ClusterByShape.png
+-  xxx-ClusterByTotalPerCell.png
+-  xxx-Superpixels.png
+-  xxx-Top3ChannelPCA.png
 
 ## Prerequisites
 
