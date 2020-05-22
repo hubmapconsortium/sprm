@@ -12,14 +12,15 @@ import math
 from typing import Dict, List, Any, Sequence, Union
 from pathlib import Path
 from outlinePCA import shape_cluster
+from skimage.filters import threshold_otsu
 
 """
 
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 05/04/2020
-Version: 0.54
+01/21/2020 - 05/22/2020
+Version: 0.55
 
 
 """
@@ -33,9 +34,9 @@ class IMGstruct:
 
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
-        self.data = self.read_data()
+        self.data = self.read_data(options)
         self.path = path
-        self.name = self.set_name()
+        self.name = path.name
         self.channel_labels = self.read_channel_names()
 
     def set_data(self, data):
@@ -65,7 +66,7 @@ class IMGstruct:
 
         return img
 
-    def read_data(self):
+    def read_data(self, options):
         data = self.img.data
         dims = data.shape
         s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
@@ -78,9 +79,6 @@ class IMGstruct:
         img = self.img
         return img.get_channel_names(scene=0)
 
-    def set_name(self):
-        return self.path.name
-
     def get_name(self):
         return self.name
 
@@ -88,49 +86,20 @@ class IMGstruct:
         return self.channel_labels
 
 
-class MaskStruct:
+class MaskStruct(IMGstruct):
 
     def __init__(self, path: Path, options):
-        self.img = self.read_img(path, options)
-        self.data = self.read_data(options)
-        self.path = path
-        self.labels = self.read_channel_names()
+        super().__init__(path, options)
         self.bestz = self.get_bestz()
 
     def get_labels(self, label):
-        return self.labels.index(label)
-
-    def set_data(self, data):
-        self.data = data
-
-    def set_img(self, img):
-        self.img = img
-
-    def get_data(self):
-        return self.data
-
-    def get_meta(self):
-        return self.img.metadata
+        return self.channel_labels.index(label)
 
     def set_bestz(self, z):
         self.bestz = z
 
     def get_bestz(self):
         return self.bestz
-
-    def quit(self):
-        return self.img.close()
-
-    @staticmethod
-    def read_img(path: Path, options: Dict) -> AICSImage:
-        img = AICSImage(path)
-        if not img.metadata:
-            print('Metadata not found in mask image...')
-            img = AICSImage(path, known_dims="CYX")
-        else:
-            if options.get("debug"): print('Metadata found in mask image')
-
-        return img
 
     def read_data(self, options):
         bestz = None
@@ -169,11 +138,6 @@ class MaskStruct:
 
 
         return data
-
-    def read_channel_names(self):
-        img = self.img
-        return img.get_channel_names(scene=0)
-
 
 def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarray, np.ndarray):
     '''
@@ -285,7 +249,7 @@ def mask_img(mask: MaskStruct, j: int) -> (np.ndarray, np.ndarray):
     '''
     returns: a 3D matrix that represents the jth segmented image
     '''
-    print('Getting indexed mask from ' + mask.labels[j] + ' channel')
+    print('Getting indexed mask from ' + mask.get_channel_labels()[j] + ' channel')
     sMask = mask.get_data()
 
     # print(sMask.shape)
@@ -318,15 +282,6 @@ def SRM(img_files, mask_files, options):
     answer = eng.main_HPA(img_files, mask_files, options, nargout=1)
     # print(answer)
 
-
-# def sort(l: Path):
-#     '''
-#         Sorts the 
-#     '''
-#     convert = lambda text: int(text) if text.isdigit() else text
-#     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
-#     return sorted(l, key=alphanum_key)
-
 def try_parse_int(value: str) -> Union[int, str]:
     if value.isdigit():
         return int(value)
@@ -346,7 +301,7 @@ def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
 
 
 
-def get_imgs(img_dir: Path) -> Sequence[Path]:
+def get_paths(img_dir: Path) -> Sequence[Path]:
     if img_dir.is_dir():
         img_files = [c for c in img_dir.iterdir() if c.name not in FILENAMES_TO_IGNORE]
     else:
@@ -384,9 +339,17 @@ def write_2_file(sub_matrix, s: str, img: IMGstruct, output_dir: Path, options: 
 
 
 def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dict):
-    df = pd.DataFrame(sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)))
+    global row_index
+
+    if row_index:
+        df = pd.DataFrame(sub_matrix, index=options.get('row_index_names'))
+    else:
+        df = pd.DataFrame(sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)))
     if options.get("debug"): print(df)
     f = output_dir / (s+'.csv')
+
+    #column header for indices
+    df.index.name = 'ID'
     df.to_csv(f, header=header)
 
 def write_cell_polygs(polyg_list: List[np.ndarray], filename: str, output_dir: Path, options: Dict):
@@ -404,7 +367,7 @@ def build_matrix(im: IMGstruct, mask: MaskStruct, masked_imgs_coord: List[np.nda
                  omatrix: np.ndarray) -> np.ndarray:
     if j == 0:
         return np.zeros(
-            (im.data.shape[1], mask.data.shape[2], len(masked_imgs_coord), im.data.shape[2], im.data.shape[2]))
+            (im.get_data().shape[1], mask.get_data().shape[2], len(masked_imgs_coord), im.get_data().shape[2], im.get_data().shape[2]))
     else:
         return omatrix
 
@@ -412,7 +375,7 @@ def build_matrix(im: IMGstruct, mask: MaskStruct, masked_imgs_coord: List[np.nda
 def build_vector(im: IMGstruct, mask: MaskStruct, masked_imgs_coord: List[np.ndarray], j: int,
                  omatrix: np.ndarray) -> np.ndarray:
     if j == 0:
-        return np.zeros((im.data.shape[1], mask.data.shape[2], len(masked_imgs_coord), im.data.shape[2], 1))
+        return np.zeros((im.get_data().shape[1], mask.get_data().shape[2], len(masked_imgs_coord), im.get_data().shape[2], 1))
     else:
         return omatrix
 
@@ -422,9 +385,9 @@ def clusterchannels(im: IMGstruct, options: Dict) -> np.ndarray:
         cluster all channels using PCA
     '''
     print('Dimensionality Reduction of image channels...')
-    if options.get("debug"): print('Image dimensions before reduction: ', im.data.shape)
+    if options.get("debug"): print('Image dimensions before reduction: ', im.get_data().shape)
     pca_channels = PCA(n_components=options.get("n_components"), svd_solver='full')
-    channvals = im.data[0, 0, :, :, :, :]
+    channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3])
     channvals = channvals.transpose()
@@ -476,17 +439,80 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
     plt.close()
     return plotim
 
+def SNR(im: IMGstruct, filename: str, output_dir: Path, options: Dict):
+    '''
+    signal to noise ratio of each channel of the image w/ z score and otsu thresholding
+    '''
+    
+    global row_index
+
+    print('Calculating Signal to Noise Ratio in image...')
+    channvals = im.get_data()[0, 0, :, :, :, :]
+    channelist = []
+
+    channvals_z = channvals.reshape(channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3])
+    channvals_z = channvals_z.transpose()
+
+    m = channvals_z.mean(0)
+    sd = channvals_z.std(axis=0, ddof=0)
+    snr_channels = np.where(sd == 0, 0, m/sd)
+    # snr_channels = snr_channels[np.newaxis, :]
+    # snr_channels = snr_channels.tolist()
+
+    # define otsu threshold
+    for i in range(0, channvals.shape[0]):
+        img_2D = channvals[i, :, :, :]
+        img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
+        
+        try:
+            thresh = threshold_otsu(img_2D)
+        except ValueError:
+            thresh = 0
+            
+        above_th = img_2D > thresh
+        below_th = img_2D < thresh
+        
+        mean_a = np.mean(img_2D[above_th])
+        mean_b = np.mean(img_2D[below_th])
+
+        # all pixels are in the foreground
+        if mean_b == 0:
+            fbr = 1
+        else:
+            fbr = mean_a/mean_b
+
+        # take ratio above thresh / below thresh
+        channelist.append(fbr)
+        
+    channelist = np.asarray(channelist)
+    
+    snrs = np.stack([snr_channels, channelist])
+    
+    #check for nans
+    snrs[np.isnan(snrs)] = 0
+    
+    #add index identifier
+    row_index = 1
+    options['row_index_names'] = ['Z-Score', 'Otsu']
+    
+    # write out 2 rows
+    write_2_csv(im.get_channel_labels(), snrs, filename +'-SNR', output_dir, options)
+    
+    #turn index boolean off
+    row_index = 0
+    
+    # return snr_channels, channelist
 
 def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     '''
     cluster multichannel image into superpixels
     '''
     print('Clustering voxels into superpixels...')
-    if im.data.shape[0] > 1:
+    if im.get_data().shape[0] > 1:
         print('image has more than one time point')
         print('Have not implemented support yet..')
         exit()
-    channvals = im.data[0, 0, :, :, :, :]
+    channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3])
     channvals = channvals.transpose()
@@ -638,7 +664,7 @@ def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
     # hard coded --> find a way to automate the naming
-    write_2_csv(list(['Mean', 'Covariance', 'Total', 'Mean All', 'Shape Vectors']), allClusters,
+    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression', 'K-Means [Mean-All] Expression', 'K-Means [Shape-Vectors] Expression']), allClusters,
                 filename + '-cell_cluster', output_dir, options)
 
 
@@ -824,3 +850,43 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
 
 def cell_area_fraction(mask: MaskStruct) -> List[np.ndarray]:
     pass
+
+def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
+    '''
+        Write out summary csv of full image analysis (combination of all tiles)
+    '''
+    channel_n = im.get_channel_labels().copy()
+    channel_n = list(map(lambda x: x + ': SNR', channel_n)) 
+    img_files = list(map(lambda x: x.name, img_files))
+    #img_files = img_files[0:3]
+    
+    snr_paths = output_dir / '*-SNR.csv'
+    snr_files = get_paths(snr_paths)
+      
+    for i in range(0, len(snr_files)):
+        df1 = pd.read_csv(snr_files[i])
+        
+        np1 = df1.to_numpy()
+        zscore = np1[0,1:]
+        otsu = np1[1,1:]
+        
+        if i == 0:
+            f1 = zscore
+            f2 = otsu
+        else:
+            f1 = np.vstack((f1, zscore))
+            f2 = np.vstack((f2, otsu))
+    
+    df1 = pd.DataFrame(f1, columns = channel_n)
+    df2 = pd.DataFrame(f2, columns = channel_n)
+    
+    df3 = pd.DataFrame({'Filename': img_files, 'Total Cells': total_cells})
+    
+    df1 = pd.concat([df3, df1], axis=1, sort=False)
+    df2 = pd.concat([df3, df2], axis=1, sort=False)
+    
+    df1.to_csv(output_dir / 'summary_zscore.csv', index=False)
+    df2.to_csv(output_dir / 'summary_otsu.csv', index=False)
+
+
+

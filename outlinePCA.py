@@ -10,8 +10,8 @@ from typing import List, Dict
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 05/05/2020
-Version: 0.54
+01/21/2020 - 05/22/2020
+Version: 0.55
 
 
 """
@@ -89,7 +89,7 @@ def cell_coord_debug(mask, nseg, npoints):
             break
 
         cmask = np.zeros(cellmask.shape)  # comment out
-        cmask[coor[0], coor[1]] = 1
+        cmask[coor[1], coor[0]] = 1
 
         # remove this when finished
         polyg = measure.find_contours(cmask, 0.5, fully_connected='low', positive_orientation='low')
@@ -127,7 +127,7 @@ def getparametricoutline(mask, nseg, options):
     # the second dimension accounts for x & y coordinates for each point
     pts = np.zeros((np.amax(cellmask), npoints * 2))
 
-    for i in range(1, np.amax(cellmask)):
+    for i in range(1, np.amax(cellmask)+1):
 
         coor = np.where(cellmask == i)
         # print(len(coor))
@@ -136,8 +136,8 @@ def getparametricoutline(mask, nseg, options):
             # leave the coordinates for anything on the edge as zeros
             break
 
-        tmask = np.zeros(cellmask.shape)  # comment out
-        tmask[coor[0], coor[1]] = 1
+        tmask = np.zeros((cellmask.shape[1],cellmask.shape[0]))  # comment out
+        tmask[coor[1], coor[0]] = 1
 
         # remove this when finished
         polyg = measure.find_contours(tmask, 0.5, fully_connected='low', positive_orientation='low')
@@ -146,8 +146,8 @@ def getparametricoutline(mask, nseg, options):
         polygon_outlines.append(temp)
 
         # simple method from https://alyssaq.github.io/2015/computing-the-axes-or-orientation-of-a-blob/
-        ptsx = coor[0] - round(np.mean(coor[0]))
-        ptsy = coor[1] - round(np.mean(coor[1]))
+        ptsx = coor[1] - round(np.mean(coor[1]))
+        ptsy = coor[0] - round(np.mean(coor[0]))
         ptscentered = np.stack([ptsx, ptsy])
         # print(ptscentered.shape)
         xmin = min(ptscentered[0, :])
@@ -206,7 +206,7 @@ def getparametricoutline(mask, nseg, options):
         # plt.imshow(cmask)
         # plt.show()
 
-        pts[i, :] = paramshape(cmask, npoints)
+        pts[i-1, :] = paramshape(cmask, npoints)
 
     return pts, polygon_outlines
 
@@ -348,13 +348,13 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
         plt.figure(k + 1)
         plt.clf()
     nk = np.zeros(max(cellbycluster) + 1)
-    for i in range(1, np.amax(cellmask)):
+    for i in range(1, np.amax(cellmask)+1):
         k = cellbycluster[i - 1]
         coor = np.array(np.where(cellmask == i))
         coor[0, :] = coor[0, :] - min(coor[0, :])
         coor[1, :] = coor[1, :] - min(coor[1, :])
-        thisshape = np.zeros((max(coor[0, :]) + 1, max(coor[1, :]) + 1))
-        thisshape[coor[0, :], coor[1, :]] = 1
+        thisshape = np.zeros((max(coor[1, :]) + 1, max(coor[0, :]) + 1))
+        thisshape[coor[1, :], coor[0, :]] = 1
         nk[k] = nk[k] + 1
         if nk[k] < 16:
             plt.figure(k + 1)

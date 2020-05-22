@@ -10,8 +10,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.54
-01/21/2020 - 05/05/2020
+Version:   0.55
+01/21/2020 - 05/22/2020
  
 
 """
@@ -19,8 +19,8 @@ Version:   0.54
 
 def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
     # get_imgs sorts to ensure the order of images and masks matches
-    img_files = get_imgs(img_dir)
-    mask_files = get_imgs(mask_dir)
+    img_files = get_paths(img_dir)
+    mask_files = get_paths(mask_dir)
 
     # read in options.txt
     options = read_options(options_path)
@@ -28,11 +28,13 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
     covar_matrix = []
     mean_vector = []
     total_vector = []
+    cell_total = []
 
     # store results in a dir
     check_output_dir(output_dir, options)
     # loop of img files
     for idx in range(0, len(img_files)):
+
         print('Reading in image and corresponding mask files...')
         img_file = img_files[idx]
         print('Image name: ', img_file.name)
@@ -45,16 +47,18 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
 
         bestz = mask.get_bestz()
 
+        cell_total.append(np.amax(mask.get_data()))
+
         # start time of processing a single img
         stime = time.monotonic() if options.get("debug") else None
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
             # if bestz is None or np.max(mask.get_data()) < 2: 
-            if bestz is None:
+            if bestz is None and options.get('skip_empty_mask') is 1:
                 print('Skipping tile...(mask is empty)')
                 break
-            
+
             if options.get("debug"): print('IN TIMEPOINTS LOOP ' + str(t))
             # get base file name for all output files
             baseoutputfilename = im.get_name()
@@ -63,7 +67,6 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
             # do clustering on the individual pixels to find 'pixel types'
             superpixels = voxel_cluster(im, options)
             plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png', output_dir)
-
 
             # do PCA on the channel values to find channel components
             reducedim = clusterchannels(im, options)
@@ -81,6 +84,8 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
             shape_vectors = getcellshapefeatures(outline_vectors, options)
             write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
 
+            # signal to noise ratio of the image
+            SNR(im, baseoutputfilename, output_dir, options)
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, mask.get_data().shape[2]):
                 # get the mask for this particular segmentation
@@ -93,25 +98,29 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
                 covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
                 mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
                 total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
-
+        
                 # loop of ROIs
                 for i in range(0, len(masked_imgs_coord)):
                     covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(
                         masked_imgs_coord[i], im, t, i)
-
+        
             # save the means, covars, shape and total for each cell
             save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
-                     shape_vectors)
-
+                      shape_vectors)
+        
             # do cell analyze
             cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
                           total_vector,
                           shape_vectors)
-
+        
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')
         mask.quit()
         im.quit()
+
+    # summary of all tiles/files in a single run
+    summary(im, cell_total, img_files, output_dir, options)
+
 
 
 if __name__ == "__main__":

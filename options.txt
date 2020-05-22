@@ -7,3 +7,4 @@ num_outlinepoints 100
 num_shapeclusters 3
 precluster_sampling 0.07
 precluster_threshold 10000
+skip_empty_mask 0

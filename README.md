@@ -96,6 +96,14 @@ PNGs showing coloring by cluster [7 per input image]
 -  xxx-Superpixels.png
 -  xxx-Top3ChannelPCA.png
 
+CSV containing the signal to noise ratios of the image per channel [1 per input image]
+-  xxx-SNR.csv
+
+CSV containing the summary file [2 per fully stitched image]
+-  summary_otsu.csv
+-  summary_zscore.csv
+
+
 ## Prerequisites
 
 Aicsimageio\
