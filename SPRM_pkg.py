@@ -664,7 +664,7 @@ def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
     # hard coded --> find a way to automate the naming
-    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression', 'K-Means [Mean-All] Expression', 'K-Means [Shape-Vectors] Expression']), allClusters,
+    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression', 'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
                 filename + '-cell_cluster', output_dir, options)
 
 
