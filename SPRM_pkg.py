@@ -361,6 +361,7 @@ def write_cell_polygs(polyg_list: List[np.ndarray], filename: str, output_dir: P
     df = pd.DataFrame({0:coord_pairs}, index=list(range(1,len(coord_pairs)+1)))
     if options.get("debug"): print(df)
     f = output_dir / (filename+'-cell_polygons_spatial.csv')
+    df.index.name = 'ID'
     df.to_csv(f, header=['Shape'])
 
 def build_matrix(im: IMGstruct, mask: MaskStruct, masked_imgs_coord: List[np.ndarray], j: int,
