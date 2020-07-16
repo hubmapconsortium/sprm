@@ -16,6 +16,8 @@ Version:   0.55
 
 """
 
+DEFAULT_OUTPUT_PATH = Path('sprm_output')
+DEFAULT_OPTIONS_FILE = Path(__file__).parent / 'options.txt'
 
 def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
     # get_imgs sorts to ensure the order of images and masks matches
@@ -127,9 +129,9 @@ if __name__ == "__main__":
     p = ArgumentParser()
     p.add_argument('img_dir', type=Path)
     p.add_argument('mask_dir', type=Path)
-    p.add_argument('output_dir', type=Path)
-    p.add_argument('options_file', type=Path)
+    p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
+    p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
 
-    argss = p.parse_args()
+    args = p.parse_args()
 
-    main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)
+    main(args.img_dir, args.mask_dir, args.output_dir, args.options_file)
