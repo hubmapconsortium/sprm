@@ -4,6 +4,8 @@ label: CODEX analysis via Cytokit
 hints:
   DockerRequirement:
     dockerPull: hubmap/sprm:latest
+  NetworkAccess:
+    networkAccess: true
 baseCommand: sprm
 
 inputs:
