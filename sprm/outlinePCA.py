@@ -1,19 +1,18 @@
+from typing import Dict, List
+
 import numpy as np
-from skimage import measure
 from matplotlib import pyplot as plt
-from sklearn.decomposition import PCA
+from skimage import measure
 from sklearn.cluster import KMeans
-from typing import List, Dict
+from sklearn.decomposition import PCA
+
 
 """
-
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
 01/21/2020 - 05/22/2020
 Version: 0.55
-
-
 """
 
 
@@ -23,7 +22,7 @@ def shape_cluster(cell_matrix, options):
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
         
-    cellbycluster = KMeans(n_clusters=num_shapeclusters, \
+    cellbycluster = KMeans(n_clusters=num_shapeclusters,
                            random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
