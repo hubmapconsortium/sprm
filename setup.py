@@ -24,6 +24,7 @@ setup(
     ],
     keywords='sprm',
     packages=find_packages(),
+    package_data={"": ["*.txt"],},
     install_requires=[
         'aicsimageio',
         'matplotlib',
