@@ -58,7 +58,7 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
             # if bestz is None or np.max(mask.get_data()) < 2: 
-            if bestz is None and options.get('skip_empty_mask') is 1:
+            if bestz is None and options.get('skip_empty_mask') == 1:
                 print('Skipping tile...(mask is empty)')
                 break
 
