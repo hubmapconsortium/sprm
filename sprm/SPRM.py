@@ -1,10 +1,9 @@
 from argparse import ArgumentParser
 
-from outlinePCA import getcellshapefeatures, getparametricoutline
-from SPRM_pkg import *
+from .outlinePCA import getcellshapefeatures, getparametricoutline
+from .SPRM_pkg import *
 
 """
-
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
 Inputs:    channel OME-TIFFs in "img_hubmap" folder
            paired segmentation OME-TIFFs in "mask_hubmap" folder
@@ -13,8 +12,6 @@ Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted Zhang and Robert F. Murphy
 Version:   0.55
 01/21/2020 - 05/22/2020
- 
-
 """
 
 DEFAULT_OUTPUT_PATH = Path('sprm_outputs')
@@ -125,14 +122,16 @@ def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
     summary(im, cell_total, img_files, output_dir, options)
 
 
-
-if __name__ == "__main__":
+def argparse_wrapper():
     p = ArgumentParser()
     p.add_argument('img_dir', type=Path)
     p.add_argument('mask_dir', type=Path)
     p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
-
     args = p.parse_args()
 
     main(args.img_dir, args.mask_dir, args.output_dir, args.options_file)
+
+
+if __name__ == "__main__":
+    argparse_wrapper()

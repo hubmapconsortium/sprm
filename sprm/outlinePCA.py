@@ -8,14 +8,11 @@ from sklearn.decomposition import PCA
 
 
 """
-
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
 01/21/2020 - 05/22/2020
 Version: 0.55
-
-
 """
 
 
