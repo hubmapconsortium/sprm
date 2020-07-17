@@ -17,7 +17,7 @@ Version:   0.55
 
 """
 
-DEFAULT_OUTPUT_PATH = Path('sprm_output')
+DEFAULT_OUTPUT_PATH = Path('sprm_outputs')
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / 'options.txt'
 
 def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
