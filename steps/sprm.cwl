@@ -4,8 +4,7 @@ label: CODEX analysis via Cytokit
 hints:
   DockerRequirement:
     dockerPull: hubmap/sprm:latest
-  DockerGpuRequirement: {}
-baseCommand: /opt/SPRM.py
+baseCommand: sprm
 
 inputs:
   image_dir:
