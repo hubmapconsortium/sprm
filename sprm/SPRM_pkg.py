@@ -1,18 +1,20 @@
+import math
+import re
+import time
+from itertools import chain, combinations, product
+from pathlib import Path
+from typing import Any, Dict, List, Sequence, Union
+
+import numpy as np
+import pandas as pd
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-import re
-import numpy as np
 from matplotlib import pyplot as plt
-from sklearn.cluster import KMeans
-import time
-from sklearn.decomposition import PCA
-import pandas as pd
-from itertools import product, chain, combinations
-import math
-from typing import Dict, List, Any, Sequence, Union
-from pathlib import Path
-from outlinePCA import shape_cluster
 from skimage.filters import threshold_otsu
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+
+from outlinePCA import shape_cluster
 
 """
 
@@ -888,6 +890,3 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
     
     df1.to_csv(output_dir / 'summary_zscore.csv', index=False)
     df2.to_csv(output_dir / 'summary_otsu.csv', index=False)
-
-
-

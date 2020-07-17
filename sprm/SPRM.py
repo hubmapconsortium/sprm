@@ -1,6 +1,7 @@
-from SPRM_pkg import *
-from outlinePCA import getparametricoutline, getcellshapefeatures
 from argparse import ArgumentParser
+
+from outlinePCA import getcellshapefeatures, getparametricoutline
+from SPRM_pkg import *
 
 """
 
