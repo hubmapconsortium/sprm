@@ -37,12 +37,11 @@ def shape_cluster(cell_matrix, options):
 
 def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
     print('Getting cell shape features...')
-    #numpoints = options.get("num_outlinepoints")
+    numpoints = options.get("num_outlinepoints")
     #check to make sure n_components is the min of (num_outlinepoints, outls[0], outls[1])
-    if options.get("num_outlinepoints") > min(outls.shape[0], outls.shape[1]):
+    if numpoints > min(outls.shape[0], outls.shape[1]):
         numpoints = min(options.get("num_outlinepoints"), outls.shape[0], outls.shape[1])
-    else: 
-        numpoints = options.get("num_outlinepoints")
+
     pca_shapes = PCA(n_components=numpoints, svd_solver='full')
     # print(pca_shapes)
 
