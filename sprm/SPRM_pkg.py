@@ -4,7 +4,6 @@ import time
 from itertools import chain, combinations, product
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Union
-
 import numpy as np
 import pandas as pd
 from aicsimageio import AICSImage
@@ -13,15 +12,14 @@ from matplotlib import pyplot as plt
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-
 from .outlinePCA import shape_cluster
 
 """
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 05/22/2020
-Version: 0.55
+01/21/2020 - 07/19/2020
+Version: 0.56
 """
 
 
@@ -565,7 +563,12 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
     
     covar = np.cov(clustercenters)
     cc = np.corrcoef(clustercenters)
-    varianc = np.diagonal(covar).copy()
+    
+    if covar.ndim < 2:
+        variance = covar
+    else:
+        varianc = np.diagonal(covar)
+        
     thresh = 0.9
     increment = 0.1
     lowerthresh = 0.5
@@ -633,12 +636,14 @@ def matchNShow_markers(clustercenters: np.ndarray, markerlist: List, features: L
     return table, markers
 
 
-def write_ometiff(im: IMGstruct, output_dir: Path, *argv):
+def write_ometiff(im: IMGstruct, output_dir: Path, bestz: int, *argv):
     print('Writing out ometiffs for visualizations...')
     pcaimg = argv[0]
     pcaimg = pcaimg.reshape((pcaimg.shape[2], pcaimg.shape[0], pcaimg.shape[1]))
     pcaimg = pcaimg.astype(np.int32)
-    superpixel = argv[1].astype(np.int32)
+    
+    superpixel = get_last2d(argv[1], bestz)
+    superpixel = superpixel.astype(np.int32)
     superpixel = superpixel[np.newaxis, :, :]
 
     s = ["-channel_pca.ome.tiff", "-superpixel.ome.tiff"]
@@ -668,7 +673,8 @@ def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
                 filename + '-cell_cluster', output_dir, options)
 
 
-def plot_img(cluster_im: np.ndarray, filename: str, output_dir: Path):
+def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path):
+    cluster_im = get_last2d(cluster_im, bestz)
     plt.imshow(cluster_im, interpolation='nearest')
     plt.axis('off')
     # plt.show(block=False)
@@ -677,12 +683,12 @@ def plot_img(cluster_im: np.ndarray, filename: str, output_dir: Path):
     plt.close()
 
 
-def plot_imgs(filename: str, output_dir: Path, *argv):
-    plot_img(argv[0], filename + '-ClusterByMeansPerCell.png', output_dir)
-    plot_img(argv[1], filename + '-ClusterByCovarPerCell.png', output_dir)
-    plot_img(argv[2], filename + '-ClusterByMeansAllMasks.png', output_dir)
-    plot_img(argv[3], filename + '-ClusterByTotalPerCell.png', output_dir)
-    plot_img(argv[4], filename + '-ClusterByShape.png', output_dir)
+def plot_imgs(filename: str, output_dir: Path, bestz: int, *argv):
+    plot_img(argv[0], bestz, filename + '-ClusterByMeansPerCell.png', output_dir)
+    plot_img(argv[1], bestz, filename + '-ClusterByCovarPerCell.png', output_dir)
+    plot_img(argv[2], bestz, filename + '-ClusterByMeansAllMasks.png', output_dir)
+    plot_img(argv[3], bestz, filename + '-ClusterByTotalPerCell.png', output_dir)
+    plot_img(argv[4], bestz, filename + '-ClusterByShape.png', output_dir)
 
 
 def make_legends(im: IMGstruct, filename: str, output_dir: Path, options: Dict, *argv):
@@ -771,8 +777,8 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
                      clustercells_shapevectors)
     # plots the cluster imgs for the best z plane
     print('Saving pngs of cluster plots by best focal plane...')
-    plot_imgs(filename, output_dir, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
-              cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
+    plot_imgs(filename, output_dir, bestz, cluster_cell_imgu, cluster_cell_imgcov, cluster_cell_imguall,
+              cluster_cell_imgtotal, clustercells_shape)
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
 
@@ -851,6 +857,13 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
 def cell_area_fraction(mask: MaskStruct) -> List[np.ndarray]:
     pass
 
+def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
+    if data.ndim <= 2:
+        return data
+    slc = [0] * (data.ndim - 3)
+    slc += [bestz, slice(None), slice(None)]
+    return data[tuple(slc)]
+
 def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
     '''
         Write out summary csv of full image analysis (combination of all tiles)
@@ -877,8 +890,8 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
             f1 = np.vstack((f1, zscore))
             f2 = np.vstack((f2, otsu))
     
-    df1 = pd.DataFrame(f1, columns = channel_n)
-    df2 = pd.DataFrame(f2, columns = channel_n)
+    df1 = pd.DataFrame([f1], columns = channel_n)
+    df2 = pd.DataFrame([f2], columns = channel_n)
     
     df3 = pd.DataFrame({'Filename': img_files, 'Total Cells': total_cells})
     

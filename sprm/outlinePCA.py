@@ -1,5 +1,4 @@
 from typing import Dict, List
-
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage import measure
@@ -11,8 +10,8 @@ from sklearn.decomposition import PCA
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 05/22/2020
-Version: 0.55
+01/21/2020 - 07/19/2020
+Version: 0.56
 """
 
 
@@ -38,7 +37,10 @@ def shape_cluster(cell_matrix, options):
 
 def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
     print('Getting cell shape features...')
-    numpoints = options.get("num_outlinepoints")
+    #numpoints = options.get("num_outlinepoints")
+    #check to make sure n_components is the min of (num_outlinepoints, outls[0], outls[1])
+    if options.get("num_outlinepoints") > min(outls.shape[0], outls.shape[1]):
+        numpoints = min(options.get("num_outlinepoints"), outls.shape[0], outls.shape[1])
     pca_shapes = PCA(n_components=numpoints, svd_solver='full')
     # print(pca_shapes)
 
@@ -119,8 +121,8 @@ def getparametricoutline(mask, nseg, options):
     polygon_outlines = []
     cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
 
-    if options.get("num_outlinepoints") > np.amax(cellmask):
-        options["num_outlinepoints"] = min(np.max(cellmask), options.get("num_outlinepoints"))
+    # if options.get("num_outlinepoints") > np.amax(cellmask):
+    #     options["num_outlinepoints"] = min(np.max(cellmask), options.get("num_outlinepoints"))
 
     npoints = options.get("num_outlinepoints")
     # the second dimension accounts for x & y coordinates for each point
@@ -138,7 +140,6 @@ def getparametricoutline(mask, nseg, options):
         tmask = np.zeros((cellmask.shape[1],cellmask.shape[0]))  # comment out
         tmask[coor[1], coor[0]] = 1
 
-        # remove this when finished
         polyg = measure.find_contours(tmask, 0.5, fully_connected='low', positive_orientation='low')
         temp = interpalong(polyg[0], npoints)
 
@@ -271,8 +272,7 @@ def interpalong(poly, npoints):
         j = i + 1
         if i == len(poly) - 1:
             j = 0
-        polylen = polylen + np.sqrt((poly[j, 0] - poly[i, 0]) ** 2 + \
-                                    (poly[j, 1] - poly[i, 1]) ** 2)
+        polylen = polylen + np.sqrt((poly[j, 0] - poly[i, 0]) ** 2 + (poly[j, 1] - poly[i, 1]) ** 2)
     # print(polylen)
     # polylen = poly.geometry().length()
     #    minlen = minneidist(poly)
@@ -304,7 +304,7 @@ def interpalong(poly, npoints):
             if tdist >= need:
                 # save next sampled position
                 # print('need to interpolate')
-                ocurpos = curpos.copy()
+                # = curpos.copy()
                 curpos[0] = curpos[0] + (need / tdist) * xdist
                 curpos[1] = curpos[1] + (need / tdist) * ydist
                 # print(ocurpos,curpos)

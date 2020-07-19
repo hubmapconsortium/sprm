@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-
 from .outlinePCA import getcellshapefeatures, getparametricoutline
 from .SPRM_pkg import *
 
@@ -10,8 +9,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.55
-01/21/2020 - 05/22/2020
+Version:   0.56
+01/21/2020 - 07/19/2020
 """
 
 DEFAULT_OUTPUT_PATH = Path('sprm_outputs')
@@ -46,39 +45,39 @@ def main(
 
         im = IMGstruct(img_file, options)
         if options.get("debug"): print('Image dimensions: ', im.get_data().shape)
+        
+        # get base file name for all output files
+        baseoutputfilename = im.get_name()
 
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
-
-        bestz = mask.get_bestz()
+        
+        # signal to noise ratio of the image
+        SNR(im, baseoutputfilename, output_dir, options)
 
         cell_total.append(np.amax(mask.get_data()))
+       
+        bestz = mask.get_bestz()
+        if bestz is None and options.get('skip_empty_mask') == 1:
+            print('Skipping tile...(mask is empty)')
+            continue
 
         # start time of processing a single img
         stime = time.monotonic() if options.get("debug") else None
 
         # time point loop (don't expect multiple time points)
-        for t in range(0, im.get_data().shape[1]):
-            # if bestz is None or np.max(mask.get_data()) < 2: 
-            if bestz is None and options.get('skip_empty_mask') == 1:
-                print('Skipping tile...(mask is empty)')
-                break
-
-            if options.get("debug"): print('IN TIMEPOINTS LOOP ' + str(t))
-            # get base file name for all output files
-            baseoutputfilename = im.get_name()
-            if options.get("debug"): print('filename: ', baseoutputfilename)
-
+        for t in range(0, im.get_data().shape[1]): 
+            
             # do clustering on the individual pixels to find 'pixel types'
             superpixels = voxel_cluster(im, options)
-            plot_img(superpixels[bestz], baseoutputfilename + '-Superpixels.png', output_dir)
+            plot_img(superpixels, bestz, baseoutputfilename + '-Superpixels.png', output_dir)
 
             # do PCA on the channel values to find channel components
             reducedim = clusterchannels(im, options)
             PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
 
             # writing out as a ometiff file of visualizations by channels
-            write_ometiff(im, output_dir, PCA_img, superpixels[bestz])
+            write_ometiff(im, output_dir, bestz, PCA_img, superpixels)
 
             seg_n = mask.get_labels('cells')
             # debug of cell_coordinates
@@ -89,8 +88,7 @@ def main(
             shape_vectors = getcellshapefeatures(outline_vectors, options)
             write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
 
-            # signal to noise ratio of the image
-            SNR(im, baseoutputfilename, output_dir, options)
+
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, mask.get_data().shape[2]):
                 # get the mask for this particular segmentation
