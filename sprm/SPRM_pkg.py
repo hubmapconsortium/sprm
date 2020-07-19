@@ -890,8 +890,12 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
             f1 = np.vstack((f1, zscore))
             f2 = np.vstack((f2, otsu))
     
-    df1 = pd.DataFrame([f1], columns = channel_n)
-    df2 = pd.DataFrame([f2], columns = channel_n)
+    if f1.ndim == 1 and f2.ndim == 1:
+        df1 = pd.DataFrame([f1], columns = channel_n)
+        df2 = pd.DataFrame([f2], columns = channel_n)
+    else:
+        df1 = pd.DataFrame(f1, columns = channel_n)
+        df2 = pd.DataFrame(f2, columns = channel_n)
     
     df3 = pd.DataFrame({'Filename': img_files, 'Total Cells': total_cells})
     
