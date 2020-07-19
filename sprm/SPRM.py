@@ -17,7 +17,12 @@ Version:   0.55
 DEFAULT_OUTPUT_PATH = Path('sprm_outputs')
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / 'options.txt'
 
-def main(img_dir: Path, mask_dir: Path, output_dir: Path, options_path: Path):
+def main(
+        img_dir: Path,
+        mask_dir: Path,
+        output_dir: Path = DEFAULT_OUTPUT_PATH,
+        options_path: Path = DEFAULT_OPTIONS_FILE,
+):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
