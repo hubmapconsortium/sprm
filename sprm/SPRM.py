@@ -66,60 +66,60 @@ def main(
         stime = time.monotonic() if options.get("debug") else None
 
         # time point loop (don't expect multiple time points)
-        # for t in range(0, im.get_data().shape[1]): 
+        for t in range(0, im.get_data().shape[1]): 
             
             # do clustering on the individual pixels to find 'pixel types'
-        #     superpixels = voxel_cluster(im, options)
-        #     plot_img(superpixels, bestz, baseoutputfilename + '-Superpixels.png', output_dir)
+            superpixels = voxel_cluster(im, options)
+            plot_img(superpixels, bestz, baseoutputfilename + '-Superpixels.png', output_dir)
 
-        #     # do PCA on the channel values to find channel components
-        #     reducedim = clusterchannels(im, options)
-        #     PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
+            # do PCA on the channel values to find channel components
+            reducedim = clusterchannels(im, options)
+            PCA_img = plotprincomp(reducedim, bestz, baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
 
-        #     # writing out as a ometiff file of visualizations by channels
-        #     write_ometiff(im, output_dir, bestz, PCA_img, superpixels)
+            # writing out as a ometiff file of visualizations by channels
+            write_ometiff(im, output_dir, bestz, PCA_img, superpixels)
 
-        #     seg_n = mask.get_labels('cells')
-        #     # debug of cell_coordinates
-        #     # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
+            seg_n = mask.get_labels('cells')
+            # debug of cell_coordinates
+            # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
-        #     # get normalized shape representation of each cell
-        #     outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, options)
-        #     shape_vectors = getcellshapefeatures(outline_vectors, options)
-        #     write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
+            # get normalized shape representation of each cell
+            outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, options)
+            shape_vectors = getcellshapefeatures(outline_vectors, options)
+            write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
 
 
-        #     # loop of types of segmentation (channels in the mask img)
-        #     for j in range(0, mask.get_data().shape[2]):
-        #         # get the mask for this particular segmentation
-        #         # (e.g., cells, nuclei...)
-        #         labeled_mask, maskIDs = mask_img(mask, j)
-        #         # convert indexed image into lists of pixels
-        #         # in each object (ROI) of this segmentation
-        #         masked_imgs_coord = get_masked_imgs(labeled_mask, maskIDs)
-        #         # make the matrix and vectors to hold calculations
-        #         covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
-        #         mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
-        #         total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+            # loop of types of segmentation (channels in the mask img)
+            for j in range(0, mask.get_data().shape[2]):
+                # get the mask for this particular segmentation
+                # (e.g., cells, nuclei...)
+                labeled_mask, maskIDs = mask_img(mask, j)
+                # convert indexed image into lists of pixels
+                # in each object (ROI) of this segmentation
+                masked_imgs_coord = get_masked_imgs(labeled_mask, maskIDs)
+                # make the matrix and vectors to hold calculations
+                covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
+                mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
+                total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
         
-        #         # loop of ROIs
-        #         for i in range(0, len(masked_imgs_coord)):
-        #             covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(
-        #                 masked_imgs_coord[i], im, t, i)
+                # loop of ROIs
+                for i in range(0, len(masked_imgs_coord)):
+                    covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(
+                        masked_imgs_coord[i], im, t, i)
         
-        #     # save the means, covars, shape and total for each cell
-        #     save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
-        #               shape_vectors)
+            # save the means, covars, shape and total for each cell
+            save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+                      shape_vectors)
         
-        #     # do cell analyze
-        #     cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
-        #                   total_vector,
-        #                   shape_vectors)
+            # do cell analyze
+            cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
+                          total_vector,
+                          shape_vectors)
         
-        # if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
-        # print('Finished analyzing ' + str(idx + 1) + ' image(s)')
-        # mask.quit()
-        # im.quit()
+        if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
+        print('Finished analyzing ' + str(idx + 1) + ' image(s)')
+        mask.quit()
+        im.quit()
 
     # summary of all tiles/files in a single run
     summary(im, cell_total, img_files, output_dir, options)
