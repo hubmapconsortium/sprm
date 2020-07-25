@@ -1,4 +1,7 @@
 from argparse import ArgumentParser
+
+import manhole
+
 from .outlinePCA import getcellshapefeatures, getparametricoutline
 from .SPRM_pkg import *
 
@@ -22,6 +25,9 @@ def main(
         output_dir: Path = DEFAULT_OUTPUT_PATH,
         options_path: Path = DEFAULT_OPTIONS_FILE,
 ):
+    # Enable remote debugging
+    manhole.install(activate_on='USR1')
+
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)

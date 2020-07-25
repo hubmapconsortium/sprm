@@ -27,6 +27,7 @@ setup(
     package_data={"": ["*.txt"],},
     install_requires=[
         'aicsimageio',
+        'manhole',
         'matplotlib',
         'numpy',
         'pandas',
