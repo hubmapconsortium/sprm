@@ -26,7 +26,7 @@ def main(
         options_path: Path = DEFAULT_OPTIONS_FILE,
 ):
     # Enable remote debugging
-    manhole.install(activate_on='USR1')
+    # manhole.install(activate_on='USR1')
 
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)

@@ -561,8 +561,8 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
         return markerlist
 
     if clustercenters.shape[0] < markergoal:
-        print("Reducing marker goal to ", markergoal)
         markergoal = clustercenters.shape[0]
+        print("Reducing marker goal to ", markergoal)
         
     covar = np.cov(clustercenters)
     cc = np.corrcoef(clustercenters)
