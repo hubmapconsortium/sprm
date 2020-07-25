@@ -560,7 +560,10 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
         markerlist = list(np.argsort(-clustercenters.ravel())[:markergoal])
         return markerlist
 
-    
+    if clustercenters.shape[0] < markergoal:
+        print("Reducing marker goal to ", markergoal)
+        markergoal = clustercenters.shape[0]
+        
     covar = np.cov(clustercenters)
     cc = np.corrcoef(clustercenters)
     
