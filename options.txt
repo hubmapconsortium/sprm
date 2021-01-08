@@ -1,0 +1,16 @@
+debug 1
+num_cellclusters 6
+num_voxelclusters 6
+num_markers 3
+n_components 3
+num_outlinepoints 100
+num_shapeclusters 3
+precluster_sampling 0.07
+precluster_threshold 10000
+skip_empty_mask 0
+descentrate 0.1
+quit_criterion 0.0001
+num_of_its 1
+avg_bg 1
+zslices 0
+recluster 0
