@@ -1,5 +1,5 @@
-from SPRM_pkg import *
-from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
+from SPRM_pkg_test import *
+from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon
 from argparse import ArgumentParser
 
 """
@@ -20,12 +20,13 @@ DEFAULT_OUTPUT_PATH = Path('sprm_outputs')
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / 'options.txt'
 DEFAULT_TEMP_DIRECTORY = Path('temp')
 
+
 def main(
         img_dir: Path,
         mask_dir: Path,
         output_dir: DEFAULT_OUTPUT_PATH,
         options_path: DEFAULT_OUTPUT_PATH,
-        optional_img_dir = None
+        optional_img_dir=None
 ):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
@@ -37,7 +38,7 @@ def main(
     # read in options.txt
     options = read_options(options_path)
 
-    #init cell features
+    # init cell features
     covar_matrix = []
     mean_vector = []
     total_vector = []
@@ -61,7 +62,7 @@ def main(
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
 
-        #quality control of image and mask for edge cells and best z slices +- n options
+        # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, options)
 
         # signal to noise ratio of the image
@@ -100,8 +101,7 @@ def main(
         # and reallocate intensity to the mask resolution if not
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
-        #generate_fake_stackimg(im, mask, opt_img_file, options)
-
+        # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # start time of processing a single img
         stime = time.monotonic() if options.get("debug") else None
@@ -114,14 +114,17 @@ def main(
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
             # combination of mask_img & get_masked_imgs
-            ROI_coords = get_coordinates(mask)
+            ROI_coords = get_coordinates(mask, options)
 
             # get normalized shape representation of each cell
-            outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
-            shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
-            # pca_cluster_shape(shape_vectors, cell_polygons, options, outline_vectors) #just for testing
-            write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
-
+            if not options.get('skip_outlinePCA'):
+                outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
+                shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+                pca_recon(shape_vectors, 3, pca)  # just for testing
+                pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
+                write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
+            else:
+                print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, len(ROI_coords)):
                 # get the mask for this particular segmentation
@@ -133,7 +136,7 @@ def main(
                 # make the matrix and vectors to hold calculations
 
                 masked_imgs_coord = ROI_coords[j]
-                #get only the ROIs that are interior
+                # get only the ROIs that are interior
                 masked_imgs_coord = [masked_imgs_coord[i] for i in mask.get_interior_cells()]
 
                 covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
@@ -145,13 +148,21 @@ def main(
                     covar_matrix[t, j, i, :, :], mean_vector[t, j, i, :, :], total_vector[t, j, i, :, :] = calculations(
                         masked_imgs_coord[i], im, t, i)
 
-            # save the means, covars, shape and total for each cell
-            save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector, shape_vectors)
+            if not options.get('skip_outlinePCA'):
+                # save the means, covars, shape and total for each cell
+                save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+                         shape_vectors)
 
-            # do cell analyze
-            cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
-                          total_vector,
-                          shape_vectors)
+                # do cell analyze
+                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
+                              covar_matrix,
+                              total_vector,
+                              shape_vectors)
+            else:
+                # same functions as above just without shape outlines
+                save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector)
+                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
+                              covar_matrix, total_vector)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')
@@ -159,12 +170,10 @@ def main(
         im.quit()
 
     # summary of all tiles/files in a single run
-    # summary is bugged - 12/29/2020
-    # summary(im, cell_total, img_files, output_dir, options)
+    summary(im, cell_total, img_files, output_dir, options)
 
-    #recluster features
+    # recluster features
     # recluster(output_dir, im, options)
-
 
 
 if __name__ == "__main__":
@@ -180,4 +189,3 @@ if __name__ == "__main__":
         main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)
     else:
         main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)
-
