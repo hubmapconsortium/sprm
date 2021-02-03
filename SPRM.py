@@ -1,7 +1,7 @@
 from SPRM_pkg import *
 from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
 from argparse import ArgumentParser
-
+import time ###To measure time
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -66,7 +66,7 @@ def main(
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
-
+        
         cell_total.append(len(mask.get_interior_cells()))
 
         bestz = mask.get_bestz()
@@ -101,8 +101,8 @@ def main(
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
-
-
+        
+        textures=glcmProcedure(im,mask,bestz,output_dir,cell_total,baseoutputfilename,options)
         # start time of processing a single img
         stime = time.monotonic() if options.get("debug") else None
 
@@ -115,7 +115,7 @@ def main(
 
             # combination of mask_img & get_masked_imgs
             ROI_coords = get_coordinates(mask)
-
+            ###
             # get normalized shape representation of each cell
             outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
             shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
@@ -124,6 +124,7 @@ def main(
 
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, len(ROI_coords)):
+                #
                 # get the mask for this particular segmentation
                 # (e.g., cells, nuclei...)
                 # labeled_mask, maskIDs = mask_img(mask, j)
@@ -151,7 +152,7 @@ def main(
             # do cell analyze
             cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
                           total_vector,
-                          shape_vectors)
+                          shape_vectors,textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')

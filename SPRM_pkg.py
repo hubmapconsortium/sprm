@@ -943,12 +943,14 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     covar_matrix = argv[1]
     total_vector = argv[2]
     shape_vectors = argv[3]
+    texture_vectors = argv[4]
 
     # format the feature arrays accordingly
     meanAll_vector = cell_cluster_format(mean_vector, -1, options)
     mean_vector = cell_cluster_format(mean_vector, seg_n, options)
     covar_matrix = cell_cluster_format(covar_matrix, seg_n, options)
     total_vector = cell_cluster_format(total_vector, seg_n, options)
+    texture_vectors = cell_cluster_format(texture_vectors, seg_n, options)
 
     # cluster by mean and covar using just cell segmentation mask
     print('Clustering cells and getting back labels and centers...')
@@ -1256,7 +1258,6 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
 
     lower_bound = bestz[0] - bound
     upper_bound = bestz[0] + bound + 1
-
     if lower_bound < 0 or upper_bound > z:
         print('zslice bound is invalid. Please reset and run SPRM')
         exit(0)
@@ -1267,7 +1268,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_data(new_mask)
         mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
         img.set_data(new_img)
-
+    
 
 def find_edge_cells(mask):
     # 3D case
@@ -1289,3 +1290,60 @@ def find_edge_cells(mask):
     # interiorCells = [i for i in unique if i not in border]
     interiorCells = [i for i in unique if i != 0]
     mask.set_interior_cells(interiorCells)
+
+
+from skimage.feature.texture import greycomatrix,greycoprops
+import time
+def glcm(im,mask,bestz,output_dir,cell_total,filename,options,angle,distances):
+    start_time = time.time()
+    colIndex=['contrast','dissimilarity','homogeneity','ASM','energy','correlation']
+    texture_all=pd.DataFrame()
+    for i in range(int(len(mask.channel_labels)/2)):# latter ones are edge
+        texture=pd.DataFrame()# Cell, Nuclei
+        for distance in distances:
+            for j in range(len(im.channel_labels)):#For each channel
+                print("current channel:",im.channel_labels[j])
+                tex=pd.DataFrame()
+                for ls in range(len(colIndex)):
+                    tex.insert(len(tex.columns),str(im.channel_labels[j]+":"+colIndex[ls]),0)
+                for idx in range(cell_total[0]+1):#For each cell
+                    img=im.data[0,0,j,bestz[0],:,:].copy()
+                    interiormask = mask.data[0,0,i,bestz[0],:,:].copy()
+                    interiormask[interiormask!=idx]=0 # Extract current idx cells
+                    interiormask[interiormask==idx]=1 # Mask value should not multiplied
+                    img=img*interiormask # Apply mask to the image
+                    img=uint16_2_uint8(img).astype(np.uint8)
+                    result = greycomatrix(img, [distance], [angle])#Calculate GLCM
+                    result=result[1:,1:] # Remove background influence by delete first row & column
+                    props=[]
+                    for ls in range(len(colIndex)): #Get properties
+                        props.append(greycoprops(result,colIndex[ls]).flatten()[0])
+                    tex.loc[idx]=props                
+                if len(texture)==0:
+                    texture=tex
+                else:
+                    texture=pd.concat([texture,tex],axis=1)
+            texture=texture.drop(0)
+            texture.index.name ='ID'
+            texture.to_csv(filename+'_'+mask.channel_labels[i]+'_'+str(distance)+'_texture.csv')
+        if len(texture_all)==0:
+            texture_all=texture
+        else:
+            texture_all=pd.concat([texture_all,texture],axis=1)
+    print("Current GLCM calculation completed")
+    return texture_all.to_numpy()
+
+def uint16_2_uint8(uint16matrix):
+    maxvalue=np.max(uint16matrix)
+    uint8 = 255
+    return np.round((uint16matrix)*uint8/maxvalue)
+
+
+def glcmProcedure(im,mask,bestz,output_dir,cell_total,filename,options):
+    angle=0
+    distances=[1,2,3]
+    texture=glcm(im,mask,bestz,output_dir,cell_total,filename,options,angle,distances)
+    print("GLCM calculations completed")
+    return texture
+
+
