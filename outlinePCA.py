@@ -6,15 +6,14 @@ from sklearn.cluster import KMeans
 from typing import List, Dict
 from scipy import interpolate, stats
 from collections import defaultdict
-import sys
 
 """
 
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/25/2020
-Version: 0.58
+01/21/2020 - 02/03/2020
+Version: 0.75
 
 
 """

@@ -3,10 +3,8 @@ from math import floor
 from scipy.sparse import lil_matrix, coo_matrix, csr_matrix, csc_matrix, find
 from sklearn import preprocessing
 import numba as nb
-from numba.typed import List as nbList
-from skimage.util import view_as_windows
+# from numba.typed import List as nbList
 from typing import Dict, List, Any, Sequence, Union
-import time
 from datetime import datetime
 
 """
@@ -14,7 +12,7 @@ from datetime import datetime
 Package for reallocating intensity from IMS image of lower resolution
 than a corresponding cell mask image
 Author: Robert F. Murphy and Ted
-5/21/2020 - 7/14/2020
+5/21/2020 - 02/03/2020
 Version: 1.1
 
 

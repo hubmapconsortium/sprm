@@ -1,5 +1,5 @@
-from SPRM_pkg_test import *
-from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon
+from SPRM_pkg import *
+from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
 from argparse import ArgumentParser
 
 """
@@ -10,8 +10,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.70
-01/21/2020 - 12/29/2020
+Version:   0.75
+01/21/2020 - 02/03/2020
  
 
 """
@@ -120,7 +120,7 @@ def main(
             if not options.get('skip_outlinePCA'):
                 outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
-                pca_recon(shape_vectors, 3, pca)  # just for testing
+                # pca_recon(shape_vectors, 3, pca)  # just for testing
                 pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
                 write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
             else:
