@@ -13,16 +13,12 @@ from typing import Dict, List, Any, Sequence, Union
 from pathlib import Path
 from outlinePCA import shape_cluster
 from skimage.filters import threshold_otsu
-from ims_sparse_allchan import reallocateIMS, findpixelfractions, getindexlists
+from ims_sparse_allchan import findpixelfractions
 from ims_sparse_allchan import reallocateIMS as reallo
 import multiprocessing
-from joblib import Parallel, delayed
 import numba as nb
 from numba.typed import List as nbList
 from numba.types import ListType, UniTuple, int64, Array
-from collections import defaultdict
-
-# from scipy.sparse import lil_matrix
 
 
 """
@@ -30,8 +26,8 @@ from collections import defaultdict
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 12/29/2020
-Version: 0.70
+01/21/2020 - 02/03/2020
+Version: 0.75
 
 
 """
