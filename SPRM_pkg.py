@@ -13,22 +13,23 @@ from typing import Dict, List, Any, Sequence, Union
 from pathlib import Path
 from outlinePCA import shape_cluster
 from skimage.filters import threshold_otsu
-from ims_sparse_allchan import reallocateIMS, findpixelfractions, getindexlists
+from ims_sparse_allchan import findpixelfractions
 from ims_sparse_allchan import reallocateIMS as reallo
 import multiprocessing
 # from joblib import Parallel, delayed
+from skimage.feature.texture import greycomatrix, greycoprops
 import numba as nb
 from numba.typed import List as nbList
 from numba.types import ListType, UniTuple, int64, Array
-from skimage.feature.texture import greycomatrix, greycoprops
+
 
 """
 
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 12/29/2020
-Version: 0.70
+01/21/2020 - 02/03/2020
+Version: 0.75
 
 
 """
@@ -302,7 +303,7 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
         labeled_mask = mask_channels[j]
         rlabel_mask = labeled_mask[0, :, :].reshape(-1)
         indices = np.arange(len(rlabel_mask))
-        indices = np.unravel_index(indices, (labeled_mask.shape[2], labeled_mask.shape[1]))
+        indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
 
         nb_append_coord(masked_imgs_coord, rlabel_mask, indices)
         masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
@@ -320,17 +321,23 @@ def npwhere(mask_channels, maxvalue, channel_coords):
         channel_coords.append(d)
 
 
-def get_coordinates(mask):
+def get_coordinates(mask, options):
     mask_channels = []
     channel_coords = []
+    # channel_coords_np = []
     mask_4D = mask.get_data()[0, 0, :, :, :, :]
     maxvalue = np.max(mask_4D) + 1
 
     for i in range(0, mask_4D.shape[0]):
         mask_channels.append(mask_4D[i, :, :, :])
 
-    # unravel_indices(mask_channels, maxvalue, channel_coords) #new
-    npwhere(mask_channels, maxvalue, channel_coords)  # old
+    unravel_indices(mask_channels, maxvalue, channel_coords)  # new
+    # npwhere(mask_channels, maxvalue, channel_coords_np) #old
+
+    # uses only interior cells if option is on
+    # if options.get('interior_cells'):
+    #     for i in mask.get_edge_cells():
+    #         t = [[x for x in channel_coords]]
 
     return channel_coords
 
@@ -854,9 +861,14 @@ def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
     # hard coded --> find a way to automate the naming
-    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                      'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
-                filename + '-cell_cluster', output_dir, options)
+    if not options.get('skip_outlinePCA'):
+        write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
+                        'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
+                    filename + '-cell_cluster', output_dir, options)
+    else:
+        write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
+                          'K-Means [Mean-All-SubRegions] Expression']), allClusters,
+                    filename + '-cell_cluster', output_dir, options)
 
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
     #                   'K-Means [Mean-All-SubRegions] Expression']), allClusters,
@@ -873,19 +885,19 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
     plt.close()
 
 
-def plot_imgs(filename: str, output_dir: Path, *argv):
+def plot_imgs(filename: str, output_dir: Path, options: Dict, *argv):
     plot_img(argv[0], 0, filename + '-ClusterByMeansPerCell.png', output_dir)
     plot_img(argv[1], 0, filename + '-ClusterByCovarPerCell.png', output_dir)
     plot_img(argv[2], 0, filename + '-ClusterByMeansAllMasks.png', output_dir)
     plot_img(argv[3], 0, filename + '-ClusterByTotalPerCell.png', output_dir)
-    plot_img(argv[4], 0, filename + '-ClusterByShape.png', output_dir)
+    if not options.get('skip_outlinePCA'):
+        plot_img(argv[4], 0, filename + '-ClusterByShape.png', output_dir)
 
 
 def make_legends(im: IMGstruct, filename: str, output_dir: Path, options: Dict, *argv):
     feature_names = im.get_channel_labels()
     feature_covar = options.get('channel_label_combo')
     feature_meanall = feature_names + feature_names + feature_names + feature_names
-    feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
 
     print('Finding cell mean cluster markers...')
     retmarkers = findmarkers(argv[0], options)
@@ -911,11 +923,13 @@ def make_legends(im: IMGstruct, filename: str, output_dir: Path, options: Dict, 
     write_2_csv(markers, table, filename + '-clustercells_cellmeanALL_legend', output_dir, options)
     showlegend(markers, table, filename + '-clustercells_cellmeanALL_legend.png', output_dir)
 
-    print('Finding cell shape cluster markers...')
-    retmarkers = findmarkers(argv[4], options)
-    table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
-    write_2_csv(markers, table, filename + '-clustercells_cellshape_legend', output_dir, options)
-    showlegend(markers, table, filename + '-clustercells_cellshape_legend.png', output_dir)
+    if not options.get('skip_outlinePCA'):
+        feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
+        print('Finding cell shape cluster markers...')
+        retmarkers = findmarkers(argv[4], options)
+        table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
+        write_2_csv(markers, table, filename + '-clustercells_cellshape_legend', output_dir, options)
+        showlegend(markers, table, filename + '-clustercells_cellshape_legend.png', output_dir)
 
 
 def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options: Dict, *argv):
@@ -924,12 +938,17 @@ def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options
     mean_vector = argv[0]
     covar_matrix = argv[1]
     total_vector = argv[2]
-    outline_vectors = argv[3]
+
+
     write_2_file(mean_vector[0, seg_n, :, :, 0], filename + '-cell_channel_mean', im, output_dir, options)
     write_2_file(covar_matrix[0, seg_n, :, :, :], filename + '-cell_channel_covar', im, output_dir, options)
     write_2_file(total_vector[0, seg_n, :, :, 0], filename + '-cell_channel_total', im, output_dir, options)
     write_2_file(total_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAllChannels', im, output_dir, options)
-    write_2_file(outline_vectors, filename + '-cell_shape', im, output_dir, options)
+
+
+    if not options.get('skip_outlinePCA'):
+        outline_vectors = argv[3]
+        write_2_file(outline_vectors, filename + '-cell_shape', im, output_dir, options)
 
 
 def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, seg_n: int, output_dir: Path,
@@ -943,8 +962,10 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     mean_vector = argv[0]
     covar_matrix = argv[1]
     total_vector = argv[2]
-    shape_vectors = argv[3]
     texture_vectors = argv[4]
+
+    if not options.get('skip_outlinePCA'):
+        shape_vectors = argv[3]
 
     # format the feature arrays accordingly
     meanAll_vector = cell_cluster_format(mean_vector, -1, options)
@@ -960,29 +981,47 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     clustercells_total, clustercells_totalcenters = cell_cluster(total_vector, options)
     clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector,
                                                                  options)  # -1 means use all segmentations
-    clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
+
+    if not options.get('skip_outlinePCA'):
+        clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
     # map back to the mask segmentation of indexed cell region
     print('Mapping cell index in segmented mask to cluster IDs...')
     cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
     cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
     cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
     cluster_cell_imguall = cell_map(mask, clustercells_uvall, seg_n, options)  # 0=use first segmentation to map
-    clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
+    if not options.get('skip_outlinePCA'):
+        clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
     # get markers for each respective cluster & then save the legend/markers
     print('Getting markers that separate clusters to make legend...')
-    make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters,
-                 clustercells_totalcenters,
-                 clustercells_uvallcenters,
-                 shapeclcenters)
-    # save all clusterings to one csv
-    print('Writing out all cell cluster IDs for all cell clusterings...')
-    cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total,
-                     clustercells_uvall,
-                     clustercells_shapevectors)
-    # plots the cluster imgs for the best z plane
-    print('Saving pngs of cluster plots by best focal plane...')
-    plot_imgs(filename, output_dir, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
-              cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
+
+    if not options.get('skip_outlinePCA'):
+        make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters,
+                    clustercells_totalcenters,
+                    clustercells_uvallcenters,
+                    shapeclcenters)
+        # save all clusterings to one csv
+        print('Writing out all cell cluster IDs for all cell clusterings...')
+        cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total,
+                        clustercells_uvall,
+                        clustercells_shapevectors)
+        # plots the cluster imgs for the best z plane
+        print('Saving pngs of cluster plots by best focal plane...')
+        plot_imgs(filename, output_dir, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
+                cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
+    else:
+        make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters,
+                     clustercells_totalcenters,
+                     clustercells_uvallcenters)
+        # save all clusterings to one csv
+        print('Writing out all cell cluster IDs for all cell clusterings...')
+        cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total,
+                         clustercells_uvall)
+        # plots the cluster imgs for the best z plane
+        print('Saving pngs of cluster plots by best focal plane...')
+        plot_imgs(filename, output_dir, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
+                  cluster_cell_imgtotal[bestz])
+
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
 

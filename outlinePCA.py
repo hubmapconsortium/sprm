@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from typing import List, Dict
-from scipy import interpolate
+from scipy import interpolate, stats
 from collections import defaultdict
 
 """
@@ -12,8 +12,8 @@ from collections import defaultdict
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/25/2020
-Version: 0.58
+01/21/2020 - 02/03/2020
+Version: 0.75
 
 
 """
@@ -60,8 +60,36 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
 
     return features, pca_shapes
 
+def pca_recon(features, npca, pca):
 
-def pca_cluster_shape(features, polyg, options, outls):
+    # d = defaultdict(list)
+    sort_idx = np.argsort(features[:,0]) #from min to max
+    idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 10)).astype(int))
+    idx = sort_idx[idx]
+
+    #keep pca # same and set mode for otherse
+    rfeatures = features
+    samples = list(range(features.shape[1]))
+    del samples[npca - 1]
+
+    for i in samples:
+        mode = stats.mode(rfeatures[:, i])
+        rfeatures[:, i] = mode[0]
+
+    #x is even y is odd
+    rfeatures = pca.inverse_transform(rfeatures)
+
+    f, axs = plt.subplots(1, 10)
+
+    for i in range(10):
+        axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
+    plt.subplots_adjust(wspace=0.4)
+    plt.show()
+    print('PLOT')
+
+
+
+def pca_cluster_shape(features, polyg, options):
     d = defaultdict(list)
     cell_labels, _ = shape_cluster(features, options)
     sort_idx = np.argsort(features[:, 0])
@@ -191,6 +219,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         #
         # polygon_outlines.append(temp)
 
+        # loop to see if cell is a line - 2020
+
         # simple method from https://alyssaq.github.io/2015/computing-the-axes-or-orientation-of-a-blob/
         ptsx = ROI_coords[1] - round(np.mean(ROI_coords[1]))
         ptsy = ROI_coords[0] - round(np.mean(ROI_coords[0]))
@@ -210,6 +240,19 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
         ptscov = np.cov(ptscentered)
         # print(ptscov)
+
+        if np.isnan(ptscov).any():
+            print(i)
+            print(ptscov)
+            print(ptscentered)
+
+            cw = np.where(cellmask == i)
+
+            continue
+
+        #check for NaNs & INFS
+
+        #throws infs or nans errors - need to fix - 01/20/2020
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
         # print(eigenvals,eigenvecs)
         sindices = np.argsort(eigenvals)[::-1]
@@ -241,6 +284,20 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         #        print(tmatx)
         yrotated = yrotated - tminy
         tmaty = yrotated.round().astype(int)
+
+        #check skew
+        x = stats.skew(tmatx)
+        y = stats.skew(tmaty)
+
+        #'heavy' end is on the left side flip to right - flipping over y axis
+        if x > 0:
+            tmatx = max(tmatx) - tmatx
+        elif y > 0:
+            tmaty = max(tmaty) - tmaty
+        elif x > 0 and y > 0:
+            tmatx = max(tmatx) - tmatx
+            tmaty = max(tmaty) - tmaty
+
         # make the object mask have a border of zeroes
         cmask = np.zeros((max(tmatx) + 3, max(tmaty) + 3))
         cmask[tmatx + 1, tmaty + 1] = 1
@@ -254,6 +311,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # plt.show()
 
         # add flipping - skew
+
 
         aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='low', positive_orientation='low')
 
@@ -444,3 +502,4 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
         plt.savefig(filename + '-cellshapescluster' + str(k) + '.png')
+
