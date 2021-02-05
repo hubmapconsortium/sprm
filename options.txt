@@ -14,3 +14,5 @@ num_of_its 1
 avg_bg 1
 zslices 0
 recluster 0
+glcm_angles [0]
+glcm_distances [1, 2, 3]

@@ -16,14 +16,11 @@ from skimage.filters import threshold_otsu
 from ims_sparse_allchan import reallocateIMS, findpixelfractions, getindexlists
 from ims_sparse_allchan import reallocateIMS as reallo
 import multiprocessing
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
 import numba as nb
 from numba.typed import List as nbList
 from numba.types import ListType, UniTuple, int64, Array
-from collections import defaultdict
-
-#from scipy.sparse import lil_matrix
-
+from skimage.feature.texture import greycomatrix, greycoprops
 
 """
 
@@ -191,13 +188,13 @@ def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarra
     mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
     total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
 
-    #filter for NaNs
+    # filter for NaNs
     cov_m[np.isnan(cov_m)] = 0
     mu_v[np.isnan(mu_v)] = 0
     total[np.isnan(total)] = 0
 
     # if not cov_m.shape:
-        # cov_m = np.array([cov_m])
+    # cov_m = np.array([cov_m])
 
     return cov_m, mu_v, total
 
@@ -232,7 +229,8 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
         # cell_matrix2 = cell_matrix2.reshape(
         #     (cell_matrix2.shape[0], cell_matrix2.shape[1] * cell_matrix2.shape[2] * cell_matrix2.shape[3]))
 
-        cell_matrix = cell_matrix.reshape((cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
+        cell_matrix = cell_matrix.reshape(
+            (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
     return cell_matrix
 
@@ -288,6 +286,7 @@ def cell_map(mask: MaskStruct, cc_v: np.ndarray, seg_n: int, options: Dict) -> n
     return temp
     # return cluster_img
 
+
 # @nb.njit(parallel=True)
 def nb_append_coord(masked_imgs_coord, rlabel_mask, indices):
     for i in range(0, len(rlabel_mask)):
@@ -295,6 +294,7 @@ def nb_append_coord(masked_imgs_coord, rlabel_mask, indices):
         masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
 
     return
+
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
     for j in range(0, len(mask_channels)):
@@ -309,6 +309,7 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
 
         channel_coords.append(masked_imgs_coord)
 
+
 def npwhere(mask_channels, maxvalue, channel_coords):
     for j in range(len(mask_channels)):
         cmask = mask_channels[j][0]
@@ -319,9 +320,7 @@ def npwhere(mask_channels, maxvalue, channel_coords):
         channel_coords.append(d)
 
 
-
 def get_coordinates(mask):
-
     mask_channels = []
     channel_coords = []
     mask_4D = mask.get_data()[0, 0, :, :, :, :]
@@ -331,17 +330,16 @@ def get_coordinates(mask):
         mask_channels.append(mask_4D[i, :, :, :])
 
     # unravel_indices(mask_channels, maxvalue, channel_coords) #new
-    npwhere(mask_channels, maxvalue, channel_coords) #old
+    npwhere(mask_channels, maxvalue, channel_coords)  # old
 
     return channel_coords
+
 
 @nb.njit(parallel=True)
 def test(cell_count, mask_ch, maxcell):
     for i in nb.prange(0, maxcell):
-
         coords = np.where(mask_ch == i)
         cell_count.append(coords)
-
 
 
 def get_coordinates_nb(mask):
@@ -360,6 +358,7 @@ def get_coordinates_nb(mask):
         channel_coords.append(cell_count)
 
     return channel_coords
+
 
 # not used anymore
 def mask_img(mask: MaskStruct, j: int) -> (np.ndarray, np.ndarray):
@@ -381,7 +380,8 @@ def mask_img(mask: MaskStruct, j: int) -> (np.ndarray, np.ndarray):
 
     return sMask, interiorCells
 
-#not used anymore
+
+# not used anymore
 def get_masked_imgs(labeled_mask: np.ndarray, maskIDs: np.ndarray) -> List[np.ndarray]:
     '''
         Returns the masked image as a set of coordinates
@@ -391,7 +391,7 @@ def get_masked_imgs(labeled_mask: np.ndarray, maskIDs: np.ndarray) -> List[np.nd
 
     # masked_imgs_coord = np.zeros((len(maskIDs),2), dtype= np.uint16)
     # masked_imgs_coord = defaultdict(list)
-    #labeled_mask = np.int64(labeled_mask)
+    # labeled_mask = np.int64(labeled_mask)
 
     maxvalue = np.max(labeled_mask) + 1
     masked_imgs_coord = [[[], []] for i in range(maxvalue)]
@@ -425,8 +425,8 @@ def get_masked_imgs(labeled_mask: np.ndarray, maskIDs: np.ndarray) -> List[np.nd
     # # print(time.monotonic() - s1)
 
     ############################################
-    #need to implement this check
-    #assert(len(maskIDs) == len(new_coords))
+    # need to implement this check
+    # assert(len(maskIDs) == len(new_coords))
 
     return masked_imgs_coord
 
@@ -434,7 +434,7 @@ def get_masked_imgs(labeled_mask: np.ndarray, maskIDs: np.ndarray) -> List[np.nd
     #     for j in range(0, labeled_mask.shape[1]):
     #         masked_imgs_coord[labeled_mask[0, i, j]].append((i, j))
 
-    #masked_imgs_coord = find_mask_indices(labeled_mask, maskIDs, masked_imgs_coord)
+    # masked_imgs_coord = find_mask_indices(labeled_mask, maskIDs, masked_imgs_coord)
     # return masked_imgs_coord
 
 
@@ -519,7 +519,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dic
     df.index.name = 'ID'
     df.to_csv(f, header=header)
 
-    #Sean Donahue - 11/12/20
+    # Sean Donahue - 11/12/20
     key_parts = s.replace('-', '_').split('_')
     key_parts.reverse()
     hdf_key = '/'.join(key_parts)
@@ -854,8 +854,9 @@ def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
     # hard coded --> find a way to automate the naming
-    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression', 'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
-    filename + '-cell_cluster', output_dir, options)
+    write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
+                      'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
+                filename + '-cell_cluster', output_dir, options)
 
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
     #                   'K-Means [Mean-All-SubRegions] Expression']), allClusters,
@@ -981,7 +982,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     # plots the cluster imgs for the best z plane
     print('Saving pngs of cluster plots by best focal plane...')
     plot_imgs(filename, output_dir, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
-    cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
+              cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
 
@@ -1058,12 +1059,14 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
     locs = np.flatnonzero(np.diff(arr, prepend=arr[0] - 1))
     return arr[locs], np.split(coords, locs[1:], axis=1)
 
+
 def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
     if data.ndim <= 2:
         return data
     slc = [0] * (data.ndim - 3)
     slc += [bestz, slice(None), slice(None)]
     return data[tuple(slc)]
+
 
 def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
     '''
@@ -1108,13 +1111,14 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
 
 
 def check_shape(im, mask):
-    #put in check here for matching dims
+    # put in check here for matching dims
 
     return im.get_data().shape[4] != mask.get_data().shape[4] or im.get_data().shape[5] != mask.get_data().shape[5]
 
 
 def reallocate_parallel(im, mask, ichan, options):
     pass
+
 
 def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
     # check if image needs to be resized to match mask
@@ -1127,7 +1131,7 @@ def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
         ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
         IMSimg = im.get_data()[0, 0, 0, 0, :, :]
 
-        #do findpixelpixelfraction and getrelevantpixel index once
+        # do findpixelpixelfraction and getrelevantpixel index once
         print('START findpixelfraction...')
         X, A, cellArea, reducedsize = findpixelfractions(ROI.reshape(-1), ROI.shape, IMSimg.shape, c)
         # print(cellArea)
@@ -1137,7 +1141,7 @@ def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
         newim[0, 0, :, 0, :, :] = reallo(im, ROI, X, A, cellArea, reducedsize, options)
 
         if z != 1:
-            newim = np.repeat(newim, z, axis = 3)
+            newim = np.repeat(newim, z, axis=3)
         # for ichan in range(0, im.data.shape[2]):
         #     # allocate portions of the IMS to corresponding areas in the mask
         #     newim[0, 0, ichan, 0, :, :] = reallocateIMS(im, ROI, ichan, X, A, cellArea, reducedsize, options)
@@ -1157,11 +1161,12 @@ def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
         im.set_data(stacked_img)
         im.set_channel_labels(channel_list)
 
-    #prune for NaNs
+    # prune for NaNs
     im_prune = im.get_data()
     nan_find = np.isnan(im_prune)
     im_prune[nan_find] = 0
     im.set_data(im_prune)
+
 
 # def generate_fake_stackimg(im, mask, opt_img_file, options):
 #     #not for general purposes
@@ -1250,7 +1255,8 @@ def quality_control(mask: MaskStruct, img: IMGstruct, options: Dict):
 
     # find cells on edge
     find_edge_cells(mask)
-    
+
+
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     bound = options.get("zslices")
     bestz = mask.get_bestz()
@@ -1268,7 +1274,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_data(new_mask)
         mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
         img.set_data(new_img)
-    
+
 
 def find_edge_cells(mask):
     # 3D case
@@ -1292,58 +1298,59 @@ def find_edge_cells(mask):
     mask.set_interior_cells(interiorCells)
 
 
-from skimage.feature.texture import greycomatrix,greycoprops
-import time
-def glcm(im,mask,bestz,output_dir,cell_total,filename,options,angle,distances):
+def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distance):
+    '''
+    By: Young
+    '''
+
     start_time = time.time()
-    colIndex=['contrast','dissimilarity','homogeneity','ASM','energy','correlation']
-    texture_all=pd.DataFrame()
-    for i in range(int(len(mask.channel_labels)/2)):# latter ones are edge
-        texture=pd.DataFrame()# Cell, Nuclei
+    colIndex = ['contrast', 'dissimilarity', 'homogeneity', 'ASM', 'energy', 'correlation']
+    texture_all = pd.DataFrame()
+    for i in range(int(len(mask.channel_labels) / 2)):  # latter ones are edge
+        texture = pd.DataFrame()  # Cell, Nuclei
         for distance in distances:
-            for j in range(len(im.channel_labels)):#For each channel
-                print("current channel:",im.channel_labels[j])
-                tex=pd.DataFrame()
+            for j in range(len(im.channel_labels)):  # For each channel
+                print("current channel:", im.channel_labels[j])
+                tex = pd.DataFrame()
                 for ls in range(len(colIndex)):
-                    tex.insert(len(tex.columns),str(im.channel_labels[j]+":"+colIndex[ls]),0)
-                for idx in range(cell_total[0]+1):#For each cell
-                    img=im.data[0,0,j,bestz[0],:,:].copy()
-                    interiormask = mask.data[0,0,i,bestz[0],:,:].copy()
-                    interiormask[interiormask!=idx]=0 # Extract current idx cells
-                    interiormask[interiormask==idx]=1 # Mask value should not multiplied
-                    img=img*interiormask # Apply mask to the image
-                    img=uint16_2_uint8(img).astype(np.uint8)
-                    result = greycomatrix(img, [distance], [angle])#Calculate GLCM
-                    result=result[1:,1:] # Remove background influence by delete first row & column
-                    props=[]
-                    for ls in range(len(colIndex)): #Get properties
-                        props.append(greycoprops(result,colIndex[ls]).flatten()[0])
-                    tex.loc[idx]=props                
-                if len(texture)==0:
-                    texture=tex
+                    tex.insert(len(tex.columns), str(im.channel_labels[j] + ":" + colIndex[ls]), 0)
+                for idx in range(cell_total[0] + 1):  # For each cell
+                    img = im.data[0, 0, j, bestz[0], :, :].copy()
+                    interiormask = mask.data[0, 0, i, bestz[0], :, :].copy()
+                    interiormask[interiormask != idx] = 0  # Extract current idx cells
+                    interiormask[interiormask == idx] = 1  # Mask value should not multiplied
+                    img = img * interiormask  # Apply mask to the image
+                    img = uint16_2_uint8(img).astype(np.uint8)
+                    result = greycomatrix(img, [distance], [angle])  # Calculate GLCM
+                    result = result[1:, 1:]  # Remove background influence by delete first row & column
+                    props = []
+                    for ls in range(len(colIndex)):  # Get properties
+                        props.append(greycoprops(result, colIndex[ls]).flatten()[0])
+                    tex.loc[idx] = props
+                if len(texture) == 0:
+                    texture = tex
                 else:
-                    texture=pd.concat([texture,tex],axis=1)
-            texture=texture.drop(0)
-            texture.index.name ='ID'
-            texture.to_csv(filename+'_'+mask.channel_labels[i]+'_'+str(distance)+'_texture.csv')
-        if len(texture_all)==0:
-            texture_all=texture
+                    texture = pd.concat([texture, tex], axis=1)
+            texture = texture.drop(0)
+            texture.index.name = 'ID'
+            texture.to_csv(filename + '_' + mask.channel_labels[i] + '_' + str(distance) + '_texture.csv')
+        if len(texture_all) == 0:
+            texture_all = texture
         else:
-            texture_all=pd.concat([texture_all,texture],axis=1)
+            texture_all = pd.concat([texture_all, texture], axis=1)
     print("Current GLCM calculation completed")
     return texture_all.to_numpy()
 
+
 def uint16_2_uint8(uint16matrix):
-    maxvalue=np.max(uint16matrix)
+    maxvalue = np.max(uint16matrix)
     uint8 = 255
-    return np.round((uint16matrix)*uint8/maxvalue)
+    return np.round((uint16matrix) * uint8 / maxvalue)
 
 
-def glcmProcedure(im,mask,bestz,output_dir,cell_total,filename,options):
-    angle=0
-    distances=[1,2,3]
-    texture=glcm(im,mask,bestz,output_dir,cell_total,filename,options,angle,distances)
+def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, options):
+    angle = options.get('glcm_angles')
+    distances = options.get('glcm_distances')
+    texture = glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances)
     print("GLCM calculations completed")
     return texture
-
-

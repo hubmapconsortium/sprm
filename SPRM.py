@@ -102,7 +102,7 @@ def main(
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
         
-        textures=glcmProcedure(im,mask,bestz,output_dir,cell_total,baseoutputfilename,options)
+        textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # start time of processing a single img
         stime = time.monotonic() if options.get("debug") else None
 
@@ -152,7 +152,7 @@ def main(
             # do cell analyze
             cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector, covar_matrix,
                           total_vector,
-                          shape_vectors,textures)
+                          shape_vectors, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')
