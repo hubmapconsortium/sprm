@@ -892,7 +892,7 @@ def plot_imgs(filename: str, output_dir: Path, options: Dict, *argv):
     plot_img(argv[3], 0, filename + '-ClusterByTotalPerCell.png', output_dir)
     if not options.get('skip_outlinePCA'):
         plot_img(argv[4], 0, filename + '-ClusterByShape.png', output_dir)
-    plot_img(argv[5], 0, filename + '-ClusterByTexture.png', output_dir)
+    plot_img(argv[-1], 0, filename + '-ClusterByTexture.png', output_dir)
 
 
 def make_legends(im: IMGstruct, filename: str, output_dir: Path, options: Dict, *argv):
@@ -933,8 +933,8 @@ def make_legends(im: IMGstruct, filename: str, output_dir: Path, options: Dict, 
         showlegend(markers, table, filename + '-clustercells_cellshape_legend.png', output_dir)
 
     print('Finding cell texture cluster markers...')
-    retmarkers = findmarkers(argv[5][0], options)
-    table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
+    retmarkers = findmarkers(argv[-1][0], options)
+    table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
     write_2_csv(markers, table, filename + '-clustercells_celltexture_legend', output_dir, options)
     showlegend(markers, table, filename + '-clustercells_celltexture_legend.png', output_dir)
 
@@ -969,10 +969,11 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     mean_vector = argv[0]
     covar_matrix = argv[1]
     total_vector = argv[2]
-    texture_vectors = argv[4][0]
+    texture_vectors = argv[3][0]
 
     if not options.get('skip_outlinePCA'):
         shape_vectors = argv[3]
+        texture_vectors = argv[4][0]
 
     # format the feature arrays accordingly
     meanAll_vector = cell_cluster_format(mean_vector, -1, options)
@@ -1020,7 +1021,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, se
     else:
         make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters,
                      clustercells_totalcenters,
-                     clustercells_uvallcenters,[clustercells_texturecenters,argv[4][1]])
+                     clustercells_uvallcenters,[clustercells_texturecenters,argv[3][1]])
         # save all clusterings to one csv
         print('Writing out all cell cluster IDs for all cell clusterings...')
         cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total,
@@ -1356,7 +1357,8 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
     for i in range(int(len(mask.channel_labels) / 2)):  # latter ones are edge
         texture = pd.DataFrame()  # Cell, Nuclei
         for distance in distances:
-            for j in range(len(im.channel_labels)):  # For each channel
+            #for j in range(len(im.channel_labels)):  # For each channel
+            for j in range(3):
                 print("current channel:", im.channel_labels[j])
                 tex = pd.DataFrame()
                 for ls in range(len(colIndex)):
