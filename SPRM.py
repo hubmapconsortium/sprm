@@ -1,7 +1,7 @@
 from SPRM_pkg import *
 from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
 from argparse import ArgumentParser
-import time ###To measure time
+
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline

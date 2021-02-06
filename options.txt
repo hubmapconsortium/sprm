@@ -16,8 +16,7 @@ zslices 0
 recluster 0
 <<<<<<< HEAD
 glcm_angles [0]
-glcm_distances [1, 2, 3]
-=======
+glcm_distances [1,2,3]
 skip_outlinePCA 0
 interior_cells 1
 >>>>>>> dev
