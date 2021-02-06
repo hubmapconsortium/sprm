@@ -1357,8 +1357,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
     for i in range(int(len(mask.channel_labels) / 2)):  # latter ones are edge
         texture = pd.DataFrame()  # Cell, Nuclei
         for distance in distances:
-            #for j in range(len(im.channel_labels)):  # For each channel
-            for j in range(3):
+            for j in range(len(im.channel_labels)):  # For each channel
                 print("current channel:", im.channel_labels[j])
                 tex = pd.DataFrame()
                 for ls in range(len(colIndex)):
