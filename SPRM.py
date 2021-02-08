@@ -1,5 +1,5 @@
 from SPRM_pkg import *
-from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
+from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
 from argparse import ArgumentParser
 
 """
@@ -109,7 +109,7 @@ def main(
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
 
-            # seg_n = mask.get_labels('cells')
+            seg_n = mask.get_labels('cells')
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
@@ -120,8 +120,10 @@ def main(
             if not options.get('skip_outlinePCA'):
                 outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
-                # pca_recon(shape_vectors, 3, pca)  # just for testing
-                pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
+                if options.get('debug'):
+                    bin_pca(shape_vectors, 1, cell_polygons) #just for testing
+                    pca_recon(shape_vectors, 1, pca)  # just for testing
+                    pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
                 write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
             else:
                 print('Skipping outlinePCA...')
@@ -154,7 +156,7 @@ def main(
                          shape_vectors)
 
                 # do cell analyze
-                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, options, mean_vector,
                               covar_matrix,
                               total_vector,
                               shape_vectors)

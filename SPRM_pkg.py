@@ -963,11 +963,11 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             write_2_csv(markers, table, filename + '-cluster_cell_meanALLCH_legend', output_dir, options)
             showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.png', output_dir)
 
-        elif j is 4 and not options.get('skip_outlinePCA')
+        elif j is 4 and not options.get('skip_outlinePCA'):
             feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
             print('Finding cell shape cluster markers...')
             retmarkers = findmarkers(argv[j], options)
-            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_shape, options)
 
             if i is 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
@@ -1026,18 +1026,18 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
 
         # format the feature arrays accordingly
         if seg_n is 0:
-            meanAll_vector = cell_cluster_format(mean_vector, -1, options)
-            clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector,
+            meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
+            clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector_f,
                                                                          options)  # -1 means use all segmentations
-        mean_vector = cell_cluster_format(mean_vector, seg_n, options)
-        covar_matrix = cell_cluster_format(covar_matrix, seg_n, options)
-        total_vector = cell_cluster_format(total_vector, seg_n, options)
+        mean_vector_f = cell_cluster_format(mean_vector, seg_n, options)
+        covar_matrix_f = cell_cluster_format(covar_matrix, seg_n, options)
+        total_vector_f = cell_cluster_format(total_vector, seg_n, options)
 
         # cluster by mean and covar using just cell segmentation mask
         print('Clustering cells and getting back labels and centers...')
-        clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector, options)
-        clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix, options)
-        clustercells_total, clustercells_totalcenters = cell_cluster(total_vector, options)
+        clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector_f, options)
+        clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix_f, options)
+        clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, options)
 
         # map back to the mask segmentation of indexed cell region
         print('Mapping cell index in segmented mask to cluster IDs...')
@@ -1058,7 +1058,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          shapeclcenters)
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
-            cell_cluster_IDs(filename, output_dir, i, options, clustercells_uv, clustercells_cov, clustercells_total,
+            cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov, clustercells_total,
                              clustercells_uvall,
                              clustercells_shapevectors)
             # plots the cluster imgs for the best z plane
@@ -1072,7 +1072,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          clustercells_uvallcenters)
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
-            cell_cluster_IDs(filename, output_dir, i, options, clustercells_uv, clustercells_cov, clustercells_total,
+            cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov, clustercells_total,
                              clustercells_uvall)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
