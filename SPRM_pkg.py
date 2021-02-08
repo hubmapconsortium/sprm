@@ -20,7 +20,6 @@ import numba as nb
 from numba.typed import List as nbList
 from numba.types import ListType, UniTuple, int64, Array
 
-
 """
 
 Companion to SPRM.py
@@ -342,6 +341,7 @@ def get_coordinates(mask, options):
 
 def remove_element(l, idx):
     del l[idx]
+
 
 @nb.njit(parallel=True)
 def test(cell_count, mask_ch, maxcell):
@@ -857,19 +857,19 @@ def check_file_exist(paths: Path):
             continue
 
 
-def cell_cluster_IDs(filename: str, output_dir: Path, options: Dict, *argv):
+def cell_cluster_IDs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
     allClusters = argv[0]
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
     # hard coded --> find a way to automate the naming
     if not options.get('skip_outlinePCA'):
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                        'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
-                    filename + '-cell_cluster', output_dir, options)
+                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
+                    filename + '-cell_cluster_' + maskchs[i], output_dir, options)
     else:
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
                           'K-Means [Mean-All-SubRegions] Expression']), allClusters,
-                    filename + '-cell_cluster', output_dir, options)
+                    filename + '-cell_cluster_' + maskchs[i], output_dir, options)
 
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
     #                   'K-Means [Mean-All-SubRegions] Expression']), allClusters,
@@ -886,60 +886,101 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
     plt.close()
 
 
-def plot_imgs(filename: str, output_dir: Path, options: Dict, *argv):
-    plot_img(argv[0], 0, filename + '-ClusterByMeansPerCell.png', output_dir)
-    plot_img(argv[1], 0, filename + '-ClusterByCovarPerCell.png', output_dir)
-    plot_img(argv[2], 0, filename + '-ClusterByMeansAllMasks.png', output_dir)
-    plot_img(argv[3], 0, filename + '-ClusterByTotalPerCell.png', output_dir)
-    if not options.get('skip_outlinePCA'):
-        plot_img(argv[4], 0, filename + '-ClusterByShape.png', output_dir)
+def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
 
+        plot_img(argv[0], 0, filename + '-Cluster_Means_' + maskchs[i] + '.png', output_dir)
+        plot_img(argv[1], 0, filename + '-Cluster_Covar_' + maskchs[i] + '.png', output_dir)
+        plot_img(argv[2], 0, filename + '-Cluster_MeansAll_' + maskchs[i] + '.png', output_dir)
+        plot_img(argv[3], 0, filename + '-Cluster_Total_' + maskchs[i] + '.png', output_dir)
 
-def make_legends(im: IMGstruct, filename: str, output_dir: Path, i, options: Dict, *argv):
-    feature_names = im.get_channel_labels()
-    feature_covar = options.get('channel_label_combo')
-    feature_meanall = feature_names + feature_names + feature_names + feature_names
+        if not options.get('skip_outlinePCA'):
+            plot_img(argv[4], 0, filename + '-Cluster_Shape_' + maskchs[i]+ '.png', output_dir)
 
-    for i in argv:
+def make_legends(feature_names, feature_covar, feature_meanall, filename: str, output_dir: Path, i: int, options: Dict, *argv):
 
-        print('Finding cell mean cluster markers...')
-    retmarkers_0 = findmarkers(argv[0], options)
-    table_0, markers_0 = matchNShow_markers(argv[0], retmarkers, feature_names, options)
+    print('Legend for mask channel: ' + str(i))
 
-    print('Finding cell covariance cluster markers...')
-    retmarkers_1 = findmarkers(argv[1], options)
-    table_0, markers_0 = matchNShow_markers(argv[1], retmarkers, feature_covar, options)
+    for j in range(len(argv)):
 
-    print('Finding cell total cluster markers...')
-    retmarkers_2 = findmarkers(argv[2], options)
-    table_2, markers_2 = matchNShow_markers(argv[2], retmarkers, feature_names, options)
+        # hard coded for argv idx and - psuedo switch -- might be a more efficient way
+        if j is 0:
+            print('Finding mean cluster markers...')
+            retmarkers = findmarkers(argv[j], options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
+            if i is 0:
+                write_2_csv(markers, table, filename + '-cluster_cell_mean_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cell_mean_legend.png', output_dir)
+            elif i is 1:
+                write_2_csv(markers, table, filename + '-cluster_nuc_mean_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_nuc_mean_legend.png', output_dir)
+            elif i is 2:
+                write_2_csv(markers, table, filename + '-cluster_cellsboundary_mean_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_mean_legend.png', output_dir)
+            elif i is 3:
+                write_2_csv(markers, table, filename + '-cluster_nucboundary_mean_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluste_nucboundary_mean_legend.png', output_dir)
 
+        elif j is 1:
+            print('Finding covariance cluster markers...')
+            retmarkers = findmarkers(argv[j], options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_covar, options)
 
-    print('Finding cell mean ALL cluster markers...')
-    retmarkers_3 = findmarkers(argv[3], options)
-    table_3, markers_3 = matchNShow_markers(argv[3], retmarkers, feature_meanall, options)
+            if i is 0:
+                write_2_csv(markers, table, filename + '-cluster_cell_covariance_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cell_covariance_legend.png', output_dir)
+            elif i is 1:
+                write_2_csv(markers, table, filename + '-cluster_nuc_covariance_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_nuc_covariance_legend.png', output_dir)
+            elif i is 2:
+                write_2_csv(markers, table, filename + '-cluster_cellsboundary_covariance_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_covariance_legend.png', output_dir)
+            elif i is 3:
+                write_2_csv(markers, table, filename + '-cluster_nucboundary_covariance_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluste_nucboundary_covariance_legend.png', output_dir)
 
-    if not options.get('skip_outlinePCA'):
-        feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
-        print('Finding cell shape cluster markers...')
-        retmarkers_4 = findmarkers(argv[4], options)
-        table_4, markers_4 = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
-        write_2_csv(markers, table, filename + '-clustercells_cellshape_legend', output_dir, options)
-        showlegend(markers, table, filename + '-clustercells_cellshape_legend.png', output_dir)
+        elif j is 2:
+            print('Finding total cluster markers...')
+            retmarkers = findmarkers(argv[j], options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
 
-    if i is 0:
-        write_2_csv(markers, table, filename + '-clustercells_cellmean_legend', output_dir, options)
-        showlegend(markers, table, filename + '-clustercells_cellmean_legend.png', output_dir)
+            if i is 0:
+                write_2_csv(markers, table, filename + '-cluster_cell_total_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cell_total_legend.png', output_dir)
+            elif i is 1:
+                write_2_csv(markers, table, filename + '-cluster_nuc_total_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_nuc_total_legend.png', output_dir)
+            elif i is 2:
+                write_2_csv(markers, table, filename + '-cluster_cellsboundary_total_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_total_legend.png', output_dir)
+            elif i is 3:
+                write_2_csv(markers, table, filename + '-cluster_nucboundary_total_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluste_nucboundary_total_legend.png', output_dir)
 
-        write_2_csv(markers, table, filename + '-clustercells_cellcovariance_legend', output_dir, options)
-        showlegend(markers, table, filename + '-clustercells_cellcovariance_legend.png', output_dir)
+        elif j is 3 and i is 0:
+            print('Finding mean ALL cluster markers...')
+            retmarkers = findmarkers(argv[j], options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_meanall, options)
+            write_2_csv(markers, table, filename + '-cluster_cell_meanALLCH_legend', output_dir, options)
+            showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.png', output_dir)
 
-        write_2_csv(markers, table, filename + '-clustercells_celltotal_legend', output_dir, options)
-        showlegend(markers, table, filename + '-clustercells_celltotal_legend.png', output_dir)
+        elif j is 4 and not options.get('skip_outlinePCA')
+            feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
+            print('Finding cell shape cluster markers...')
+            retmarkers = findmarkers(argv[j], options)
+            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
 
-        write_2_csv(markers, table, filename + '-clustercells_cellmeanALL_legend', output_dir, options)
-        showlegend(markers, table, filename + '-clustercells_cellmeanALL_legend.png', output_dir)
-
+            if i is 0:
+                write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cell_shape_legend.png', output_dir)
+            elif i is 1:
+                write_2_csv(markers, table, filename + '-cluster_nuc_shape_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_nuc_shape_legend.png', output_dir)
+            elif i is 2:
+                write_2_csv(markers, table, filename + '-cluster_cellsboundary_shape_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_shape_legend.png', output_dir)
+            elif i is 3:
+                write_2_csv(markers, table, filename + '-cluster_nucboundary_shape_legend', output_dir, options)
+                showlegend(markers, table, filename + '-cluste_nucboundary_shape_legend.png', output_dir)
 
 def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options: Dict, *argv):
     # hard coded for now
@@ -948,12 +989,10 @@ def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options
     covar_matrix = argv[1]
     total_vector = argv[2]
 
-
     write_2_file(mean_vector[0, seg_n, :, :, 0], filename + '-cell_channel_mean', im, output_dir, options)
     write_2_file(covar_matrix[0, seg_n, :, :, :], filename + '-cell_channel_covar', im, output_dir, options)
     write_2_file(total_vector[0, seg_n, :, :, 0], filename + '-cell_channel_total', im, output_dir, options)
     write_2_file(total_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAllChannels', im, output_dir, options)
-
 
     if not options.get('skip_outlinePCA'):
         outline_vectors = argv[3]
@@ -975,17 +1014,21 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     if not options.get('skip_outlinePCA'):
         shape_vectors = argv[3]
 
+    #get channel labels
     maskchs = mask.get_channel_labels()
+    feature_names = im.get_channel_labels()
+    feature_covar = options.get('channel_label_combo')
+    feature_meanall = feature_names + feature_names + feature_names + feature_names
 
     # for each channel in the mask
-    for i in maskchs:
-        seg_n = mask.get_labels(i)
+    for i in range(len(maskchs)):
+        seg_n = mask.get_labels(maskchs[i])
 
         # format the feature arrays accordingly
         if seg_n is 0:
             meanAll_vector = cell_cluster_format(mean_vector, -1, options)
             clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector,
-                                                                     options)  # -1 means use all segmentations
+                                                                         options)  # -1 means use all segmentations
         mean_vector = cell_cluster_format(mean_vector, seg_n, options)
         covar_matrix = cell_cluster_format(covar_matrix, seg_n, options)
         total_vector = cell_cluster_format(total_vector, seg_n, options)
@@ -1009,31 +1052,33 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
             clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
             clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
             # get markers for each respective cluster & then save the legend/markers
-            make_legends(im, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
-                        clustercells_totalcenters,
-                        clustercells_uvallcenters,
-                        shapeclcenters)
+            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
+                         clustercells_totalcenters,
+                         clustercells_uvallcenters,
+                         shapeclcenters)
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, options, clustercells_uv, clustercells_cov, clustercells_total,
-                            clustercells_uvall,
-                            clustercells_shapevectors)
+                             clustercells_uvall,
+                             clustercells_shapevectors)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
-            plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
-                cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
+            plot_imgs(filename, output_dir, i, maskchs, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
+                      cluster_cell_imguall[bestz],
+                      cluster_cell_imgtotal[bestz], clustercells_shape[bestz])
         else:
-            make_legends(im, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
-                        clustercells_totalcenters,
-                        clustercells_uvallcenters)
+            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
+                         clustercells_totalcenters,
+                         clustercells_uvallcenters)
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, options, clustercells_uv, clustercells_cov, clustercells_total,
-                         clustercells_uvall)
+                             clustercells_uvall)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
-            plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz], cluster_cell_imguall[bestz],
-                  cluster_cell_imgtotal[bestz])
+            plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
+                      cluster_cell_imguall[bestz],
+                      cluster_cell_imgtotal[bestz])
 
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
