@@ -619,8 +619,9 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
     plt.axis('off')
     # plt.show(block=False)
     f = output_dir / (filename)
-    plt.savefig(f, box_inches='tight')
+    plt.savefig(f)
     plt.close()
+
     return plotim
 
 
@@ -861,11 +862,11 @@ def cell_cluster_IDs(filename: str, output_dir: Path, i: int, maskchs: List, opt
     # hard coded --> find a way to automate the naming
     if not options.get('skip_outlinePCA'):
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]']), allClusters,
+                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]', 'K-Means [Texture]']), allClusters,
                     filename + '-cell_cluster_' + maskchs[i], output_dir, options)
     else:
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                          'K-Means [Mean-All-SubRegions] Expression']), allClusters,
+                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Texture]']), allClusters,
                     filename + '-cell_cluster_' + maskchs[i], output_dir, options)
 
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',

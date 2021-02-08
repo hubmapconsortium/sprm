@@ -86,7 +86,8 @@ def bin_pca(features, npca, cell_coord):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     plt.show()
-    print('PLOT')
+    plt.savefig('outlinePCA_bin_pca.png')
+    plt.close()
 
 def pca_recon(features, npca, pca):
 
@@ -115,7 +116,8 @@ def pca_recon(features, npca, pca):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     plt.show()
-    print('PLOT')
+    plt.savefig('outlinePCA_pca_recon.png')
+    plt.close()
 
 
 
@@ -144,8 +146,8 @@ def pca_cluster_shape(features, polyg, options):
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
     plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
     plt.show()
-    print('PLOT')
-
+    plt.savefig('outlinePCA_cluster_pca.png')
+    plt.close()
 
 def create_polygons(mask, bestz: int) -> List[str]:
     """
