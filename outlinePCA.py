@@ -60,6 +60,34 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
 
     return features, pca_shapes
 
+def bin_pca(features, npca, cell_coord):
+    sort_idx = np.argsort(features[:, npca - 1])  # from min to max
+    idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
+    nfeatures = features[sort_idx, 0]
+    cbin = []
+
+    for i in range(10):
+        fbin = nfeatures[idx[i]:idx[i+1]]
+
+        #find median not mode
+        median = np.median(fbin)
+        # mode = stats.mode(fbin)
+
+        nidx = np.searchsorted(fbin, median, side="left")
+        r = range(idx[i], idx[i+1])
+        celln = sort_idx[r[nidx]]
+        cbin.append(celln)
+
+
+    f, axs = plt.subplots(1, 10)
+
+    for i in range(10):
+        cscell_coords = np.column_stack(cell_coord[cbin[i]])
+        axs[i].scatter(cscell_coords[0], cscell_coords[1])
+    plt.subplots_adjust(wspace=0.4)
+    plt.show()
+    print('PLOT')
+
 def pca_recon(features, npca, pca):
 
     # d = defaultdict(list)
@@ -73,8 +101,10 @@ def pca_recon(features, npca, pca):
     del samples[npca - 1]
 
     for i in samples:
-        mode = stats.mode(rfeatures[:, i])
-        rfeatures[:, i] = mode[0]
+        #fin median not mode
+        median = np.median(rfeatures[:, i])
+        # mode = stats.mode(rfeatures[:, i])
+        rfeatures[:, i] = median
 
     #x is even y is odd
     rfeatures = pca.inverse_transform(rfeatures)
@@ -193,13 +223,14 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
     # pts = np.zeros((np.amax(cellmask), npoints * 2))
     pts = np.zeros((len(interiorCells), npoints * 2))
 
+    cell_coords = ROI_by_CH[0]
+
     # for i in range(1, np.amax(cellmask)+1):
     for i in range(0, len(interiorCells)):
         # if i not in cellmask:
         #    continue
         # coor = np.where(cellmask == i)
 
-        cell_coords = ROI_by_CH[0]
         ROI_coords = cell_coords[interiorCells[i]]
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
@@ -245,10 +276,13 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
             print(i)
             print(ptscov)
             print(ptscentered)
-
             cw = np.where(cellmask == i)
+            print(cw)
 
+            print('---')
+            print(ROI_coords)
             continue
+
 
         #check for NaNs & INFS
 
@@ -302,18 +336,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         cmask = np.zeros((max(tmatx) + 3, max(tmaty) + 3))
         cmask[tmatx + 1, tmaty + 1] = 1
         # fill the image to handle artifacts from rotation
-        # find an interior point
-        # can be taken care of by scipy's find contour - ted zhang 11/30/2020
         # cmask = fillimage(cmask)
-        #        cmask = flood_fill(cmask,seed,1)
 
         # plt.imshow(cmask)
         # plt.show()
 
-        # add flipping - skew
-
-
-        aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='low', positive_orientation='low')
+        aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='high', positive_orientation='low')
 
         x = aligned_outline[0][:, 0]
         y = aligned_outline[0][:, 1]
@@ -335,6 +363,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
 def linear_interpolation(x, y, npoints):
     points = np.array([x, y]).T  # a (nbre_points x nbre_dim) array
+
+    #nearest neighbor points:
+    #sorted to be points next to each other
+    #from 0 to n - 1 - loop
+    #sqrt((x(i) - x(i + 1))^2 + (y(i) - y(i + 1))^2) - distance b/w two points
+    #finaldis = find distance b/w last point and first point
 
     # Linear length along the line:
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
