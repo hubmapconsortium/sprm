@@ -67,7 +67,7 @@ def main(
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
-
+        
         cell_total.append(len(mask.get_interior_cells()))
 
         bestz = mask.get_bestz()
@@ -101,6 +101,9 @@ def main(
         # and reallocate intensity to the mask resolution if not
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
+        #generate_fake_stackimg(im, mask, opt_img_file, options)
+        
+        textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # start time of processing a single img
@@ -129,6 +132,7 @@ def main(
                 print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, len(ROI_coords)):
+                #
                 # get the mask for this particular segmentation
                 # (e.g., cells, nuclei...)
                 # labeled_mask, maskIDs = mask_img(mask, j)
@@ -159,12 +163,12 @@ def main(
                 cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, options, mean_vector,
                               covar_matrix,
                               total_vector,
-                              shape_vectors)
+                              shape_vectors, textures)
             else:
                 # same functions as above just without shape outlines
                 save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector)
                 cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
-                              covar_matrix, total_vector)
+                              covar_matrix, total_vector, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')
