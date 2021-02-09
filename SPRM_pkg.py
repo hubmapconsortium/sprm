@@ -887,14 +887,14 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
 
         plot_img(argv[0], 0, filename + '-Cluster_Means_' + maskchs[i] + '.png', output_dir)
         plot_img(argv[1], 0, filename + '-Cluster_Covar_' + maskchs[i] + '.png', output_dir)
-        plot_img(argv[2], 0, filename + '-Cluster_MeansAll_' + maskchs[i] + '.png', output_dir)
         plot_img(argv[3], 0, filename + '-Cluster_Total_' + maskchs[i] + '.png', output_dir)
 
-        if not options.get('skip_outlinePCA'):
-            plot_img(argv[4], 0, filename + '-Cluster_Shape_' + maskchs[i]+ '.png', output_dir)
-
+        #only done once
         if i is 0:
-            plot_img(argv[-1], 0, filename + '-ClusterByTexture.png', output_dir)
+            if not options.get('skip_outlinePCA'):
+                plot_img(argv[4], 0, filename + '-Cluster_Shape.png', output_dir)
+            plot_img(argv[-1], 0, filename + '-Cluster_Texture.png', output_dir)
+            plot_img(argv[2], 0, filename + '-Cluster_MeansAll.png', output_dir)
 
 def make_legends(feature_names, feature_covar, feature_meanall, filename: str, output_dir: Path, i: int, options: Dict, *argv):
 
@@ -968,37 +968,15 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             print('Finding cell shape cluster markers...')
             retmarkers = findmarkers(argv[j], options)
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_shape, options)
-
-            if i is 0:
-                write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_shape_legend.png', output_dir)
-            elif i is 1:
-                write_2_csv(markers, table, filename + '-cluster_nuc_shape_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_shape_legend.png', output_dir)
-            elif i is 2:
-                write_2_csv(markers, table, filename + '-cluster_cellsboundary_shape_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_shape_legend.png', output_dir)
-            elif i is 3:
-                write_2_csv(markers, table, filename + '-cluster_nucboundary_shape_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_shape_legend.png', output_dir)
+            write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
+            showlegend(markers, table, filename + '-cluster_cell_shape_legend.png', output_dir)
 
         elif j is 5 or j is 4 and options.get('skip_outlinePCA'):
             print('Finding cell texture cluster markers...')
             retmarkers = findmarkers(argv[-1][0], options)
             table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
-
-            if i is 0:
-                write_2_csv(markers, table, filename + '-cluster_cell_texture_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_texture_legend.png', output_dir)
-            elif i is 1:
-                write_2_csv(markers, table, filename + '-cluster_nuc_texture_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_texture_legend.png', output_dir)
-            elif i is 2:
-                write_2_csv(markers, table, filename + '-cluster_cellsboundary_texture_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_texture_legend.png', output_dir)
-            elif i is 3:
-                write_2_csv(markers, table, filename + '-cluster_nucboundary_texture_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_texture_legend.png', output_dir)
+            write_2_csv(markers, table, filename + '-cluster_cell_texture_legend', output_dir, options)
+            showlegend(markers, table, filename + '-cluster_cell_texture_legend.png', output_dir)
 
 def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options: Dict, *argv):
     # hard coded for now
@@ -1010,14 +988,14 @@ def save_all(filename: str, im: IMGstruct, seg_n: int, output_dir: Path, options
     write_2_file(mean_vector[0, seg_n, :, :, 0], filename + '-cell_channel_mean', im, output_dir, options)
     write_2_file(covar_matrix[0, seg_n, :, :, :], filename + '-cell_channel_covar', im, output_dir, options)
     write_2_file(total_vector[0, seg_n, :, :, 0], filename + '-cell_channel_total', im, output_dir, options)
-    write_2_file(total_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAllChannels', im, output_dir, options)
+    write_2_file(mean_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAllChannels', im, output_dir, options)
 
     if not options.get('skip_outlinePCA'):
         outline_vectors = argv[3]
         write_2_file(outline_vectors, filename + '-cell_shape', im, output_dir, options)
 
 
-def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, output_dir: Path,
+def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, output_dir: Path, seg_n: int,
                   options: Dict, *argv):
     '''
         cluster and statisical analysis done on cell:
@@ -1028,11 +1006,20 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     mean_vector = argv[0]
     covar_matrix = argv[1]
     total_vector = argv[2]
-    texture_vectors = argv[3][0]
 
     if not options.get('skip_outlinePCA'):
         shape_vectors = argv[3]
-        texture_vectors = argv[4][0]
+        if not options.get('skip_texture'):
+            texture_vectors = argv[4][0]
+            texture_channels = argv[4][1]
+        else:
+            texture_vectors = mean_vector
+
+    if not options.get('skip_texture'):
+        texture_vectors = argv[3][0]
+        texture_channels = argv[3][1]
+    else:
+        texture_vectors = mean_vector
 
     #get channel labels
     maskchs = mask.get_channel_labels()
@@ -1040,18 +1027,29 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     feature_covar = options.get('channel_label_combo')
     feature_meanall = feature_names + feature_names + feature_names + feature_names
 
+    if options.get('skip_texture'):
+        texture_channels = feature_meanall
+
+    #features only clustered once
+    meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
+    clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector_f,
+                                                                 options)  # -1 means use all segmentations
+
+    texture_matrix = cell_cluster_format(texture_vectors, -1, options)
+    clustercells_texture, clustercells_texturecenters = cell_cluster(texture_matrix, options)
+
+    cluster_cell_imguall = cell_map(mask, clustercells_uvall, seg_n, options)  # 0=use first segmentation to map
+    cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
+
+    if not options.get('skip_outlinePCA'):
+        clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
+        clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
+
     # for each channel in the mask
     for i in range(len(maskchs)):
         seg_n = mask.get_labels(maskchs[i])
 
         # format the feature arrays accordingly
-        if seg_n is 0:
-            meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
-            clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector_f,
-                                                                         options)  # -1 means use all segmentations
-            texture_matrix = cell_cluster_format(texture_vectors, -1, options)
-            clustercells_texture, clustercells_texturecenters = cell_cluster(texture_matrix, options)
-
         mean_vector_f = cell_cluster_format(mean_vector, seg_n, options)
         covar_matrix_f = cell_cluster_format(covar_matrix, seg_n, options)
         total_vector_f = cell_cluster_format(total_vector, seg_n, options)
@@ -1067,18 +1065,15 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
         cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
         cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
         cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
-        cluster_cell_imguall = cell_map(mask, clustercells_uvall, seg_n, options)  # 0=use first segmentation to map
-        cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
+
 
         print('Getting markers that separate clusters to make legend...')
         if not options.get('skip_outlinePCA'):
-            clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
-            clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
             # get markers for each respective cluster & then save the legend/markers
             make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
                          clustercells_uvallcenters,
-                         shapeclcenters, [clustercells_texturecenters,argv[4][1]])
+                         shapeclcenters, [clustercells_texturecenters, texture_channels])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov, clustercells_total,
@@ -1092,7 +1087,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
         else:
             make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, options, clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
-                         clustercells_uvallcenters, [clustercells_texturecenters,argv[3][1]])
+                         clustercells_uvallcenters, [clustercells_texturecenters, texture_channels])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov, clustercells_total,
@@ -1376,6 +1371,9 @@ def quality_control(mask: MaskStruct, img: IMGstruct, options: Dict):
     # find cells on edge
     find_edge_cells(mask)
 
+    # normalize bg intensities
+
+
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     bound = options.get("zslices")
@@ -1420,7 +1418,7 @@ def find_edge_cells(mask):
 
 def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances):
     '''
-    By: Young
+    By: Young Je Lee
     '''
     
     start_time = time.time()
@@ -1480,4 +1478,4 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, options):
     distances= [int(i) for i in distances]
     texture,texture_featureNames = glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances)
     print("GLCM calculations completed")
-    return [texture,texture_featureNames]
+    return [texture, texture_featureNames]
