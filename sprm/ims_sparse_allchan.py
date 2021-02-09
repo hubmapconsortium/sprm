@@ -12,8 +12,8 @@ from datetime import datetime
 Package for reallocating intensity from IMS image of lower resolution
 than a corresponding cell mask image
 Author: Robert F. Murphy and Ted
-5/21/2020 - 02/03/2020
-Version: 1.1
+5/21/2020 - 02/09/2020
+Version: 1.2
 
 
 """
@@ -498,10 +498,10 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # averagebackground average the pixels that don't have cells
 
     # print('IN REALLOCATE: ch-' + str(ichan) + '   time:' + str(datetime.now()))
-    descentrate = options.get('descentrate')
-    thresh = options.get('quit_criterion')
-    maxiter = options.get('num_of_its')
-    averagebackground = options.get('avg_bg')
+    descentrate = options.get('reallocation_descent_rate')
+    thresh = options.get('reallocation_quit_criterion')
+    maxiter = options.get('num_of_reallocations')
+    averagebackground = options.get('reallocation_avg_bg')
     # ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
     drate = descentrate  # set initial descent rate
     # M is all channels

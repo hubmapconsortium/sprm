@@ -1,5 +1,5 @@
 from SPRM_pkg import *
-from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape
+from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
 from argparse import ArgumentParser
 
 """
@@ -56,18 +56,27 @@ def main(
         im = IMGstruct(img_file, options)
         if options.get("debug"): print('Image dimensions: ', im.get_data().shape)
 
+        #if there are scenes or time points - remove them
+        if im.get_data().shape[0] > 1:
+            data = im.get_data()[0, 0, :, :, :, :]
+            data = data[np.newaxis, np.newaxis, :, :, :, :]
+            im.set_data(data)
+
         # get base file name for all output files
         baseoutputfilename = im.get_name()
 
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
 
+        # combination of mask_img & get_masked_imgs
+        ROI_coords = get_coordinates(mask, options)
+
         # quality control of image and mask for edge cells and best z slices +- n options
-        quality_control(mask, im, options)
+        quality_control(mask, im, ROI_coords, options)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
-
+        
         cell_total.append(len(mask.get_interior_cells()))
 
         bestz = mask.get_bestz()
@@ -101,6 +110,17 @@ def main(
         # and reallocate intensity to the mask resolution if not
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
+        #generate_fake_stackimg(im, mask, opt_img_file, options)
+
+        if options.get('skip_texture'):
+            #make fake textures matrix - all zeros
+            textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]
+            #save it
+            for i in range(2):
+                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:66])
+                df.to_csv(str(output_dir) + '/' + baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv')
+        else:
+            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # start time of processing a single img
@@ -113,20 +133,20 @@ def main(
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
-            # combination of mask_img & get_masked_imgs
-            ROI_coords = get_coordinates(mask, options)
-
             # get normalized shape representation of each cell
             if not options.get('skip_outlinePCA'):
                 outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
-                # pca_recon(shape_vectors, 3, pca)  # just for testing
-                pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
+                if options.get('debug'):
+                    bin_pca(shape_vectors, 1, cell_polygons, output_dir) #just for testing
+                    pca_recon(shape_vectors, 1, pca, output_dir)  # just for testing
+                    # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
                 write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
             else:
                 print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
             for j in range(0, len(ROI_coords)):
+                #
                 # get the mask for this particular segmentation
                 # (e.g., cells, nuclei...)
                 # labeled_mask, maskIDs = mask_img(mask, j)
@@ -150,19 +170,19 @@ def main(
 
             if not options.get('skip_outlinePCA'):
                 # save the means, covars, shape and total for each cell
-                save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+                save_all(baseoutputfilename, im, mask, output_dir, options, mean_vector, covar_matrix, total_vector,
                          shape_vectors)
 
                 # do cell analyze
-                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, options, mean_vector,
                               covar_matrix,
                               total_vector,
-                              shape_vectors)
+                              shape_vectors, textures)
             else:
                 # same functions as above just without shape outlines
                 save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector)
                 cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
-                              covar_matrix, total_vector)
+                              covar_matrix, total_vector, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
         print('Finished analyzing ' + str(idx + 1) + ' image(s)')

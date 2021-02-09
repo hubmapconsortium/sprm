@@ -6,13 +6,14 @@ from sklearn.cluster import KMeans
 from typing import List, Dict
 from scipy import interpolate, stats
 from collections import defaultdict
+from sklearn.metrics import silhouette_score
 
 """
 
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/03/2020
+01/21/2020 - 02/09/2020
 Version: 0.75
 
 
@@ -25,7 +26,25 @@ def shape_cluster(cell_matrix, options):
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
-    cellbycluster = KMeans(n_clusters=num_shapeclusters, \
+    if options.get("cluster_evaluation_method") == 'silhouette':
+        cluster_list = []
+        cluster_score = []
+        for i in range(2, num_shapeclusters + 1):
+            cellbycluster = KMeans(n_clusters=i, random_state=0)
+            preds = cellbycluster.fit_predict(cell_matrix)
+            cluster_list.append(cellbycluster)
+
+            score = silhouette_score(cell_matrix, preds)
+            cluster_score.append(score)
+
+        max_value = max(cluster_score)
+        idx = cluster_score.index(max_value)
+
+        cellbycluster = cluster_list[idx]
+        cellbycluster = cellbycluster.fit(cell_matrix)
+
+    else:
+        cellbycluster = KMeans(n_clusters=num_shapeclusters, \
                            random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
@@ -60,7 +79,36 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
 
     return features, pca_shapes
 
-def pca_recon(features, npca, pca):
+def bin_pca(features, npca, cell_coord, output_dir):
+    sort_idx = np.argsort(features[:, npca - 1])  # from min to max
+    idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
+    nfeatures = features[sort_idx, 0]
+    cbin = []
+
+    for i in range(10):
+        fbin = nfeatures[idx[i]:idx[i+1]]
+
+        #find median not mode
+        median = np.median(fbin)
+        # mode = stats.mode(fbin)
+
+        nidx = np.searchsorted(fbin, median, side="left")
+        r = range(idx[i], idx[i+1])
+        celln = sort_idx[r[nidx]]
+        cbin.append(celln)
+
+
+    f, axs = plt.subplots(1, 10)
+
+    for i in range(10):
+        cscell_coords = np.column_stack(cell_coord[cbin[i]])
+        axs[i].scatter(cscell_coords[0], cscell_coords[1])
+    plt.subplots_adjust(wspace=0.4)
+    # plt.show()
+    plt.savefig(output_dir / 'outlinePCA_bin_pca.png')
+    # plt.close()
+
+def pca_recon(features, npca, pca, output_dir):
 
     # d = defaultdict(list)
     sort_idx = np.argsort(features[:,0]) #from min to max
@@ -73,8 +121,10 @@ def pca_recon(features, npca, pca):
     del samples[npca - 1]
 
     for i in samples:
-        mode = stats.mode(rfeatures[:, i])
-        rfeatures[:, i] = mode[0]
+        #fin median not mode
+        median = np.median(rfeatures[:, i])
+        # mode = stats.mode(rfeatures[:, i])
+        rfeatures[:, i] = median
 
     #x is even y is odd
     rfeatures = pca.inverse_transform(rfeatures)
@@ -84,12 +134,13 @@ def pca_recon(features, npca, pca):
     for i in range(10):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
-    plt.show()
-    print('PLOT')
+    # plt.show()
+    plt.savefig(output_dir / 'outlinePCA_pca_recon.png')
+    # plt.close()
 
 
 
-def pca_cluster_shape(features, polyg, options):
+def pca_cluster_shape(features, polyg, output_dir, options):
     d = defaultdict(list)
     cell_labels, _ = shape_cluster(features, options)
     sort_idx = np.argsort(features[:, 0])
@@ -113,9 +164,9 @@ def pca_cluster_shape(features, polyg, options):
         # else:
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
     plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
-    plt.show()
-    print('PLOT')
-
+    # plt.show()
+    plt.savefig(output_dir / 'outlinePCA_cluster_pca.png')
+    # plt.close()
 
 def create_polygons(mask, bestz: int) -> List[str]:
     """
@@ -193,13 +244,14 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
     # pts = np.zeros((np.amax(cellmask), npoints * 2))
     pts = np.zeros((len(interiorCells), npoints * 2))
 
+    cell_coords = ROI_by_CH[0]
+
     # for i in range(1, np.amax(cellmask)+1):
     for i in range(0, len(interiorCells)):
         # if i not in cellmask:
         #    continue
         # coor = np.where(cellmask == i)
 
-        cell_coords = ROI_by_CH[0]
         ROI_coords = cell_coords[interiorCells[i]]
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
@@ -245,10 +297,13 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
             print(i)
             print(ptscov)
             print(ptscentered)
-
             cw = np.where(cellmask == i)
+            print(cw)
 
+            print('---')
+            print(ROI_coords)
             continue
+
 
         #check for NaNs & INFS
 
@@ -302,18 +357,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         cmask = np.zeros((max(tmatx) + 3, max(tmaty) + 3))
         cmask[tmatx + 1, tmaty + 1] = 1
         # fill the image to handle artifacts from rotation
-        # find an interior point
-        # can be taken care of by scipy's find contour - ted zhang 11/30/2020
         # cmask = fillimage(cmask)
-        #        cmask = flood_fill(cmask,seed,1)
 
         # plt.imshow(cmask)
         # plt.show()
 
-        # add flipping - skew
-
-
-        aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='low', positive_orientation='low')
+        aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='high', positive_orientation='low')
 
         x = aligned_outline[0][:, 0]
         y = aligned_outline[0][:, 1]
@@ -335,6 +384,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
 def linear_interpolation(x, y, npoints):
     points = np.array([x, y]).T  # a (nbre_points x nbre_dim) array
+
+    #nearest neighbor points:
+    #sorted to be points next to each other
+    #from 0 to n - 1 - loop
+    #sqrt((x(i) - x(i + 1))^2 + (y(i) - y(i + 1))^2) - distance b/w two points
+    #finaldis = find distance b/w last point and first point
 
     # Linear length along the line:
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
