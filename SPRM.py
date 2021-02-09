@@ -102,8 +102,11 @@ def main(
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
-        
-        textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
+
+        if options.get('skip_texture'):
+            textures = [0, 0]
+        else:
+            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # start time of processing a single img
@@ -160,7 +163,7 @@ def main(
                          shape_vectors)
 
                 # do cell analyze
-                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, options, mean_vector,
                               covar_matrix,
                               total_vector,
                               shape_vectors, textures)
