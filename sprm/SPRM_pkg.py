@@ -11,10 +11,10 @@ from itertools import product, chain, combinations
 import math
 from typing import Dict, List, Any, Sequence, Union
 from pathlib import Path
-from outlinePCA import shape_cluster
+from .outlinePCA import shape_cluster
 from skimage.filters import threshold_otsu
-from ims_sparse_allchan import findpixelfractions
-from ims_sparse_allchan import reallocateIMS as reallo
+from .ims_sparse_allchan import findpixelfractions
+from .ims_sparse_allchan import reallocateIMS as reallo
 import multiprocessing
 # from joblib import Parallel, delayed
 from skimage.feature.texture import greycomatrix, greycoprops

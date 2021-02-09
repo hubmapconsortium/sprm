@@ -1,7 +1,7 @@
-from SPRM_pkg import *
-from outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
+from .SPRM_pkg import *
+from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
 from argparse import ArgumentParser
-
+from typing import Optional
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -24,9 +24,9 @@ DEFAULT_TEMP_DIRECTORY = Path('temp')
 def main(
         img_dir: Path,
         mask_dir: Path,
-        output_dir: DEFAULT_OUTPUT_PATH,
-        options_path: DEFAULT_OUTPUT_PATH,
-        optional_img_dir=None
+        output_dir: Path = DEFAULT_OUTPUT_PATH,
+        options_path: Path = DEFAULT_OUTPUT_FILE,
+        optional_img_dir: Optional[Path] = None,
 ):
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
