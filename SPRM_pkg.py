@@ -1535,11 +1535,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
             texture_all = pd.concat([texture_all, texture], axis=1)
     texture_featureNames=list(texture_all.columns)
     texture_all = texture_all.to_numpy()
-    texture_all=np.reshape(texture_all,(cell_total[0],int(len(mask.channel_labels)/2),-1))
-    texture_all=np.swapaxes(texture_all,0,1)
-    texture_all=np.reshape(texture_all,(1,int(len(mask.channel_labels)/2),cell_total[0],-1,1))
-    # texture_all = np.reshape(texture_all,(1,int(len(mask.channel_labels) / 2),cell_total[0],len(im.channel_labels),-1))
-
+    texture_all=np.reshape(texture_all,(1,int(len(mask.channel_labels) / 2),cell_total[0],len(im.channel_labels),-1))
     return texture_all, texture_featureNames
 
 
