@@ -62,8 +62,11 @@ def main(
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
 
+        # combination of mask_img & get_masked_imgs
+        ROI_coords = get_coordinates(mask, options)
+
         # quality control of image and mask for edge cells and best z slices +- n options
-        quality_control(mask, im, options)
+        quality_control(mask, im, ROI_coords, options)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
@@ -104,7 +107,12 @@ def main(
         #generate_fake_stackimg(im, mask, opt_img_file, options)
 
         if options.get('skip_texture'):
-            textures = [0, 0]
+            #make fake textures matrix - all zeros
+            textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]
+            #save it
+            for i in range(2):
+                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:66])
+                df.to_csv(str(output_dir) + baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv')
         else:
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
@@ -119,17 +127,14 @@ def main(
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
-            # combination of mask_img & get_masked_imgs
-            ROI_coords = get_coordinates(mask, options)
-
             # get normalized shape representation of each cell
             if not options.get('skip_outlinePCA'):
                 outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get('debug'):
-                    bin_pca(shape_vectors, 1, cell_polygons) #just for testing
-                    pca_recon(shape_vectors, 1, pca)  # just for testing
-                    pca_cluster_shape(shape_vectors, cell_polygons, options)  # just for testing
+                    bin_pca(shape_vectors, 1, cell_polygons, output_dir) #just for testing
+                    pca_recon(shape_vectors, 1, pca, output_dir)  # just for testing
+                    # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
                 write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
             else:
                 print('Skipping outlinePCA...')
@@ -159,7 +164,7 @@ def main(
 
             if not options.get('skip_outlinePCA'):
                 # save the means, covars, shape and total for each cell
-                save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector,
+                save_all(baseoutputfilename, im, mask, output_dir, options, mean_vector, covar_matrix, total_vector,
                          shape_vectors)
 
                 # do cell analyze

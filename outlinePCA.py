@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans
 from typing import List, Dict
 from scipy import interpolate, stats
 from collections import defaultdict
+from sklearn.metrics import silhouette_score
 
 """
 
@@ -25,7 +26,25 @@ def shape_cluster(cell_matrix, options):
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
-    cellbycluster = KMeans(n_clusters=num_shapeclusters, \
+    if options.get("cluster_evaluation_method") == 'silhouette':
+        cluster_list = []
+        cluster_score = []
+        for i in range(2, num_shapeclusters + 1):
+            cellbycluster = KMeans(n_clusters=i, random_state=0)
+            preds = cellbycluster.fit_predict(cell_matrix)
+            cluster_list.append(cellbycluster)
+
+            score = silhouette_score(cell_matrix, preds)
+            cluster_score.append(score)
+
+        max_value = max(cluster_score)
+        idx = cluster_score.index(max_value)
+
+        cellbycluster = cluster_list[idx]
+        cellbycluster = cellbycluster.fit(cell_matrix)
+
+    else:
+        cellbycluster = KMeans(n_clusters=num_shapeclusters, \
                            random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
@@ -60,7 +79,7 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
 
     return features, pca_shapes
 
-def bin_pca(features, npca, cell_coord):
+def bin_pca(features, npca, cell_coord, output_dir):
     sort_idx = np.argsort(features[:, npca - 1])  # from min to max
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
     nfeatures = features[sort_idx, 0]
@@ -86,10 +105,10 @@ def bin_pca(features, npca, cell_coord):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig('outlinePCA_bin_pca.png')
+    plt.savefig(output_dir / 'outlinePCA_bin_pca.png')
     # plt.close()
 
-def pca_recon(features, npca, pca):
+def pca_recon(features, npca, pca, output_dir):
 
     # d = defaultdict(list)
     sort_idx = np.argsort(features[:,0]) #from min to max
@@ -116,12 +135,12 @@ def pca_recon(features, npca, pca):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig('outlinePCA_pca_recon.png')
+    plt.savefig(output_dir / 'outlinePCA_pca_recon.png')
     # plt.close()
 
 
 
-def pca_cluster_shape(features, polyg, options):
+def pca_cluster_shape(features, polyg, output_dir, options):
     d = defaultdict(list)
     cell_labels, _ = shape_cluster(features, options)
     sort_idx = np.argsort(features[:, 0])
@@ -146,7 +165,7 @@ def pca_cluster_shape(features, polyg, options):
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
     plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
     # plt.show()
-    plt.savefig('outlinePCA_cluster_pca.png')
+    plt.savefig(output_dir / 'outlinePCA_cluster_pca.png')
     # plt.close()
 
 def create_polygons(mask, bestz: int) -> List[str]:
