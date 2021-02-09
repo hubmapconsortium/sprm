@@ -1,6 +1,6 @@
 debug 1
 num_cellclusters 10
-num_voxelclusters 10
+num_voxelclusters 3
 num_markers 3
 num_channelPCA_components 3
 num_outlinepoints 100

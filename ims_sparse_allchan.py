@@ -12,8 +12,8 @@ from datetime import datetime
 Package for reallocating intensity from IMS image of lower resolution
 than a corresponding cell mask image
 Author: Robert F. Murphy and Ted
-5/21/2020 - 02/03/2020
-Version: 1.1
+5/21/2020 - 02/09/2020
+Version: 1.2
 
 
 """
