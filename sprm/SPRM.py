@@ -25,7 +25,7 @@ def main(
         img_dir: Path,
         mask_dir: Path,
         output_dir: Path = DEFAULT_OUTPUT_PATH,
-        options_path: Path = DEFAULT_OUTPUT_FILE,
+        options_path: Path = DEFAULT_OPTIONS_FILE,
         optional_img_dir: Optional[Path] = None,
 ):
     # get_imgs sorts to ensure the order of images and masks matches
