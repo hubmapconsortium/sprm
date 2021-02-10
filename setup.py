@@ -34,6 +34,7 @@ setup(
         'pandas',
         'scikit-image',
         'scikit-learn',
+        'tables',
     ],
     python_requires='>=3.6',
     entry_points={

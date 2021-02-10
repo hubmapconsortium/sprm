@@ -72,6 +72,16 @@ def main(
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
 
+        #hot fix for stitched images pipeline
+        #if there are scenes or time points - they should be channels
+        if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
+            # data = im.get_data()[0, 0, :, :, :, :]
+            # data = data[np.newaxis, np.newaxis, :, :, :, :]
+            data = mask.get_data()
+            s, t, c, z, y, x = data.shape
+            data = data.reshape(c, t, s, z, y, x)
+            mask.set_data(data)
+
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
 
@@ -106,7 +116,6 @@ def main(
         # do PCA on the channel values to find channel components
         reducedim = clusterchannels(im, options)
         PCA_img = plotprincomp(reducedim, bestz[0], baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
-
         # writing out as a ometiff file of visualizations by channels
         write_ometiff(im, output_dir, bestz, PCA_img, superpixels[bestz[0]])
 
