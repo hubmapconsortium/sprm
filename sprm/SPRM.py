@@ -56,10 +56,14 @@ def main(
         im = IMGstruct(img_file, options)
         if options.get("debug"): print('Image dimensions: ', im.get_data().shape)
 
-        #if there are scenes or time points - remove them
-        if im.get_data().shape[0] > 1:
-            data = im.get_data()[0, 0, :, :, :, :]
-            data = data[np.newaxis, np.newaxis, :, :, :, :]
+        #hot fix for stitched images pipeline
+        #if there are scenes or time points - they should be channels
+        if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
+            # data = im.get_data()[0, 0, :, :, :, :]
+            # data = data[np.newaxis, np.newaxis, :, :, :, :]
+            data = im.get_data()
+            s, t, c, z, y, x = data.shape
+            data = data.reshape(c, t, s, z, y, x)
             im.set_data(data)
 
         # get base file name for all output files
