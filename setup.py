@@ -29,6 +29,7 @@ setup(
         'aicsimageio',
         'manhole',
         'matplotlib',
+        'numba',
         'numpy',
         'pandas',
         'scikit-image',
