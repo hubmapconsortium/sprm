@@ -96,7 +96,7 @@ def main(
 
         bestz = mask.get_bestz()
         # empty mask skip tile
-        if not bestz and options.get('skip_empty_mask') is 1:
+        if not bestz and options.get('skip_empty_mask') == 1:
             print('Skipping tile...(mask is empty)')
             continue
         # if len(bestz) > 1:
