@@ -1510,31 +1510,29 @@ def find_edge_cells(mask):
     interiorCells = [i for i in unique if i != 0]
     mask.set_interior_cells(interiorCells)
 
-
 def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances):
     '''
     By: Young Je Lee
     '''
-    
-    start_time = time.time()
+
     colIndex = ['contrast', 'dissimilarity', 'homogeneity', 'ASM', 'energy', 'correlation']
     texture_all = pd.DataFrame()
     for i in range(int(len(mask.channel_labels) / 2)):  # latter ones are edge
         texture = pd.DataFrame()  # Cell, Nuclei
         for distance in distances:
             for j in range(len(im.channel_labels)):  # For each channel
-                print("current channel:", im.channel_labels[j])
+                originalImg = im.data[0, 0, j, bestz[0], :, :]
+                originalMask = mask.data[0, 0, i, bestz[0], :, :]
                 tex = pd.DataFrame()
                 for ls in range(len(colIndex)):
-                    tex.insert(len(tex.columns), str(im.channel_labels[j] + ":" + colIndex[ls]), 0)
+                    tex.insert(len(tex.columns), str(im.channel_labels[j] + ":" + colIndex[ls]+":"+str(distance)+":"+mask.channel_labels[i]), 0)
                 for idx in range(cell_total[0] + 1):  # For each cell
-                    img = im.data[0, 0, j, bestz[0], :, :].copy()
-                    interiormask = mask.data[0, 0, i, bestz[0], :, :].copy()
-                    interiormask[interiormask != idx] = 0  # Extract current idx cells
-                    interiormask[interiormask == idx] = 1  # Mask value should not multiplied
-                    img = img * interiormask  # Apply mask to the image
-                    img = uint16_2_uint8(img).astype(np.uint8)
-                    result = greycomatrix(img, [distance], angle)  # Calculate GLCM
+                    img =originalImg.copy()
+                    interiormask = originalMask.copy()
+                    interiormask=(interiormask==idx)                    
+                    img=np.multiply(interiormask,img)
+                    img=uint16_2_uint8(img)
+                    result = greycomatrix(img.astype(np.uint8), [distance], angle,levels=256)  # Calculate GLCM
                     result = result[1:, 1:]  # Remove background influence by delete first row & column
                     props = []
                     for ls in range(len(colIndex)):  # Get properties
@@ -1544,6 +1542,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
                     texture = tex
                 else:
                     texture = pd.concat([texture, tex], axis=1)
+
             texture = texture.drop(0)
             texture.index.name = 'ID'
             texture.to_csv('sprm_outputs/'+filename + '_' + mask.channel_labels[i] + '_' + str(distance) + '_texture.csv')
@@ -1559,9 +1558,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
 
 def uint16_2_uint8(uint16matrix):
     maxvalue = np.max(uint16matrix)
-    uint8 = 255
-    return np.round((uint16matrix) * uint8 / maxvalue)
-
+    return uint16matrix*(255 / maxvalue) 
 
 def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, options):
     angle = list(options.get('glcm_angles')[1:-1])
@@ -1571,3 +1568,4 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, options):
     texture,texture_featureNames = glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances)
     print("GLCM calculations completed")
     return [texture, texture_featureNames]
+
