@@ -42,6 +42,7 @@ FILENAMES_TO_IGNORE = frozenset({'.DS_Store'})
 num_cores = multiprocessing.cpu_count()
 
 
+
 class IMGstruct:
 
     def __init__(self, path: Path, options):
@@ -240,7 +241,7 @@ def cell_cluster(cell_matrix: np.ndarray, options: Dict) -> (np.ndarray, np.ndar
     # kmeans clustering
     print('Clustering cells...')
     # check of clusters vs. n_sample wanted
-    num_cellclusters = options.get("num_cellclusters")
+    cluster_method, num_cellclusters = options.get("num_cellclusters")
     if num_cellclusters > cell_matrix.shape[0]:
         print('reducing cell clusters to ', cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -251,7 +252,7 @@ def cell_cluster(cell_matrix: np.ndarray, options: Dict) -> (np.ndarray, np.ndar
         options.pop('texture_flag', None)
     else:
 
-        if options.get("cluster_evaluation_method") == 'silhouette':
+        if cluster_method == 'silhouette':
             cluster_list = []
             cluster_score = []
             for i in range(2, num_cellclusters + 1):
@@ -289,7 +290,8 @@ def cell_map(mask: MaskStruct, cc_v: np.ndarray, seg_n: int, options: Dict) -> n
     print('Mapping...')
     mask_img = mask.get_data()
     mask_img = mask_img[0, 0, seg_n, :, :, :]
-    temp = mask_img.copy()
+    # temp = mask_img.copy()
+    temp = np.zeros(mask_img.shape)
     # cluster_img = np.zeros(mask_img.shape)
     # start_time = time.monotonic()
     cc_v += 1
@@ -315,13 +317,15 @@ def cell_map(mask: MaskStruct, cc_v: np.ndarray, seg_n: int, options: Dict) -> n
 
 
 # @nb.njit(parallel=True)
-def nb_append_coord(masked_imgs_coord, rlabel_mask, indices):
+def append_coord(masked_imgs_coord, rlabel_mask, indices):
     for i in range(0, len(rlabel_mask)):
         masked_imgs_coord[rlabel_mask[i]][0].append(indices[0][i])
         masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
 
     return
 
+@nb.njit(parallel=True)
+def cell_num_index(flat_mask: np.ndarray, ):
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
     for j in range(0, len(mask_channels)):
@@ -331,7 +335,9 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
         indices = np.arange(len(rlabel_mask))
         indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
 
-        nb_append_coord(masked_imgs_coord, rlabel_mask, indices)
+        #normalize flattened mask into the actual number of cells
+
+        append_coord(masked_imgs_coord, rlabel_mask, indices)
         masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
 
         channel_coords.append(masked_imgs_coord)
@@ -352,7 +358,11 @@ def get_coordinates(mask, options):
     channel_coords = []
     # channel_coords_np = []
     mask_4D = mask.get_data()[0, 0, :, :, :, :]
-    maxvalue = np.max(mask_4D) + 1
+
+    # find cell index - not sequential
+    cell_num = np.unique(mask_4D)
+    maxvalue = len(cell_num)
+    mask.set_cell_index(cell_num)
 
     for i in range(0, mask_4D.shape[0]):
         mask_channels.append(mask_4D[i, :, :, :])
@@ -367,30 +377,30 @@ def get_coordinates(mask, options):
 
     return channel_coords
 
-@nb.njit(parallel=True)
-def test(cell_count, mask_ch, maxcell):
-    for i in nb.prange(0, maxcell):
-        coords = np.where(mask_ch == i)
-        cell_count.append(coords)
-
-
-def get_coordinates_nb(mask):
-    mask_channels = []
-    channel_coords = []
-    mask_4D = mask.get_data()[0, 0, :, :, :, :]
-    maxvalue = np.max(mask_4D) + 1
-
-    for i in range(0, mask_4D.shape[0]):
-        mask_channels.append(mask_4D[i, :, :, :])
-
-    for j in range(len(mask_channels)):
-        cell_count = nbList(lsttype=ListType(UniTuple(int64[:], 2)))
-        cell_count = test(cell_count, mask_channels[j][0], maxvalue)
-
-        channel_coords.append(cell_count)
-
-    return channel_coords
-
+# @nb.njit(parallel=True)
+# def test(cell_count, mask_ch, maxcell):
+#     for i in nb.prange(0, maxcell):
+#         coords = np.where(mask_ch == i)
+#         cell_count.append(coords)
+#
+#
+# def get_coordinates_nb(mask):
+#     mask_channels = []
+#     channel_coords = []
+#     mask_4D = mask.get_data()[0, 0, :, :, :, :]
+#     maxvalue = np.max(mask_4D) + 1
+#
+#     for i in range(0, mask_4D.shape[0]):
+#         mask_channels.append(mask_4D[i, :, :, :])
+#
+#     for j in range(len(mask_channels)):
+#         cell_count = nbList(lsttype=ListType(UniTuple(int64[:], 2)))
+#         cell_count = test(cell_count, mask_channels[j][0], maxvalue)
+#
+#         channel_coords.append(cell_count)
+#
+#     return channel_coords
+#
 
 # not used anymore
 def mask_img(mask: MaskStruct, j: int) -> (np.ndarray, np.ndarray):
@@ -1172,9 +1182,17 @@ def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
     options = {}
     with open(options_path) as f:
         for line in f:
-            (key, val) = line.split()
-            val = is_number(val)
-            options[key] = val
+            split = line.split()
+            if len(split) < 3:
+                (key, value) = split
+                value = is_number(value)
+                options[key] = value
+            else:
+                key = split[0]
+                value = split[1:]
+                for i in range(len(value)):
+                    value[i] = is_number(value[i])
+                options[key] = value
     return options
 
 

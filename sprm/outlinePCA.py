@@ -21,12 +21,12 @@ Version: 0.75
 
 
 def shape_cluster(cell_matrix, options):
-    num_shapeclusters = options.get("num_shapeclusters")
+    cluster_method, num_shapeclusters = options.get("num_shapeclusters")
     if num_shapeclusters > cell_matrix.shape[0]:
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
-    if options.get("cluster_evaluation_method") == 'silhouette':
+    if cluster_method == 'silhouette':
         cluster_list = []
         cluster_score = []
         for i in range(2, num_shapeclusters + 1):
@@ -294,20 +294,17 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # print(ptscov)
 
         if np.isnan(ptscov).any():
-            print(i)
-            print(ptscov)
-            print(ptscentered)
-            cw = np.where(cellmask == i)
-            print(cw)
+            if options.get('debug'):
+                print(i)
+                print(ptscov)
+                print(ptscentered)
+                # cw = np.where(cellmask == i)
+                # print(cw)
 
-            print('---')
-            print(ROI_coords)
+                # print('---')
+                # print(ROI_coords)
             continue
 
-
-        #check for NaNs & INFS
-
-        #throws infs or nans errors - need to fix - 01/20/2020
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
         # print(eigenvals,eigenvecs)
         sindices = np.argsort(eigenvals)[::-1]
