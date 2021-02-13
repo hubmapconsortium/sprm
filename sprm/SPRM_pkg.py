@@ -1521,6 +1521,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
         texture = pd.DataFrame()  # Cell, Nuclei
         for distance in distances:
             for j in range(len(im.channel_labels)):  # For each channel
+                #print("current calculation:",im.channel_labels[j]+"_"+str(distance)+"_"+mask.channel_labels[i])
                 originalImg = im.data[0, 0, j, bestz[0], :, :]
                 originalMask = mask.data[0, 0, i, bestz[0], :, :]
                 tex = pd.DataFrame()
@@ -1532,7 +1533,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
                     interiormask=(interiormask==idx)                    
                     img=np.multiply(interiormask,img)
                     img=uint16_2_uint8(img)
-                    result = greycomatrix(img.astype(np.uint8), [distance], angle,levels=256)  # Calculate GLCM
+                    result = greycomatrix(img.astype(np.uint8), [distance], [angle],levels=256)  # Calculate GLCM
                     result = result[1:, 1:]  # Remove background influence by delete first row & column
                     props = []
                     for ls in range(len(colIndex)):  # Get properties
@@ -1542,7 +1543,6 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
                     texture = tex
                 else:
                     texture = pd.concat([texture, tex], axis=1)
-
             texture = texture.drop(0)
             texture.index.name = 'ID'
             texture.to_csv('sprm_outputs/'+filename + '_' + mask.channel_labels[i] + '_' + str(distance) + '_texture.csv')
@@ -1552,18 +1552,22 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
             texture_all = pd.concat([texture_all, texture], axis=1)
     texture_featureNames=list(texture_all.columns)
     texture_all = texture_all.to_numpy()
-    texture_all=np.reshape(texture_all,(1,int(len(mask.channel_labels) / 2),cell_total[0],len(im.channel_labels),-1))
+    texture_all=np.reshape(texture_all,(1,int(len(mask.channel_labels) / 2),cell_total[0],len(im.channel_labels),len(colIndex)*len(distances)))
     return texture_all, texture_featureNames
 
 
 def uint16_2_uint8(uint16matrix):
     maxvalue = np.max(uint16matrix)
+    if maxvalue==0:
+        return uint16matrix
     return uint16matrix*(255 / maxvalue) 
 
 def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, options):
-    angle = list(options.get('glcm_angles')[1:-1])
-    distances = options.get('glcm_distances')[1:-1].split(',')
-    angle = [int(i) for i in angle]
+    angle = options.get('glcm_angles')
+    distances = options.get('glcm_distances')
+    angle=''.join(angle)[1:-1].split(',')
+    distances=''.join(distances)[1:-1].split(',')
+    angle = [int(i) for i in angle][0] #Only supports 0 for now
     distances= [int(i) for i in distances]
     texture,texture_featureNames = glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances)
     print("GLCM calculations completed")
