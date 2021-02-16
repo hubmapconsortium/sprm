@@ -295,14 +295,14 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
         if np.isnan(ptscov).any():
             if options.get('debug'):
-                print(i)
+                print(interiorCells[i])
                 print(ptscov)
                 print(ptscentered)
-                # cw = np.where(cellmask == i)
-                # print(cw)
+                cw = np.where(cellmask == interiorCells[i])
+                print(cw)
 
-                # print('---')
-                # print(ROI_coords)
+                print('---')
+                print(ROI_coords)
             continue
 
         eigenvals, eigenvecs = np.linalg.eig(ptscov)

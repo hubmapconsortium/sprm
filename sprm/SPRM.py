@@ -91,8 +91,9 @@ def main(
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
-        
-        cell_total.append(len(mask.get_interior_cells()))
+
+        inCells = mask.get_interior_cells()
+        cell_total.append(len(inCells))
 
         bestz = mask.get_bestz()
         # empty mask skip tile
@@ -133,7 +134,7 @@ def main(
             #save it
             for i in range(2):
                 df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6])
-                df.to_csv(str(output_dir) + baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv')
+                df.to_csv(output_dir / (baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv'))
         else:
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
@@ -160,8 +161,7 @@ def main(
             else:
                 print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
-            for j in range(0, len(ROI_coords)):
-                #
+            for j in range(0, mask.get_data().shape[2]):
                 # get the mask for this particular segmentation
                 # (e.g., cells, nuclei...)
                 # labeled_mask, maskIDs = mask_img(mask, j)
@@ -172,7 +172,7 @@ def main(
 
                 masked_imgs_coord = ROI_coords[j]
                 # get only the ROIs that are interior
-                masked_imgs_coord = [masked_imgs_coord[i] for i in mask.get_interior_cells()]
+                masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
 
                 covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
                 mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
