@@ -29,7 +29,7 @@ setup(
         "": ["*.txt"],
     },
     install_requires=[
-        "aicsimageio",
+        "aicsimageio<3.2",
         "manhole",
         "matplotlib",
         "numba",
@@ -38,6 +38,7 @@ setup(
         "scikit-image",
         "scikit-learn",
         "tables",
+        "tifffile==2020.2.16",
     ],
     python_requires=">=3.6",
     entry_points={
