@@ -10,9 +10,9 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
            paired segmentation OME-TIFFs in "mask_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
-Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.75
-01/21/2020 - 02/03/2020
+Authors:   Ted (Ce) Zhang and Robert F. Murphy
+Version:   0.80
+01/21/2020 - 02/17/2020
  
 
 """
@@ -47,6 +47,10 @@ def main(
 
     # store results in a dir
     check_output_dir(output_dir, options)
+
+    # start time of processing a single img
+    stime = time.monotonic() if options.get("debug") else None
+
     # loop of img files
     for idx in range(0, len(img_files)):
 
@@ -139,8 +143,7 @@ def main(
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
-        # start time of processing a single img
-        stime = time.monotonic() if options.get("debug") else None
+
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):

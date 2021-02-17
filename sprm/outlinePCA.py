@@ -13,8 +13,8 @@ from sklearn.metrics import silhouette_score
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/09/2020
-Version: 0.75
+01/21/2020 - 02/17/2020
+Version: 0.80
 
 
 """
