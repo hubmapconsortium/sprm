@@ -1,7 +1,8 @@
+from typing import Optional
+
 from .SPRM_pkg import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
-from argparse import ArgumentParser
-from typing import Optional
+
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -9,9 +10,9 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
            paired segmentation OME-TIFFs in "mask_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
-Authors:   Ted Zhang and Robert F. Murphy
-Version:   0.75
-01/21/2020 - 02/03/2020
+Authors:   Ted (Ce) Zhang and Robert F. Murphy
+Version:   0.80
+01/21/2020 - 02/17/2020
  
 
 """
@@ -46,6 +47,10 @@ def main(
 
     # store results in a dir
     check_output_dir(output_dir, options)
+
+    # start time of processing a single img
+    stime = time.monotonic() if options.get("debug") else None
+
     # loop of img files
     for idx in range(0, len(img_files)):
 
@@ -90,8 +95,9 @@ def main(
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
-        
-        cell_total.append(len(mask.get_interior_cells()))
+
+        inCells = mask.get_interior_cells()
+        cell_total.append(len(inCells))
 
         bestz = mask.get_bestz()
         # empty mask skip tile
@@ -116,6 +122,7 @@ def main(
         # do PCA on the channel values to find channel components
         reducedim = clusterchannels(im, options)
         PCA_img = plotprincomp(reducedim, bestz[0], baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
+
         # writing out as a ometiff file of visualizations by channels
         write_ometiff(im, output_dir, bestz, PCA_img, superpixels[bestz[0]])
 
@@ -131,13 +138,12 @@ def main(
             #save it
             for i in range(2):
                 df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6])
-                df.to_csv(str(output_dir) + '/' + baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv')
+                df.to_csv(output_dir / (baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv'))
         else:
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
-        # start time of processing a single img
-        stime = time.monotonic() if options.get("debug") else None
+
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
@@ -158,8 +164,7 @@ def main(
             else:
                 print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
-            for j in range(0, len(ROI_coords)):
-                #
+            for j in range(0, mask.get_data().shape[2]):
                 # get the mask for this particular segmentation
                 # (e.g., cells, nuclei...)
                 # labeled_mask, maskIDs = mask_img(mask, j)
@@ -170,7 +175,7 @@ def main(
 
                 masked_imgs_coord = ROI_coords[j]
                 # get only the ROIs that are interior
-                masked_imgs_coord = [masked_imgs_coord[i] for i in mask.get_interior_cells()]
+                masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
 
                 covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
                 mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
@@ -207,18 +212,3 @@ def main(
 
     # recluster features
     # recluster(output_dir, im, options)
-
-
-if __name__ == "__main__":
-    p = ArgumentParser()
-    p.add_argument('img_dir', type=Path)
-    p.add_argument('mask_dir', type=Path)
-    p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
-    p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
-    p.add_argument('optional_img_dir', type=Path, nargs='?', default=False)
-    argss = p.parse_args()
-
-    if argss.optional_img_dir:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)
-    else:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)
