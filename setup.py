@@ -9,7 +9,7 @@ with open(here / "README.md", encoding="utf-8") as f:
 
 setup(
     name="SPRM",
-    version="0.55",
+    version="0.80",
     description="Spatial Process & Relationship Modeling ",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -21,6 +21,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     keywords="sprm",
     packages=find_packages(),
