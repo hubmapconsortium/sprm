@@ -146,7 +146,7 @@ def main(
                 df.index.name = 'ID'
                 df.to_csv(output_dir / (baseoutputfilename + '-' + mask.channel_labels[i] + '_0_texture.csv'))
         else:
-            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
+            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, ROI_coords, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
 
