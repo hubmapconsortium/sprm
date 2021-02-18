@@ -1,7 +1,9 @@
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-import re
+from PIL import Image
 import numpy as np
+import matplotlib
+import matplotlib.cm
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 import time
@@ -23,6 +25,12 @@ from numba.typed import Dict as nbDict
 # from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
 
+from .constants import (
+    FILENAMES_TO_IGNORE,
+    INTEGER_PATTERN,
+    figure_save_params,
+)
+
 """
 
 Companion to SPRM.py
@@ -33,14 +41,6 @@ Version: 0.80
 
 
 """
-
-'''
-Global vars
-'''
-INTEGER_PATTERN = re.compile(r'(\d+)')
-FILENAMES_TO_IGNORE = frozenset({'.DS_Store'})
-num_cores = multiprocessing.cpu_count()
-
 
 class IMGstruct:
 
@@ -181,6 +181,16 @@ class MaskStruct(IMGstruct):
 
     def get_bad_cells(self):
         return self.bad_cells
+
+def save_image(a: np.ndarray, file_path: Union[str, Path]):
+    """
+    :param a: 2-dimensional NumPy array
+    """
+    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
+    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.viridis)
+    colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
+    i = Image.fromarray(colors, mode="RGBA")
+    i.save(file_path)
 
 def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarray, np.ndarray):
     '''
@@ -664,7 +674,7 @@ def clusterchannels(im: IMGstruct, options: Dict) -> np.ndarray:
     if options.get("debug"): print(channvals.shape)
     reducedim = pca_channels.fit_transform(channvals)
     if options.get("debug"):
-        print('PCA Channels: \n', pca_channels)
+        print('PCA Channels:', pca_channels, sep='\n')
         print('Explained variance ratio: ', pca_channels.explained_variance_ratio_)
         print('Singular values: ', pca_channels.singular_values_)
         print('Image dimensions before transposing & reshaping: ', reducedim.shape)
@@ -698,15 +708,10 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
         cmin = plotim[:, :, i].min()
         cmax = plotim[:, :, i].max()
         if options.get("debug"): print('Min and Max after normalization: ', cmin, cmax)
-    plotim = plotim.round()
-    plotim = plotim.astype(int)
-    plt.clf()
-    plt.imshow(plotim)
-    plt.axis('off')
-    # plt.show(block=False)
-    f = output_dir / (filename)
-    plt.savefig(f)
-    plt.close()
+
+    plotim = plotim.round().astype(np.uint8)
+    img = Image.fromarray(plotim, mode='RGB')
+    img.save(output_dir / filename)
 
     return plotim
 
@@ -990,13 +995,8 @@ def cell_cluster_IDs(filename: str, output_dir: Path, i: int, maskchs: List, opt
 
 def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path):
     cluster_im = get_last2d(cluster_im, bestz)
-    plt.imshow(cluster_im, interpolation='nearest')
-    plt.axis('off')
-    # plt.show(block=False)
-    f = output_dir / (filename)
-    plt.savefig(f)
-    plt.close()
 
+    save_image(cluster_im, output_dir / filename)
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
     plot_img(argv[0], 0, filename + '-Cluster_Means_' + maskchs[i] + '.png', output_dir)
@@ -1020,7 +1020,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
         retmarkers = findmarkers(argv[3], options)
         table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall, options)
         write_2_csv(markers, table, filename + '-cluster_cell_meanALLCH_legend', output_dir, options)
-        showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.png', output_dir)
+        showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.pdf', output_dir)
 
         if not options.get('skip_outlinePCA'):
             feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
@@ -1028,13 +1028,13 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             retmarkers = findmarkers(argv[4], options)
             table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
             write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
-            showlegend(markers, table, filename + '-cluster_cell_shape_legend.png', output_dir)
+            showlegend(markers, table, filename + '-cluster_cell_shape_legend.pdf', output_dir)
 
         print('Finding cell texture cluster markers...')
         retmarkers = findmarkers(argv[-1][0], options)
         table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
         write_2_csv(markers, table, filename + '-cluster_cell_texture_legend', output_dir, options)
-        showlegend(markers, table, filename + '-cluster_cell_texture_legend.png', output_dir)
+        showlegend(markers, table, filename + '-cluster_cell_texture_legend.pdf', output_dir)
 
     print('Legend for mask channel: ' + str(i))
 
@@ -1047,16 +1047,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_mean_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_mean_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_mean_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluste_nucboundary_mean_legend.pdf', output_dir)
 
         elif j == 1:
             print('Finding covariance cluster markers...')
@@ -1065,16 +1065,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
 
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_covariance_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_covariance_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_covariance_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluste_nucboundary_covariance_legend.pdf', output_dir)
 
         elif j == 2:
             print('Finding total cluster markers...')
@@ -1083,16 +1083,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
 
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_total_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_total_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_total_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nucboundary_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nucboundary_total_legend.pdf', output_dir)
 
 
 def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, options: Dict, *argv):
@@ -1289,8 +1289,7 @@ def showlegend(markernames: List[str], markertable: np.ndarray, outputfile: str,
     frame1 = plt.gca()
     frame1.axes.get_xaxis().set_ticks([])
     # plt.show(block=False)
-    f = output_dir / outputfile
-    plt.savefig(f)
+    plt.savefig(output_dir / outputfile, **figure_save_params)
     plt.close()
 
 
