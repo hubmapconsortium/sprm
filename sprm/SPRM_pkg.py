@@ -1020,7 +1020,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
         retmarkers = findmarkers(argv[3], options)
         table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall, options)
         write_2_csv(markers, table, filename + '-cluster_cell_meanALLCH_legend', output_dir, options)
-        showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.png', output_dir)
+        showlegend(markers, table, filename + '-cluster_cell_meanALLCH_legend.pdf', output_dir)
 
         if not options.get('skip_outlinePCA'):
             feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
@@ -1028,13 +1028,13 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             retmarkers = findmarkers(argv[4], options)
             table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
             write_2_csv(markers, table, filename + '-cluster_cell_shape_legend', output_dir, options)
-            showlegend(markers, table, filename + '-cluster_cell_shape_legend.png', output_dir)
+            showlegend(markers, table, filename + '-cluster_cell_shape_legend.pdf', output_dir)
 
         print('Finding cell texture cluster markers...')
         retmarkers = findmarkers(argv[-1][0], options)
         table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
         write_2_csv(markers, table, filename + '-cluster_cell_texture_legend', output_dir, options)
-        showlegend(markers, table, filename + '-cluster_cell_texture_legend.png', output_dir)
+        showlegend(markers, table, filename + '-cluster_cell_texture_legend.pdf', output_dir)
 
     print('Legend for mask channel: ' + str(i))
 
@@ -1047,16 +1047,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_mean_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_mean_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_mean_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_mean_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_mean_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluste_nucboundary_mean_legend.pdf', output_dir)
 
         elif j == 1:
             print('Finding covariance cluster markers...')
@@ -1065,16 +1065,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
 
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_covariance_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_covariance_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_covariance_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_covariance_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluste_nucboundary_covariance_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluste_nucboundary_covariance_legend.pdf', output_dir)
 
         elif j == 2:
             print('Finding total cluster markers...')
@@ -1083,16 +1083,16 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
 
             if i == 0:
                 write_2_csv(markers, table, filename + '-cluster_cell_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cell_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cell_total_legend.pdf', output_dir)
             elif i == 1:
                 write_2_csv(markers, table, filename + '-cluster_nuc_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nuc_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nuc_total_legend.pdf', output_dir)
             elif i == 2:
                 write_2_csv(markers, table, filename + '-cluster_cellsboundary_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_cellsboundary_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_cellsboundary_total_legend.pdf', output_dir)
             elif i == 3:
                 write_2_csv(markers, table, filename + '-cluster_nucboundary_total_legend', output_dir, options)
-                showlegend(markers, table, filename + '-cluster_nucboundary_total_legend.png', output_dir)
+                showlegend(markers, table, filename + '-cluster_nucboundary_total_legend.pdf', output_dir)
 
 
 def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, options: Dict, *argv):
