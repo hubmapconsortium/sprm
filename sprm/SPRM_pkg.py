@@ -1289,8 +1289,7 @@ def showlegend(markernames: List[str], markertable: np.ndarray, outputfile: str,
     frame1 = plt.gca()
     frame1.axes.get_xaxis().set_ticks([])
     # plt.show(block=False)
-    f = output_dir / outputfile
-    plt.savefig(f)
+    plt.savefig(output_dir / outputfile, **figure_save_params)
     plt.close()
 
 

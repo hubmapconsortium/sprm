@@ -8,6 +8,8 @@ from scipy import interpolate, stats
 from collections import defaultdict
 from sklearn.metrics import silhouette_score
 
+from .constants import figure_save_params
+
 """
 
 Companion to SPRM.py
@@ -105,7 +107,7 @@ def bin_pca(features, npca, cell_coord, output_dir):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_bin_pca.png')
+    plt.savefig(output_dir / 'outlinePCA_bin_pca.pdf', **figure_save_params)
     # plt.close()
 
 def pca_recon(features, npca, pca, output_dir):
@@ -135,7 +137,7 @@ def pca_recon(features, npca, pca, output_dir):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_pca_recon.png')
+    plt.savefig(output_dir / 'outlinePCA_pca_recon.pdf', **figure_save_params)
     # plt.close()
 
 
@@ -165,7 +167,7 @@ def pca_cluster_shape(features, polyg, output_dir, options):
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
     plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_cluster_pca.png')
+    plt.savefig(output_dir / 'outlinePCA_cluster_pca.pdf', **figure_save_params)
     # plt.close()
 
 def create_polygons(mask, bestz: int) -> List[str]:
@@ -224,7 +226,10 @@ def cell_coord_debug(mask, nseg, npoints):
         axs[2].set_title('Resampling')
         axs[2].scatter(temp_list[i][:, 0], temp_list[i][:, 1])
 
-        plt.savefig('./debug/coordinates_comparison_cell_' + str(i + 1))
+        plt.savefig(
+            f'./debug/coordinates_comparison_cell_{i + 1}',
+            **figure_save_params,
+        )
 
 
 def getparametricoutline(mask, nseg, ROI_by_CH, options):
@@ -553,5 +558,5 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
             break
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
-        plt.savefig(filename + '-cellshapescluster' + str(k) + '.png')
+        plt.savefig(f'{filename}-cellshapescluster{k}.png', **figure_save_params)
 
