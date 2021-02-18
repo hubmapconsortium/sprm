@@ -23,6 +23,12 @@ from numba.typed import Dict as nbDict
 # from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
 
+from .constants import (
+    FILENAMES_TO_IGNORE,
+    INTEGER_PATTERN,
+    figure_save_params,
+)
+
 """
 
 Companion to SPRM.py
@@ -33,14 +39,6 @@ Version: 0.80
 
 
 """
-
-'''
-Global vars
-'''
-INTEGER_PATTERN = re.compile(r'(\d+)')
-FILENAMES_TO_IGNORE = frozenset({'.DS_Store'})
-num_cores = multiprocessing.cpu_count()
-
 
 class IMGstruct:
 
@@ -664,7 +662,7 @@ def clusterchannels(im: IMGstruct, options: Dict) -> np.ndarray:
     if options.get("debug"): print(channvals.shape)
     reducedim = pca_channels.fit_transform(channvals)
     if options.get("debug"):
-        print('PCA Channels: \n', pca_channels)
+        print('PCA Channels:', pca_channels, sep='\n')
         print('Explained variance ratio: ', pca_channels.explained_variance_ratio_)
         print('Singular values: ', pca_channels.singular_values_)
         print('Image dimensions before transposing & reshaping: ', reducedim.shape)
