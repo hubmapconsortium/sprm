@@ -1,7 +1,9 @@
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-import re
+from PIL import Image
 import numpy as np
+import matplotlib
+import matplotlib.cm
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 import time
@@ -179,6 +181,16 @@ class MaskStruct(IMGstruct):
 
     def get_bad_cells(self):
         return self.bad_cells
+
+def save_image(a: np.ndarray, file_path: Union[str, Path]):
+    """
+    :param a: 2-dimensional NumPy array
+    """
+    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
+    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.viridis)
+    colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
+    i = Image.fromarray(colors, mode="RGBA")
+    i.save(file_path)
 
 def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarray, np.ndarray):
     '''
@@ -696,15 +708,10 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
         cmin = plotim[:, :, i].min()
         cmax = plotim[:, :, i].max()
         if options.get("debug"): print('Min and Max after normalization: ', cmin, cmax)
-    plotim = plotim.round()
-    plotim = plotim.astype(int)
-    plt.clf()
-    plt.imshow(plotim)
-    plt.axis('off')
-    # plt.show(block=False)
-    f = output_dir / (filename)
-    plt.savefig(f)
-    plt.close()
+
+    plotim = plotim.round().astype(np.uint8)
+    img = Image.fromarray(plotim, mode='RGB')
+    img.save(output_dir / filename)
 
     return plotim
 
@@ -988,13 +995,8 @@ def cell_cluster_IDs(filename: str, output_dir: Path, i: int, maskchs: List, opt
 
 def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path):
     cluster_im = get_last2d(cluster_im, bestz)
-    plt.imshow(cluster_im, interpolation='nearest')
-    plt.axis('off')
-    # plt.show(block=False)
-    f = output_dir / (filename)
-    plt.savefig(f)
-    plt.close()
 
+    save_image(cluster_im, output_dir / filename)
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
     plot_img(argv[0], 0, filename + '-Cluster_Means_' + maskchs[i] + '.png', output_dir)
