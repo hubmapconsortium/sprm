@@ -94,11 +94,15 @@ def main(
         # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, ROI_coords, options)
 
-        # signal to noise ratio of the image
-        SNR(im, baseoutputfilename, output_dir, options)
-
+        # get cells to be processed
         inCells = mask.get_interior_cells()
         cell_total.append(len(inCells))
+
+        #save cell graphs
+        cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
+
+        # signal to noise ratio of the image
+        SNR(im, baseoutputfilename, output_dir, options)
 
         bestz = mask.get_bestz()
         # empty mask skip tile
