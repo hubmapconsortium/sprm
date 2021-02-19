@@ -1468,7 +1468,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
                     texture = pd.concat([texture, tex], axis=1)
             texture = texture.drop(0)
             texture.index.name = 'ID'
-            texture.to_csv(output_dir / (filename + '_' + mask.channel_labels[i] + '_' + str(distance) + '_texture.csv'))
+            texture.to_csv(output_dir / (filename + '-' + mask.channel_labels[i] + '_' + str(distance) + '_texture.csv'))
         if len(texture_all) == 0:
             texture_all = texture
         else:
