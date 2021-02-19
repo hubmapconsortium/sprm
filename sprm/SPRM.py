@@ -142,7 +142,8 @@ def main(
             textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]
             #save it
             for i in range(2):
-                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6])
+                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6], index=list(range(1, len(inCells) + 1)))
+                df.index.name = 'ID'
                 df.to_csv(output_dir / (baseoutputfilename + '-' + mask.channel_labels[i] + '_0_texture.csv'))
         else:
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
