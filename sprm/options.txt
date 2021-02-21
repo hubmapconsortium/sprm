@@ -20,3 +20,4 @@ skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
 skip_texture 1
+zscore_before_pca 1

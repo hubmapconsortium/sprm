@@ -499,6 +499,8 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
     if len(sub_matrix.shape) < 3:
         if 'shape' in s:
             header = [i for i in range(1, sub_matrix.shape[1] + 1)]
+        elif 'PCA' in s:
+            header = names.append('Explain Variance')
         else:
             header = names
     elif 'covar' in s:
@@ -530,8 +532,13 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dic
     f = output_dir / (s + '.csv')
 
     # column header for indices
-    df.index.name = 'ID'
+    if 'PCA' in s:
+        df.index.name = 'PCA #'
+    else:
+        df.index.name = 'ID'
+
     df.to_csv(f, header=header)
+
 
     # Sean Donahue - 11/12/20
     key_parts = s.replace('-', '_').split('_')
@@ -573,7 +580,7 @@ def build_vector(im: IMGstruct, mask: MaskStruct, masked_imgs_coord: List[np.nda
         return omatrix
 
 
-def clusterchannels(im: IMGstruct, options: Dict) -> np.ndarray:
+def clusterchannels(im: IMGstruct, fname: str, output_dir: Path, options: Dict) -> np.ndarray:
     '''
         cluster all channels using PCA
     '''
@@ -594,6 +601,14 @@ def clusterchannels(im: IMGstruct, options: Dict) -> np.ndarray:
     reducedim = reducedim.transpose()
     reducedim = reducedim.reshape(reducedim.shape[0], keepshape[1], keepshape[2], keepshape[3])
     if options.get("debug"): print('Image dimensions after transposing and reshaping: ', reducedim.shape)
+
+    #find pca comp and explained variance and concatenate
+    a = pca_channels.explained_variance_ratio_
+    b = abs(pca_channels.components_)
+    c = np.column_stack((b, a))
+
+    write_2_file(c, fname + '-PCA_channel_summary', im, output_dir, options)
+
     return reducedim
 
 
