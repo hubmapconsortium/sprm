@@ -257,9 +257,12 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
         # cell_matrix2 = cell_matrix2.reshape(
         #     (cell_matrix2.shape[0], cell_matrix2.shape[1] * cell_matrix2.shape[2] * cell_matrix2.shape[3]))
 
-        cell_matrix = cell_matrix.reshape(
-            (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
+        cell_matrix = np.squeeze(cell_matrix)
+        cell_matrix = np.concatenate(cell_matrix, axis = 1)
+        # cell_matrix = cell_matrix.reshape(
+        #     (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
+        # cell_matrix =
     return cell_matrix
 
 
@@ -496,7 +499,7 @@ def get_paths(img_dir: Path) -> Sequence[Path]:
 
 def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[str], Any):
     # can use dict switch to speed up access if the formats get > 5
-    names = img.get_channel_labels()
+    names = img.get_channel_labels().copy()
     if len(sub_matrix.shape) < 3:
         if 'shape' in s:
             header = [i for i in range(1, sub_matrix.shape[1] + 1)]
