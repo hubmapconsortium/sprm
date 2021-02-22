@@ -24,6 +24,7 @@ import numba as nb
 from numba.typed import Dict as nbDict
 # from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
+from scipy import stats
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -627,6 +628,10 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
     if options.get("debug"):
         print('Before Transpose:', reducedim.shape)
         print('After Transpose: ', plotim.shape)
+
+    #zscore
+    if options.get('zscore_before_pca'):
+        plotim = stats.zscore(plotim)
 
     for i in range(0, 3):
         cmin = plotim[:, :, i].min()

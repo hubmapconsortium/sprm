@@ -125,7 +125,7 @@ def main(
         plot_img(superpixels, bestz[0], baseoutputfilename + '-Superpixels.png', output_dir)
 
         # do PCA on the channel values to find channel components
-        reducedim, pca_channels = clusterchannels(im, baseoutputfilename, output_dir, options)
+        reducedim = clusterchannels(im, baseoutputfilename, output_dir, options)
         PCA_img = plotprincomp(reducedim, bestz[0], baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
 
         # writing out as a ometiff file of visualizations by channels
