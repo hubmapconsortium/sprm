@@ -15,23 +15,23 @@ from .constants import figure_save_params
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/17/2020
-Version: 0.80
+01/21/2020 - 02/23/2020
+Version: 1.00
 
 
 """
 
 
-def shape_cluster(cell_matrix, options):
-    cluster_method, num_shapeclusters = options.get("num_shapeclusters")
-    if num_shapeclusters > cell_matrix.shape[0]:
+def shape_cluster(cell_matrix, typelist, all_clusters, options):
+    cluster_method, min_clusters, max_clusters = options.get("num_shapeclusters")
+    if max_clusters > cell_matrix.shape[0]:
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
     if cluster_method == 'silhouette':
         cluster_list = []
         cluster_score = []
-        for i in range(2, num_shapeclusters + 1):
+        for i in range(min_clusters, max_clusters + 1):
             cellbycluster = KMeans(n_clusters=i, random_state=0)
             preds = cellbycluster.fit_predict(cell_matrix)
             cluster_list.append(cellbycluster)
@@ -56,6 +56,10 @@ def shape_cluster(cell_matrix, options):
     # print(len(np.unique(cellbycluster_labels)))
     clustercenters = cellbycluster.cluster_centers_
     # print(clustercenters.shape)
+
+    #save cluster info
+    typelist.append('cellshapes')
+    all_clusters.append(cluster_score)
 
     return cellbycluster_labels, clustercenters
 

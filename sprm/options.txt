@@ -1,10 +1,10 @@
 debug 1
-num_cellclusters silhouette 10
+num_cellclusters silhouette 2 10
 num_voxelclusters 3
 num_markers 3
 num_channelPCA_components 3
 num_outlinepoints 100
-num_shapeclusters silhouette 6
+num_shapeclusters silhouette 2 6
 precluster_sampling 0.07
 precluster_threshold 10000
 skip_empty_mask 1
@@ -20,4 +20,4 @@ skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
 skip_texture 1
-zscore_before_pca 1
+zscore_norm 0

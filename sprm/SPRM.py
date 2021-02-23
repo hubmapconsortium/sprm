@@ -12,8 +12,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy
-Version:   0.80
-01/21/2020 - 02/17/2020
+Version:   1.00
+01/21/2020 - 02/23/2020
  
 
 """

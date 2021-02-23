@@ -37,8 +37,8 @@ from .constants import (
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/17/2020
-Version: 0.80
+01/21/2020 - 02/23/2020
+Version: 1.00
 
 
 """
@@ -266,12 +266,12 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     return cell_matrix
 
 
-def cell_cluster(cell_matrix: np.ndarray, options: Dict) -> (np.ndarray, np.ndarray):
+def cell_cluster(cell_matrix: np.ndarray, typelist: List, all_clusters: List, type: str, options: Dict) -> (np.ndarray, np.ndarray):
     # kmeans clustering
     print('Clustering cells...')
     # check of clusters vs. n_sample wanted
-    cluster_method, num_cellclusters = options.get("num_cellclusters")
-    if num_cellclusters > cell_matrix.shape[0]:
+    cluster_method, min_cluster, max_cluster = options.get("num_cellclusters")
+    if max_cluster > cell_matrix.shape[0]:
         print('reducing cell clusters to ', cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
 
@@ -279,12 +279,13 @@ def cell_cluster(cell_matrix: np.ndarray, options: Dict) -> (np.ndarray, np.ndar
     if options.get('texture_flag'):
         cellbycluster = KMeans(n_clusters=1, random_state=0).fit(cell_matrix)
         options.pop('texture_flag', None)
+        cluster_score = []
     else:
 
         if cluster_method == 'silhouette':
             cluster_list = []
             cluster_score = []
-            for i in range(2, num_cellclusters + 1):
+            for i in range(min_cluster, max_cluster + 1):
                 cellbycluster = KMeans(n_clusters=i, random_state=0)
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
@@ -307,6 +308,11 @@ def cell_cluster(cell_matrix: np.ndarray, options: Dict) -> (np.ndarray, np.ndar
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
+        
+    #save score and type it was
+    typelist.append(type)
+    all_clusters.append(cluster_score)
+    
 
     return cellbycluster_labels, clustercenters
 
@@ -504,7 +510,11 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
         if 'shape' in s:
             header = [i for i in range(1, sub_matrix.shape[1] + 1)]
         elif 'PCA' in s:
-            header = names.append('Explain Variance')
+            names.append('Explained Variance')
+            names = list(map(lambda x: str(x), names))
+            header = names
+        elif 'Scores' in s:
+            header = list(range(1, sub_matrix.shape[1] +1))
         else:
             header = names
     elif 'covar' in s:
@@ -517,6 +527,7 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
         options["channel_label_combo"] = header
     else:
         pass
+
     return header, sub_matrix
 
 
@@ -538,10 +549,17 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dic
     # column header for indices
     if 'PCA' in s:
         df.index.name = 'PCA #'
+    elif 'Scores' in s:
+        df.index.name = 'Cluster Types'
     else:
         df.index.name = 'ID'
 
-    df.to_csv(f, header=header)
+    # df.columns = header
+
+    if 'Score' in s:
+        df.to_csv(f, header=header, index_label=df.index.name, index=options.get('cluster_types'))
+    else:
+        df.to_csv(f, header=header, index_label=df.index.name)
 
 
     # Sean Donahue - 11/12/20
@@ -611,7 +629,7 @@ def clusterchannels(im: IMGstruct, fname: str, output_dir: Path, options: Dict) 
     b = abs(pca_channels.components_)
     c = np.column_stack((b, a))
 
-    write_2_file(c, fname + '-PCA_channel_summary', im, output_dir, options)
+    write_2_file(c, fname + '-channelPCA_summary', im, output_dir, options)
 
     return reducedim
 
@@ -633,7 +651,7 @@ def plotprincomp(reducedim: np.ndarray, bestz: int, filename: str, output_dir: P
         print('After Transpose: ', plotim.shape)
 
     #zscore
-    if options.get('zscore_before_pca'):
+    if options.get('zscore_norm'):
         plotim = stats.zscore(plotim)
 
     for i in range(0, 3):
@@ -728,6 +746,10 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     channvals = channvals.transpose()
     # for some reason, voxel values are occasionally NaNs (especially edge rows)
     channvals[np.where(np.isnan(channvals))] = 0
+
+    if options.get('zscore_norm'):
+        channvals = stats.zscore(channvals)
+
     if options.get("debug"): print('Multichannel dimensions: ', channvals.shape)
     # get random sampling of pixels in 2d array
     np.random.seed(0)
@@ -1048,29 +1070,34 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     feature_names = im.get_channel_labels()
     feature_covar = options.get('channel_label_combo')
     feature_meanall = feature_names + feature_names + feature_names + feature_names
-
+    
+    # all clusters List with scores
+    all_clusters = []
+    types_list = []
+    
     # features only clustered once
     meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
-    clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector_f,
+    clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_vector_f, types_list, all_clusters, 'mean-all',
                                                                  options)  # -1 means use all segmentations
 
     if options.get('skip_texture'):
         options['texture_flag'] = True
 
     texture_matrix = cell_cluster_format(texture_vectors, -1, options)
-    clustercells_texture, clustercells_texturecenters = cell_cluster(texture_matrix, options)
+    clustercells_texture, clustercells_texturecenters = cell_cluster(texture_matrix, types_list, all_clusters, 'texture', options)
 
     cluster_cell_imguall = cell_map(mask, clustercells_uvall, seg_n, options)  # 0=use first segmentation to map
     cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
 
     if not options.get('skip_outlinePCA'):
-        clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, options)
+        clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, types_list, all_clusters, options)
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
     # for each channel in the mask
     for i in range(len(maskchs)):
+    # for i in range(1):
         seg_n = mask.get_labels(maskchs[i])
-
+        
         # format the feature arrays accordingly
         mean_vector_f = cell_cluster_format(mean_vector, seg_n, options)
         covar_matrix_f = cell_cluster_format(covar_matrix, seg_n, options)
@@ -1078,9 +1105,9 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
 
         # cluster by mean and covar using just cell segmentation mask
         print('Clustering cells and getting back labels and centers...')
-        clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector_f, options)
-        clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix_f, options)
-        clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, options)
+        clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector_f, types_list, all_clusters, 'mean-' + maskchs[i], options)
+        clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix_f, types_list, all_clusters, 'covar-' + maskchs[i],  options)
+        clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, types_list, all_clusters, 'total-' + maskchs[i], options)
 
         # map back to the mask segmentation of indexed cell region
         print('Mapping cell index in segmented mask to cluster IDs...')
@@ -1125,6 +1152,21 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
 
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
+    #post process
+    #find max len - for now only two cluster methods
+    min1, max1 = options.get('num_cellclusters')[1:]
+    min2, max2 = options.get('num_shapeclusters')[1:]
+    a = max1 - min1
+    b = max2 - min2
+    d = max(a, b) + 1
+
+    for i in all_clusters:
+        if len(i) != d:
+            i.extend([0] * (d - len(i)))
+
+    all_clusters = np.array(all_clusters)
+    options['cluster_types'] = types_list
+    write_2_file(all_clusters,filename +'clustering'+options.get('num_cellclusters')[0]+'Scores', im, output_dir, options)
 
 def make_DOT(mc, fc, coeffs, ll):
     pass
