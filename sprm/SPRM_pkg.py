@@ -266,7 +266,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     return cell_matrix
 
 
-def cell_cluster(cell_matrix: np.ndarray, typelist: List, all_clusters: List, type: str, options: Dict) -> (np.ndarray, np.ndarray):
+def cell_cluster(cell_matrix: np.ndarray, typelist: List, all_clusters: List, type: str, options: Dict) -> np.ndarray, np.ndarray:
     # kmeans clustering
     print('Clustering cells...')
     # check of clusters vs. n_sample wanted
@@ -511,7 +511,7 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
             header = [i for i in range(1, sub_matrix.shape[1] + 1)]
         elif 'PCA' in s:
             names.append('Explained Variance')
-            names = list(map(lambda x: str(x), names))
+            names = list(map(str, names))
             header = names
         elif 'Scores' in s:
             header = list(range(1, sub_matrix.shape[1] +1))
@@ -557,6 +557,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dic
     # df.columns = header
 
     if 'Score' in s:
+        df.index=options.get('cluster_types')
         df.to_csv(f, header=header, index_label=df.index.name, index=options.get('cluster_types'))
     else:
         df.to_csv(f, header=header, index_label=df.index.name)
@@ -1166,7 +1167,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
 
     all_clusters = np.array(all_clusters)
     options['cluster_types'] = types_list
-    write_2_file(all_clusters,filename +'clustering'+options.get('num_cellclusters')[0]+'Scores', im, output_dir, options)
+    write_2_file(all_clusters, filename +'clustering'+options.get('num_cellclusters')[0]+'Scores', im, output_dir, options)
 
 def make_DOT(mc, fc, coeffs, ll):
     pass
