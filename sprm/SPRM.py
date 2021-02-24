@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from typing import Optional
 
 from .SPRM_pkg import *
@@ -11,8 +12,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy
-Version:   0.80
-01/21/2020 - 02/17/2020
+Version:   1.00
+01/21/2020 - 02/23/2020
  
 
 """
@@ -93,15 +94,19 @@ def main(
         # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, ROI_coords, options)
 
-        # signal to noise ratio of the image
-        SNR(im, baseoutputfilename, output_dir, options)
-
+        # get cells to be processed
         inCells = mask.get_interior_cells()
         cell_total.append(len(inCells))
 
+        #save cell graphs
+        cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
+
+        # signal to noise ratio of the image
+        SNR(im, baseoutputfilename, output_dir, options)
+
         bestz = mask.get_bestz()
         # empty mask skip tile
-        if not bestz and options.get('skip_empty_mask') is 1:
+        if not bestz and options.get('skip_empty_mask') == 1:
             print('Skipping tile...(mask is empty)')
             continue
         # if len(bestz) > 1:
@@ -120,7 +125,7 @@ def main(
         plot_img(superpixels, bestz[0], baseoutputfilename + '-Superpixels.png', output_dir)
 
         # do PCA on the channel values to find channel components
-        reducedim = clusterchannels(im, options)
+        reducedim = clusterchannels(im, baseoutputfilename, output_dir, options)
         PCA_img = plotprincomp(reducedim, bestz[0], baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
 
         # writing out as a ometiff file of visualizations by channels
@@ -137,8 +142,9 @@ def main(
             textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]
             #save it
             for i in range(2):
-                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6])
-                df.to_csv(output_dir / (baseoutputfilename + mask.channel_labels[i] + '_0_texture.csv'))
+                df = pd.DataFrame(textures[0][0, i, :, :, 0], columns=textures[1][:len(im.channel_labels) * 6], index=list(range(1, len(inCells) + 1)))
+                df.index.name = 'ID'
+                df.to_csv(output_dir / (baseoutputfilename + '-' + mask.channel_labels[i] + '_1_texture.csv'))
         else:
             textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
@@ -212,3 +218,18 @@ def main(
 
     # recluster features
     # recluster(output_dir, im, options)
+
+
+def argparse_wrapper():
+    p = ArgumentParser()
+    p.add_argument('img_dir', type=Path)
+    p.add_argument('mask_dir', type=Path)
+    p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
+    p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
+    p.add_argument('optional_img_dir', type=Path, nargs='?', default=False)
+    argss = p.parse_args()
+
+    if argss.optional_img_dir:
+        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)
+    else:
+        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)

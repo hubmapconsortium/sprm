@@ -8,28 +8,30 @@ from scipy import interpolate, stats
 from collections import defaultdict
 from sklearn.metrics import silhouette_score
 
+from .constants import figure_save_params
+
 """
 
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author:    Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/17/2020
-Version: 0.80
+01/21/2020 - 02/23/2020
+Version: 1.00
 
 
 """
 
 
-def shape_cluster(cell_matrix, options):
-    cluster_method, num_shapeclusters = options.get("num_shapeclusters")
-    if num_shapeclusters > cell_matrix.shape[0]:
+def shape_cluster(cell_matrix, typelist, all_clusters, options):
+    cluster_method, min_clusters, max_clusters = options.get("num_shapeclusters")
+    if max_clusters > cell_matrix.shape[0]:
         print('reducing shape clusters to ', cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
     if cluster_method == 'silhouette':
         cluster_list = []
         cluster_score = []
-        for i in range(2, num_shapeclusters + 1):
+        for i in range(min_clusters, max_clusters + 1):
             cellbycluster = KMeans(n_clusters=i, random_state=0)
             preds = cellbycluster.fit_predict(cell_matrix)
             cluster_list.append(cellbycluster)
@@ -54,6 +56,10 @@ def shape_cluster(cell_matrix, options):
     # print(len(np.unique(cellbycluster_labels)))
     clustercenters = cellbycluster.cluster_centers_
     # print(clustercenters.shape)
+
+    #save cluster info
+    typelist.append('cellshapes')
+    all_clusters.append(cluster_score)
 
     return cellbycluster_labels, clustercenters
 
@@ -105,8 +111,8 @@ def bin_pca(features, npca, cell_coord, output_dir):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_bin_pca.png')
-    # plt.close()
+    plt.savefig(output_dir / 'outlinePCA_bin_pca.pdf', **figure_save_params)
+    plt.close()
 
 def pca_recon(features, npca, pca, output_dir):
 
@@ -135,8 +141,8 @@ def pca_recon(features, npca, pca, output_dir):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_pca_recon.png')
-    # plt.close()
+    plt.savefig(output_dir / 'outlinePCA_pca_recon.pdf', **figure_save_params)
+    plt.close()
 
 
 
@@ -165,8 +171,8 @@ def pca_cluster_shape(features, polyg, output_dir, options):
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
     plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_cluster_pca.png')
-    # plt.close()
+    plt.savefig(output_dir / 'outlinePCA_cluster_pca.pdf', **figure_save_params)
+    plt.close()
 
 def create_polygons(mask, bestz: int) -> List[str]:
     """
@@ -224,7 +230,10 @@ def cell_coord_debug(mask, nseg, npoints):
         axs[2].set_title('Resampling')
         axs[2].scatter(temp_list[i][:, 0], temp_list[i][:, 1])
 
-        plt.savefig('./debug/coordinates_comparison_cell_' + str(i + 1))
+        plt.savefig(
+            f'./debug/coordinates_comparison_cell_{i + 1}',
+            **figure_save_params,
+        )
 
 
 def getparametricoutline(mask, nseg, ROI_by_CH, options):
@@ -553,5 +562,5 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
             break
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
-        plt.savefig(filename + '-cellshapescluster' + str(k) + '.png')
+        plt.savefig(f'{filename}-cellshapescluster{k}.png', **figure_save_params)
 

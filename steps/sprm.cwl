@@ -1,6 +1,6 @@
 cwlVersion: v1.1
 class: CommandLineTool
-label: CODEX analysis via Cytokit
+label: SPRM analysis
 hints:
   DockerRequirement:
     dockerPull: hubmap/sprm:latest
