@@ -19,5 +19,5 @@ glcm_distances [1]
 skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
-skip_texture 1
 zscore_norm 0
+skip_texture 0
