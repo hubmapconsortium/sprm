@@ -1635,7 +1635,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
 
             # for j in range(len(l)):
                 for d in range(len(distances)):
-                    result = greycomatrix(l[j], [distances[d]], [angle], levels=256)  # Calculate GLCM
+                    result = greycomatrix(img, [distances[d]], [angle], levels=256)  # Calculate GLCM
                     result = result[1:, 1:]  # Remove background influence by delete first row & column
                     # props = []
 
