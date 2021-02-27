@@ -258,7 +258,10 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
         #     (cell_matrix2.shape[0], cell_matrix2.shape[1] * cell_matrix2.shape[2] * cell_matrix2.shape[3]))
 
         cell_matrix = np.squeeze(cell_matrix)
-        cell_matrix = np.concatenate(cell_matrix, axis = 1)
+        cell_matrix = np.concatenate(cell_matrix, axis=1)
+
+        if cell_matrix.size > 2:
+            cell_matrix = cell_matrix.reshape(cell_matrix[0], -1)
         # cell_matrix = cell_matrix.reshape(
         #     (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
