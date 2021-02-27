@@ -517,7 +517,7 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
             names = list(map(str, names))
             header = names
         elif 'Scores' in s:
-            header = list(range(2, sub_matrix.shape[1] + 1))
+            header = list(range(2, sub_matrix.shape[1] + 2))
         else:
             header = names
     elif 'covar' in s:
@@ -560,7 +560,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, options: Dic
     # df.columns = header
 
     if 'Score' in s:
-        df.index=options.get('cluster_types')
+        df.index = options.get('cluster_types')
         df.to_csv(f, header=header, index_label=df.index.name, index=options.get('cluster_types'))
     else:
         df.to_csv(f, header=header, index_label=df.index.name)
@@ -1529,30 +1529,30 @@ def find_edge_cells(mask):
 #
 #     return a
 
-@nb.njit(parallel=True)
-def abc(imga, cl, curROI, xmax, xmin, ymax, ymin):
-
-    channellist = nbList()
-
-    for j in nb.prange(cl):  # For each channel
-        # img = im.get_data()[0, 0, j, bestz[0], :, :]
-        # img = img[xmin:xmax+1, ymin:ymax+1]
-        # img = np.multiply(interiormask, img)
-        # convert to uint
-        imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
-        index = np.arange(imgroi.shape[0])
-
-        # make cropped 2D image
-        img = np.zeros((xmax - xmin + 1, ymax - ymin + 1))
-        xn = curROI[1] - xmin
-        yn = curROI[0] - ymin
-        img[xn, yn] = imgroi[index]
-        img = (img / img.max()) * 255
-        img = img.astype(np.uint8)
-
-        channellist.append(img)
-
-    return channellist
+# @nb.njit(parallel=True)
+# def abc(imga, cl, curROI, xmax, xmin, ymax, ymin):
+#
+#     channellist = nbList()
+#
+#     for j in nb.prange(cl):  # For each channel
+#         # img = im.get_data()[0, 0, j, bestz[0], :, :]
+#         # img = img[xmin:xmax+1, ymin:ymax+1]
+#         # img = np.multiply(interiormask, img)
+#         # convert to uint
+#         imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
+#         index = np.arange(imgroi.shape[0])
+#
+#         # make cropped 2D image
+#         img = np.zeros((xmax - xmin + 1, ymax - ymin + 1))
+#         xn = curROI[1] - xmin
+#         yn = curROI[0] - ymin
+#         img[xn, yn] = imgroi[index]
+#         img = (img / img.max()) * 255
+#         img = img.astype(np.uint8)
+#
+#         channellist.append(img)
+#
+#     return channellist
 
 def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances, ROI_coords):
     '''
@@ -1601,19 +1601,12 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
 
     for i in range(2):
         for idx in range(len(inCells)):  # For each cell
-            # print("current calculation:", im.channel_labels[j] + "_" + str(distance) + "_" + mask.channel_labels[i])
-            # curProps=[]
             curROI = ROI_coords[i][inCells[idx]]
 
             if curROI.size == 0:
-                # curProps.append([0, 0, 0, 0, 0, 0])
-                # texture_all.append(curProps)
                 continue
 
             xmax, xmin, ymax, ymin = np.max(curROI[1]), np.min(curROI[1]), np.max(curROI[0]), np.min(curROI[0])
-            # interiormask = mask.get_data()[0, 0, i, bestz[0], :, :]
-            # interiormask = interiormask[xmin:xmax+1, ymin:ymax+1]
-            # interiormask = (interiormask == idx)
 
             imga = im.get_data()
             # cl = len(im.channel_labels)
@@ -1621,9 +1614,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
             # l = abc(imga, cl, curROI, xmax, xmin, ymax, ymin)
 
             for j in range(len(im.channel_labels)):  # For each channel
-                # img = im.get_data()[0, 0, j, bestz[0], :, :]
-                # img = img[xmin:xmax+1, ymin:ymax+1]
-                # img = np.multiply(interiormask, img)
+
                 #convert to uint
                 imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
                 index = np.arange(imgroi.shape[0])
@@ -1636,22 +1627,12 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
                 img = (img / img.max()) * 255
                 img = img.astype(np.uint8)
 
-            # for j in range(len(l)):
                 for d in range(len(distances)):
                     result = greycomatrix(img, [distances[d]], [angle], levels=256)  # Calculate GLCM
                     result = result[1:, 1:]  # Remove background influence by delete first row & column
-                    # props = []
 
                     for ls in range(len(colIndex)):  # Get properties
-                        # props.append(greycoprops(result, colIndex[ls]).flatten()[0])
                         texture_all[i, idx, j, d + ls] = greycoprops(result, colIndex[ls]).flatten()[0]
-                    # curProps.append(props)
-            # texture_all=np.append(texture_all,np.asarray(curProps))
-            # texture_all.append(curProps)
-            #print("cur:",idx)
-
-    # texture_all = np.asarray(texture_all, dtype=object)
-    # texture_all = np.reshape(texture_all, (1, int(len(mask.channel_labels) / 2), cell_total[0], len(im.channel_labels), len(colIndex) * len(distances)))
 
     ctexture = np.concatenate(texture_all, axis=1)
     ctexture = ctexture.reshape(cell_total[0], -1)
@@ -1659,21 +1640,10 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
     #For csv writing
     write_2_csv(header, ctexture, filename + '_' + 'texture', output_dir, options)
 
-    # dataFrame = pd.DataFrame(np.reshape(texture_all, (cell_total[0] , -1)))
-    # dataFrame.index = range(1, len(dataFrame)+1)
-    # dataFrame.index.name = 'ID'
-    # dataFrame.to_csv(output_dir / (filename + '_' + 'texture.csv'), header=header)
-
     #add timepoint dim so that feature is in sync
     texture_all = texture_all[np.newaxis, :, :, :, :]
 
     return texture_all, header
-
-# def uint16_2_uint8(uint16matrix):
-#     maxvalue = np.max(uint16matrix)
-#     if maxvalue == 0:
-#         return uint16matrix
-#     return uint16matrix * (255 / maxvalue)
 
 def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename,ROI_coords, options):
     print("GLCM calculation initiated")
