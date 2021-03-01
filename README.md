@@ -17,8 +17,8 @@ Two OMETIFF files from the output of CytoKit -
 ```
 
 SPRM takes in three command line arguments that specify the path in the following order:
-Image directory path
-Mask directory path
+Image directory path\
+Mask directory path\
 Options image file path
 
 ## Prerequisites
@@ -30,7 +30,7 @@ Pandas\
 Matplotlib\
 Numba\
 Scipy\
-PIL\
+PIL
 
 ## Documentation 
 
