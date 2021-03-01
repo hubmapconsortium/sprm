@@ -16,7 +16,7 @@ Two OMETIFF files from the output of CytoKit -
 [python_path] SPRM.py [img_dir_path] [mask_dir_path] [options_img_dir_path]
 ```
 
-SPRM takes in three command line arguments that specify the path in the following order:
+SPRM takes in three command line arguments that specify the path in the following order:\
 Image directory path\
 Mask directory path\
 Options image file path
