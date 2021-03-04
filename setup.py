@@ -7,9 +7,12 @@ here = Path(__file__).parent.absolute()
 with open(here / "README.md", encoding="utf-8") as f:
     long_description = f.read()
 
+with open(here / "sprm/version.txt") as f:
+    version = f.read().strip()
+
 setup(
     name="SPRM",
-    version="0.80",
+    version=version,
     description="Spatial Process & Relationship Modeling ",
     long_description=long_description,
     long_description_content_type="text/markdown",

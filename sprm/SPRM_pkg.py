@@ -262,7 +262,6 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
         if len(cell_matrix.shape) > 2:
             cell_matrix = cell_matrix.reshape(cell_matrix.shape[0], -1)
-
         # cell_matrix = cell_matrix.reshape(
         #     (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
@@ -1559,6 +1558,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
     '''
     By: Young Je Lee
     '''
+
     # texture_all=[]
     # header = []
 
