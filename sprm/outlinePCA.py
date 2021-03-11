@@ -255,6 +255,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
     cell_coords = ROI_by_CH[0]
 
+    cell_boundary = ROI_by_CH[2]
+
     # for i in range(1, np.amax(cellmask)+1):
     for i in range(0, len(interiorCells)):
         # if i not in cellmask:
@@ -373,11 +375,13 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         x = aligned_outline[0][:, 0]
         y = aligned_outline[0][:, 1]
 
+
         x, y = linear_interpolation(x, y, npoints)
-
+        yb, xb = cell_boundary[interiorCells[i]]
         xy = np.column_stack((x, y))
+        bxy = np.column_stack((xb, yb))
 
-        polygon_outlines.append(xy)
+        polygon_outlines.append(bxy)
 
         flatxy = xy.reshape(-1)
 
@@ -390,12 +394,6 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
 def linear_interpolation(x, y, npoints):
     points = np.array([x, y]).T  # a (nbre_points x nbre_dim) array
-
-    #nearest neighbor points:
-    #sorted to be points next to each other
-    #from 0 to n - 1 - loop
-    #sqrt((x(i) - x(i + 1))^2 + (y(i) - y(i + 1))^2) - distance b/w two points
-    #finaldis = find distance b/w last point and first point
 
     # Linear length along the line:
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
