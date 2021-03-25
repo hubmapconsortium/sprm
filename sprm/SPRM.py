@@ -146,7 +146,7 @@ def main(
                 df.index.name = 'ID'
                 df.to_csv(output_dir / (baseoutputfilename + '-' + mask.channel_labels[i] + '_1_texture.csv'))
         else:
-            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, options)
+            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, ROI_coords, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
 
@@ -154,7 +154,7 @@ def main(
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
 
-            seg_n = mask.get_labels('cells')
+            seg_n = mask.get_labels('cell')
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
