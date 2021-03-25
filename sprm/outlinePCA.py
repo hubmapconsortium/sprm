@@ -8,8 +8,9 @@ from scipy import interpolate, stats
 from collections import defaultdict
 from sklearn.metrics import silhouette_score
 from shapely.geometry import Polygon
-
+from shapely.geometry.polygon import orient
 from .constants import figure_save_params
+import math
 
 """
 
@@ -382,10 +383,17 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         xy = np.column_stack((x, y))
         bxy = np.column_stack((xb, yb))
 
-        #get polygons
+        # get polygons
         bxy = Polygon(bxy)
+        bxy = orient(bxy)
         bxy = bxy.exterior.coords.xy
         bxy = np.array(bxy).T
+        bxy = bxy.tolist()
+
+        #find centroid
+        cent = (np.sum(xb)/len(xb), np.sum(yb)/len(yb))
+        bxy.sort(key=lambda p: math.atan2(p[1]-cent[1], p[0]-cent[0]))
+        bxy = np.array(bxy)
 
         polygon_outlines.append(bxy)
 
