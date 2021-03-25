@@ -7,6 +7,7 @@ from typing import List, Dict
 from scipy import interpolate, stats
 from collections import defaultdict
 from sklearn.metrics import silhouette_score
+from shapely.geometry import Polygon
 
 from .constants import figure_save_params
 
@@ -380,6 +381,11 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         yb, xb = cell_boundary[interiorCells[i]]
         xy = np.column_stack((x, y))
         bxy = np.column_stack((xb, yb))
+
+        #get polygons
+        bxy = Polygon(bxy)
+        bxy = bxy.exterior.coords.xy
+        bxy = np.array(bxy).T
 
         polygon_outlines.append(bxy)
 
