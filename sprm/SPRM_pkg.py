@@ -89,7 +89,10 @@ class IMGstruct:
 
     def read_channel_names(self):
         img = self.img
-        return img.get_channel_names(scene=0)
+        cn = img.get_channel_names(scene=0)
+        if cn[0] == 'cells':
+            cn[0] = 'cell'
+        return cn
 
     def get_name(self):
         return self.name
@@ -427,7 +430,7 @@ def get_coordinates(mask, options):
 
     # post-process for edge case cell coordinates - only 1 point
     freq = np.unique(mask_data[0, 0, 0, 0, :, :], return_counts=True)
-    idx = np.where(freq[1] == 1)[0].tolist()
+    idx = np.where(freq[1] < options.get('valid_cell_threshold'))[0].tolist()
     mask.set_bad_cells(idx)
 
     mask_4D = mask_data[0, 0, :, :, :, :]
@@ -989,13 +992,13 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             print('Finding cell shape cluster markers...')
             retmarkers = findmarkers(argv[4], options)
             table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
-            write_2_csv(markers, table, filename + '-clustercells_cellshape_legend', output_dir, options)
+            write_2_csv(markers, table, filename + '-clustercell_cellshape_legend', output_dir, options)
             # showlegend(markers, table, filename + '-clustercells_cellshape_legend.pdf', output_dir)
 
         print('Finding cell texture cluster markers...')
         retmarkers = findmarkers(argv[-1][0], options)
         table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
-        write_2_csv(markers, table, filename + '-clustercells_texture_legend', output_dir, options)
+        write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, options)
         # showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
 
     print('Legend for mask channel: ' + str(i))
