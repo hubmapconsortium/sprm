@@ -30,7 +30,8 @@ Pandas\
 Matplotlib\
 Numba\
 Scipy\
-PIL
+PIL \
+Shapely
 
 ## Documentation 
 
@@ -42,3 +43,4 @@ For more information on specific analytical tools and outputs of SPRM:
 
 Robert F. Murphy - murphy@cmu.edu\
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
+
