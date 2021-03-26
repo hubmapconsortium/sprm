@@ -30,7 +30,8 @@ Pandas\
 Matplotlib\
 Numba\
 Scipy\
-PIL
+PIL \
+Shapely
 
 ## Documentation 
 
