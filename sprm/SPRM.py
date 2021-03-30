@@ -99,7 +99,7 @@ def main(
         cell_total.append(len(inCells))
 
         #save cell graphs
-        cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
+        cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)

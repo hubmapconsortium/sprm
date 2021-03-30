@@ -25,6 +25,7 @@ from numba.typed import Dict as nbDict
 from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
 from scipy import stats
+from skimage.morphology import binary_dilation
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -449,7 +450,7 @@ def get_coordinates(mask, options):
     return channel_coords
 
 
-def cell_graphs(ROI_coords: List, inCells: List, fname: str, outputdir: Path):
+def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: List, fname: str, outputdir: Path):
     '''
         Get cell centers as well as adj list of cells
     '''
@@ -466,14 +467,70 @@ def cell_graphs(ROI_coords: List, inCells: List, fname: str, outputdir: Path):
     df.index.name = 'ID'
 
     df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
-    adj_cell_list(cellmask, fname, outputdir)
+    adj_cell_list(mask, ROI_coords[3], fname, outputdir)
 
 
-def adj_cell_list(cellmask: List[np.ndarray], fname: str, outputdir: Path):
+def AdjacencyMatrix(maskImg, cellEdgeList, interiorCells, thr=5, window=None):
+    '''
+        Find the adj matrix of cells in the image
+    '''
+
+    numCells = len(interiorCells)
+    interiorCells = np.asarray(interiorCells)
+    adjacencyMatrix = np.zeros((numCells, numCells))
+    if window == None:
+        delta = 3
+    else:
+        delta = len(window) + 3
+
+    idx = 0
+    # We check cell ids by dilation
+    for i in interiorCells:
+        if cellEdgeList[i].size == 0:
+            continue
+
+        tempImg = np.zeros((np.shape(maskImg)))
+        xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
+            cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
+        tempImg[cellEdgeList[i][0], cellEdgeList[i][1]] = 1
+        tempImg = np.pad(tempImg, delta)
+        mask_expanded = np.pad(maskImg, delta)
+        tempImg = tempImg[xmin:xmax + 2 * delta, ymin:ymax + 2 * delta]
+        dilatedImg = binary_dilation(tempImg)  ##
+        mask_expanded = mask_expanded[xmin:xmax + 2 * delta, ymin:ymax + 2 * delta]
+        multipliedImg = mask_expanded * dilatedImg
+        cellids = np.unique(multipliedImg)
+        cellids = list(set(cellids).intersection(interiorCells))
+        for j in cellids:
+            ridx = np.where(interiorCells == j)[0][0]
+            if j > i:  # Not background, not itself,use diagonal
+                minValue = np.inf
+                curCellEdgeCoords = cellEdgeList[ridx]
+                for k in range(len(curCellEdgeCoords[0])):
+                    for l in range(len(cellEdgeList[i][0])):
+                        distance = np.linalg.norm(cellEdgeList[ridx][:, k] - cellEdgeList[ridx][:, l])
+                        if distance < minValue:
+                            minValue = distance
+                        # prev if loc
+                        if minValue < thr:
+                            adjacencyMatrix[idx, ridx] = 1
+                            adjacencyMatrix[ridx, idx] = 1
+                            break
+        idx += 1
+
+    return adjacencyMatrix
+
+def adj_cell_list(mask, edgecoords: List[np.ndarray], fname: str, outputdir: Path):
     '''
         Construct adj list of neighboring cells
     '''
+    print('Finding cell adjacency matrix...')
 
+    mask_data = mask.get_data()[0, 0, 3, 0, :, :]
+    interiorCells = mask.get_interior_cells()
+    stime = time.monotonic()
+    adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
+    print('Runtime of adj matrix: ', time.monotonic() - stime)
     df = pd.DataFrame(np.zeros(1))
     df.to_csv(outputdir / (fname + '-cell_adj_list.csv'))
 
@@ -1559,7 +1616,7 @@ def find_edge_cells(mask):
 
 def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, distances, ROI_coords):
     '''
-    By: Young Je Lee
+    By: Young Je Lee and Ted Zhang
     '''
 
     # texture_all=[]
