@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.0.2-post1
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
@@ -17,6 +17,11 @@ inputs:
     type: Directory
     inputBinding:
       position: 1
+  enable_manhole:
+    type: boolean?
+    inputBinding:
+      position: 2
+      prefix: "--enable-manhole"
   options_file:
     type: File?
     inputBinding:
