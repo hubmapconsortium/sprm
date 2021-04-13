@@ -41,6 +41,7 @@ setup(
         "pandas",
         "scikit-image",
         "scikit-learn",
+        "shapely",
         "tables",
         "tifffile==2020.2.16",
     ],
