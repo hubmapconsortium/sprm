@@ -13,6 +13,9 @@ inputs:
   options_file:
     label: "SPRM options file"
     type: File?
+  enable_manhole:
+    label: "Whether to enable remote debugging via 'manhole'"
+    type: boolean?
 
 outputs:
   sprm_output:
@@ -29,6 +32,8 @@ steps:
         source: mask_dir
       options_file:
         source: options_file
+      enable_manhole:
+        source: enable_manhole
     out: [output_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
