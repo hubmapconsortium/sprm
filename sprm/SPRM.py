@@ -136,7 +136,10 @@ def main(
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
-
+        from .YJLee_cellAdjacency_optimized import AdjacencyMatrix3#############Delete later
+        AdjacencyMatrix3(mask,ROI_coords[2])#############Delete later
+        import sys#############Delete later
+        sys.exit()#############Delete later
         if options.get('skip_texture'):
             #make fake textures matrix - all zeros
             textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]
