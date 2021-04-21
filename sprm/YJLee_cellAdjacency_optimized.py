@@ -11,18 +11,20 @@ from skimage.morphology import dilation
 from numpy import linalg as LA
 import time
 import numba as nb
-
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import collections  as mc
 @nb.jit
 def CheckAdjacency(cellCoords_control,cellCoords_cur,thr):
     minValue=np.inf
     for k in range(len(cellCoords_cur[0])):
         subtracted=np.asarray([cellCoords_control[0]-cellCoords_cur[0,k],cellCoords_control[1]-cellCoords_cur[1,k]])
         distance=LA.norm(subtracted,axis=0)
-        if np.any(distance<thr):
-            return True 
-    return False
+        if np.min(distance)<thr:
+            return np.min(distance) 
+    return 0
 
-def AdjacencyMatrix3(mask,cellEdgeList,thr=5,window=None):
+def AdjacencyMatrix(mask,cellEdgeList,baseoutputfilename,output_dir,thr=3,window=None):
     loc=mask.get_labels('cell_boundaries')
     #print('adjacency calculation begin')
     start=time.perf_counter()
@@ -31,6 +33,20 @@ def AdjacencyMatrix3(mask,cellEdgeList,thr=5,window=None):
     '''
     numCells=len(cellEdgeList)
     adjacencyMatrix=np.zeros((numCells,numCells))
+    cellGraph=dict()
+    
+    cell_center = np.zeros((numCells, 2))
+
+    for i in range(numCells):
+        m = (np.sum(cellEdgeList[i], axis=1) / cellEdgeList[i].shape[1]).astype(int)
+        cell_center[i, 0] = m[0]
+        cell_center[i, 1] = m[1]
+    
+    
+    
+    
+    for i in range(1,numCells):
+        cellGraph[i]=set()
     if window==None:
         delta=3
     else:
@@ -55,14 +71,31 @@ def AdjacencyMatrix3(mask,cellEdgeList,thr=5,window=None):
         cellids=np.unique(multipliedImg)
         cellids=np.delete(cellids,cellids<=i)
         for j in cellids:
-            check=CheckAdjacency(cellEdgeList[i],cellEdgeList[j],thr)
-            if check==True:
-                adjacencyMatrix[i,j]=1
-                adjacencyMatrix[j,i]=1
+            minDist=CheckAdjacency(cellEdgeList[i],cellEdgeList[j],thr)
+            if minDist!=0 and minDist<thr:
+                adjacencyMatrix[i,j]=minDist
+                adjacencyMatrix[j,i]=minDist
+                cellGraph[i].add(j)
+                cellGraph[j].add(i)
 
-    print('V3 start:',start)
-    print('V3 end:',time.perf_counter())
-    print('V3 total time:',time.perf_counter()-start)
-    return adjacencyMatrix
-
-
+    AdjacencyMatrix2Graph(adjacencyMatrix,cell_center,cellGraph,output_dir/(baseoutputfilename+'_AdjacencyGraph.png'),thr)
+    #Remove background
+    adjacencyMatrix=np.delete(adjacencyMatrix,0,axis=0)
+    adjacencyMatrix=np.delete(adjacencyMatrix,0,axis=1)
+    adjacencyMatrix_df=pd.DataFrame(adjacencyMatrix,index=np.arange(1,len(adjacencyMatrix)+1),columns=np.arange(1,len(adjacencyMatrix)+1))
+    adjacencyMatrix_df.to_csv(output_dir/(baseoutputfilename+'_AdjacencyMatrix.csv'))
+    #return adjacencyMatrix
+#plt.axline((x1,y1),(x2,y2))
+def AdjacencyMatrix2Graph(adjacencyMatrix,cell_center,cellGraph,name,thr):
+    fig, ax = plt.subplots(figsize=(17.0, 17.0))
+    plt.plot(cell_center[:,0],cell_center[:,1],'o')
+    plt.title('Cell Adjacency Graph, distance <'+str(thr))
+    for i in range(1,len(cell_center)):
+        line2draw=cell_center[list(cellGraph[i])]
+        lines=[[cell_center[i],r] for r in line2draw]
+        line=mc.LineCollection(lines,colors=[(1, 0, 0, 1)])
+        ax.add_collection(line)
+        for j in range(len(list(cellGraph[i]))):
+            gap=(cell_center[i]-line2draw[j])/np.sqrt((cell_center[i]-line2draw[j])*(cell_center[i]-line2draw[j]))            
+            ax.text(cell_center[i][0]+gap[0],cell_center[i][1]+gap[1],'%.1f' %adjacencyMatrix[i][list(cellGraph[i])[j]],ha='center',va='center')
+    plt.savefig(name)
