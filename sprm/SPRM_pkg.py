@@ -292,7 +292,8 @@ def cell_cluster(cell_matrix: np.ndarray, typelist: List, all_clusters: List, ty
             cluster_list = []
             cluster_score = []
             for i in range(min_cluster, max_cluster + 1):
-                cellbycluster = KMeans(n_clusters=i, random_state=0)
+                #cellbycluster = KMeans(n_clusters=i, random_state=0)
+                cellbycluster = KMeans(n_clusters=i, random_state=0,tol=1e-6)
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
@@ -945,12 +946,12 @@ def cell_cluster_IDs(filename: str, output_dir: Path, i: int, maskchs: List, opt
     # hard coded --> find a way to automate the naming
     if not options.get('skip_outlinePCA'):
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]', 'K-Means [Texture]']),
+                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Shape-Vectors]', 'K-Means [Texture]', 'K-Means [tSNE_All_Features]']),
                     allClusters,
                     filename + '-' + maskchs[i] + '_cluster', output_dir, options)
     else:
         write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Texture]']), allClusters,
+                          'K-Means [Mean-All-SubRegions] Expression', 'K-Means [Texture]', 'K-Means [tSNE_All_Features]']), allClusters,
                     filename + '-' + maskchs[i] + '_cluster', output_dir, options)
 
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
@@ -972,9 +973,9 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
     if not options.get('skip_outlinePCA'):
         plot_img(argv[4], 0, filename + '-Cluster_Shape.png', output_dir)
 
-    plot_img(argv[-1], 0, filename + '-clusterbyTexture.png', output_dir)
+    plot_img(argv[5], 0, filename + '-clusterbyTexture.png', output_dir)
     plot_img(argv[2], 0, filename + '-clusterbyMeansAll.png', output_dir)
-
+    plot_img(argv[6], 0, filename + '-clusterbytSNEAllFeatures.png', output_dir)
 
 def make_legends(feature_names, feature_covar, feature_meanall, filename: str, output_dir: Path, i: int, maskchn: List,
                  options: Dict,
@@ -996,10 +997,17 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             # showlegend(markers, table, filename + '-clustercells_cellshape_legend.pdf', output_dir)
 
         print('Finding cell texture cluster markers...')
-        retmarkers = findmarkers(argv[-1][0], options)
-        table, markers = matchNShow_markers(argv[-1][0], retmarkers, argv[-1][1], options)
+        retmarkers = findmarkers(argv[5][0], options)
+        table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
         write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, options)
         # showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+
+        print('Finding cell tsne all features cluster markers...')
+        retmarkers = findmarkers(argv[6][0], options)
+        table, markers = matchNShow_markers(argv[6][0], retmarkers, argv[6][1], options)
+        write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, options)
+        # showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+
 
     print('Legend for mask channel: ' + str(i))
 
@@ -1099,7 +1107,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     if not options.get('skip_outlinePCA'):
         clustercells_shapevectors, shapeclcenters = shape_cluster(shape_vectors, types_list, all_clusters, options)
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
-
+        
     # for each channel in the mask
     for i in range(len(maskchs)):
     # for i in range(1):
@@ -1115,13 +1123,14 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
         clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector_f, types_list, all_clusters, 'mean-' + maskchs[i], options)
         clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix_f, types_list, all_clusters, 'covar-' + maskchs[i],  options)
         clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, types_list, all_clusters, 'total-' + maskchs[i], options)
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header=tSNE_AllFeatures(mask,options,mean_vector_f,covar_matrix_f,total_vector_f,meanAll_vector_f,shape_vectors,texture_matrix)
 
         # map back to the mask segmentation of indexed cell region
         print('Mapping cell index in segmented mask to cluster IDs...')
         cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
         cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
         cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
-
+        cluster_cell_imgtsneAll = cell_map(mask,clustercells_tsneAll,seg_n,options)
         print('Getting markers that separate clusters to make legend...')
         if not options.get('skip_outlinePCA'):
             # get markers for each respective cluster & then save the legend/markers
@@ -1129,33 +1138,33 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
                          clustercells_uvallcenters,
-                         shapeclcenters, [clustercells_texturecenters, texture_channels])
+                         shapeclcenters, [clustercells_texturecenters, texture_channels],[clustercells_tsneAllcenters,tsneAll_header])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov,
                              clustercells_total,
                              clustercells_uvall,
-                             clustercells_shapevectors, clustercells_texture)
+                             clustercells_shapevectors, clustercells_texture,clustercells_tsneAll)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
             plot_imgs(filename, output_dir, i, maskchs, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
                       cluster_cell_imguall[bestz],
-                      cluster_cell_imgtotal[bestz], clustercells_shape[bestz], cluster_cell_texture[bestz])
+                      cluster_cell_imgtotal[bestz], clustercells_shape[bestz], cluster_cell_texture[bestz],cluster_cell_imgtsneAll[bestz])
         else:
             make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, maskchs, options,
                          clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
-                         clustercells_uvallcenters, [clustercells_texturecenters, texture_channels])
+                         clustercells_uvallcenters, [clustercells_texturecenters, texture_channels],[clustercells_tsneAll,tsneAll_header])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov,
                              clustercells_total,
-                             clustercells_uvall, clustercells_texture)
+                             clustercells_uvall, clustercells_texture,clustercells_tsneAll)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
             plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
                       cluster_cell_imguall[bestz],
-                      cluster_cell_imgtotal[bestz], cluster_cell_texture[bestz])
+                      cluster_cell_imgtotal[bestz], cluster_cell_texture[bestz],cluster_cell_imgtsneAll[bestz])
 
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
@@ -1662,3 +1671,68 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename,ROI_coords, 
     print("GLCM calculations completed: " + str(time.monotonic() - stime))
 
     return [texture, texture_featureNames]
+
+from sklearn.manifold import TSNE
+
+from scipy import stats
+
+
+
+def tSNE_AllFeatures(mask,options,matrix_mean,matrix_cov,matrix_total,matrix_meanAll,matrix_shape,matrix_texture):
+    tSNE_allfeatures_headers=[]
+    cmd=options.get('tSNE_all_preprocess')[0]
+    perplexity=options.get('tSNE_all_perplexity')
+    pcaMethod=options.get('tsne_all_svdsolver4pca')[0]
+    tSNEInitialization=options.get('tSNE_all_tSNEInitialization')[0]
+    numComp=3
+    for i in range(numComp):
+        tSNE_allfeatures_headers.append(str(i)+'th PC')
+    n_iter=1000
+    learning_rate=1
+    matrix_texture=matrix_texture[:,:int(len(matrix_texture[0])/2)]
+    matrix_all_OnlyCell_original=np.concatenate((matrix_mean,matrix_cov,matrix_total,matrix_meanAll,matrix_shape,matrix_texture),axis=1)
+    early_exaggeration=len(matrix_all_OnlyCell_original)/10
+
+    matrix_all_OnlyCell=matrix_all_OnlyCell_original.copy()
+    if cmd=='zscore':
+        matrix_all_OnlyCell=np.asarray(matrix_all_OnlyCell,dtype=float)
+        matrix_all_OnlyCell=stats.zscore(matrix_all_OnlyCell,axis=0)
+        matrix_all_OnlyCell=np.array(matrix_all_OnlyCell)
+        matrix_all_OnlyCell=matrix_all_OnlyCell[:,~np.isnan(matrix_all_OnlyCell).any(axis=0)]#Remove NAN
+    
+    elif cmd=='blockwise_zscore':
+        matrix_mean=BlockwiseZscore(matrix_mean)
+        matrix_cov=BlockwiseZscore(matrix_cov)
+        matrix_total=BlockwiseZscore(matrix_total)
+        matrix_meanAll=BlockwiseZscore(matrix_meanAll)
+        matrix_shape=BlockwiseZscore(matrix_shape)
+        matrix_texture=BlockwiseZscore(matrix_texture)
+        matrix_all_OnlyCell=np.concatenate((matrix_mean,matrix_cov,matrix_total,matrix_meanAll,matrix_shape,matrix_texture),axis=1)
+
+    #tol
+    if tSNEInitialization=='random':
+        tsne=TSNE(n_components=numComp,perplexity=perplexity,early_exaggeration=early_exaggeration,learning_rate=learning_rate,n_iter=n_iter,init=tSNEInitialization,random_state=0)            
+    elif tSNEInitialization=='pca' and pcaMethod=='full':
+        matrix_all_OnlyCell=PCA(n_components=numComp,svd_solver='full').fit_transform(matrix_all_OnlyCell)
+        tsne=TSNE(n_components=numComp,perplexity=perplexity,early_exaggeration=early_exaggeration,learning_rate=learning_rate,n_iter=n_iter,init='random',random_state=0)
+    elif tSNEInitialization=='pca' and pcaMethod=='randomized':
+        tsne=TSNE(n_components=numComp,perplexity=perplexity,early_exaggeration=early_exaggeration,learning_rate=learning_rate,n_iter=n_iter,init=pcaMethod,random_state=0)
+    else:
+        print('Error in arguments for tSNE_all')
+    tsne_all_OnlyCell=tsne.fit_transform(matrix_all_OnlyCell)
+
+    types_list=[]
+    all_clusters=[]
+    clustercells_all,clustercells_allcenters = cell_cluster(tsne_all_OnlyCell,types_list,all_clusters,'tSNE_allfeatures',options)
+    #clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
+    #for i in range(len(clustercells_all)):
+    #    clustercells_all[i]=len(clustercells_allcenters)-1-np.where(clusterMembership_descending==clustercells_all[i])[0]
+    
+    return clustercells_all,clustercells_allcenters,tSNE_allfeatures_headers        
+
+    
+def BlockwiseZscore(data):
+    data_zscored=stats.zscore(data,axis=0)
+    data_zscored_nanRemoved=data_zscored[:,~np.isnan(data_zscored).any(axis=0)]
+    data_zscored=data_zscored_nanRemoved*(1/len(data_zscored_nanRemoved[0]))
+    return data_zscored
