@@ -227,7 +227,12 @@ def argparse_wrapper():
     p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
     p.add_argument('optional_img_dir', type=Path, nargs='?', default=False)
+    p.add_argument('--enable-manhole', action='store_true')
     argss = p.parse_args()
+
+    if argss.enable_manhole:
+        import manhole
+        manhole.install(activate_on='USR1')
 
     if argss.optional_img_dir:
         main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)

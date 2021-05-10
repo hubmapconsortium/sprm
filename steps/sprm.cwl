@@ -17,6 +17,11 @@ inputs:
     type: Directory
     inputBinding:
       position: 1
+  enable_manhole:
+    type: boolean?
+    inputBinding:
+      position: 2
+      prefix: "--enable-manhole"
   options_file:
     type: File?
     inputBinding:
