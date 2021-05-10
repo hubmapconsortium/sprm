@@ -25,6 +25,7 @@ from numba.typed import Dict as nbDict
 from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
 from scipy import stats
+from sklearn.manifold import TSNE
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -1123,7 +1124,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
         clustercells_uv, clustercells_uvcenters = cell_cluster(mean_vector_f, types_list, all_clusters, 'mean-' + maskchs[i], options)
         clustercells_cov, clustercells_covcenters = cell_cluster(covar_matrix_f, types_list, all_clusters, 'covar-' + maskchs[i],  options)
         clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, types_list, all_clusters, 'total-' + maskchs[i], options)
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header=tSNE_AllFeatures(mask,options,mean_vector_f,covar_matrix_f,total_vector_f,meanAll_vector_f,shape_vectors,texture_matrix)
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(mask,options,mean_vector_f,covar_matrix_f,total_vector_f,meanAll_vector_f,shape_vectors,texture_matrix)
 
         # map back to the mask segmentation of indexed cell region
         print('Mapping cell index in segmented mask to cluster IDs...')
@@ -1159,12 +1160,12 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, options, clustercells_uv, clustercells_cov,
                              clustercells_total,
-                             clustercells_uvall, clustercells_texture,clustercells_tsneAll)
+                             clustercells_uvall, clustercells_texture, clustercells_tsneAll)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
             plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
                       cluster_cell_imguall[bestz],
-                      cluster_cell_imgtotal[bestz], cluster_cell_texture[bestz],cluster_cell_imgtsneAll[bestz])
+                      cluster_cell_imgtotal[bestz], cluster_cell_texture[bestz],  cluster_cell_imgtsneAll[bestz])
 
     if options.get("debug"): print('Elapsed time for cluster img saving: ', time.monotonic() - stime)
 
@@ -1672,9 +1673,7 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename,ROI_coords, 
 
     return [texture, texture_featureNames]
 
-from sklearn.manifold import TSNE
 
-from scipy import stats
 
 
 
