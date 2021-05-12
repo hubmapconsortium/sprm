@@ -99,7 +99,7 @@ def main(
         cell_total.append(len(inCells))
 
         #save cell graphs
-        cell_centers = cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
+        cell_centers = cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
@@ -137,7 +137,8 @@ def main(
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
         
-        AdjacencyMatrix(mask,ROI_coords[2],baseoutputfilename,output_dir)
+
+
         if options.get('skip_texture'):
             #make fake textures matrix - all zeros
             textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]

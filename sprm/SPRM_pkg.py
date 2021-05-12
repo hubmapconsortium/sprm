@@ -27,6 +27,8 @@ from sklearn.metrics import silhouette_score
 from scipy import stats
 from skimage.morphology import binary_dilation
 from sklearn.manifold import TSNE
+from numpy import linalg as LA
+from matplotlib import collections as mc
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -469,64 +471,13 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
     df.index.name = 'ID'
 
     df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
-    adj_cell_list(mask, ROI_coords[3], fname, outputdir)
+    adj_cell_list(mask, ROI_coords, cell_center, fname, outputdir)
 
     # adj_cell_list(cellmask, fname, outputdir)
 
     return cell_center
 
-
-def AdjacencyMatrix(maskImg, cellEdgeList, interiorCells, thr=5, window=None):
-    '''
-        Find the adj matrix of cells in the image
-    '''
-
-    numCells = len(interiorCells)
-    interiorCells = np.asarray(interiorCells)
-    adjacencyMatrix = np.zeros((numCells, numCells))
-    if window == None:
-        delta = 3
-    else:
-        delta = len(window) + 3
-
-    idx = 0
-    # We check cell ids by dilation
-    for i in interiorCells:
-        if cellEdgeList[i].size == 0:
-            continue
-
-        tempImg = np.zeros((np.shape(maskImg)))
-        xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
-            cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
-        tempImg[cellEdgeList[i][0], cellEdgeList[i][1]] = 1
-        tempImg = np.pad(tempImg, delta)
-        mask_expanded = np.pad(maskImg, delta)
-        tempImg = tempImg[xmin:xmax + 2 * delta, ymin:ymax + 2 * delta]
-        dilatedImg = binary_dilation(tempImg)  ##
-        mask_expanded = mask_expanded[xmin:xmax + 2 * delta, ymin:ymax + 2 * delta]
-        multipliedImg = mask_expanded * dilatedImg
-        cellids = np.unique(multipliedImg)
-        cellids = list(set(cellids).intersection(interiorCells))
-        for j in cellids:
-            ridx = np.where(interiorCells == j)[0][0]
-            if j > i:  # Not background, not itself,use diagonal
-                minValue = np.inf
-                curCellEdgeCoords = cellEdgeList[ridx]
-                for k in range(len(curCellEdgeCoords[0])):
-                    for l in range(len(cellEdgeList[i][0])):
-                        distance = np.linalg.norm(cellEdgeList[ridx][:, k] - cellEdgeList[ridx][:, l])
-                        if distance < minValue:
-                            minValue = distance
-                        # prev if loc
-                        if minValue < thr:
-                            adjacencyMatrix[idx, ridx] = 1
-                            adjacencyMatrix[ridx, idx] = 1
-                            break
-        idx += 1
-
-    return adjacencyMatrix
-
-def adj_cell_list(mask, edgecoords: List[np.ndarray], fname: str, outputdir: Path):
+def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, fname: str, outputdir: Path):
     '''
         Construct adj list of neighboring cells
     '''
@@ -535,10 +486,101 @@ def adj_cell_list(mask, edgecoords: List[np.ndarray], fname: str, outputdir: Pat
     mask_data = mask.get_data()[0, 0, 3, 0, :, :]
     interiorCells = mask.get_interior_cells()
     stime = time.monotonic()
-    adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
+
+    AdjacencyMatrix(mask, ROI_coords[2], cell_center, fname, outputdir)
+    # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
     print('Runtime of adj matrix: ', time.monotonic() - stime)
-    df = pd.DataFrame(np.zeros(1))
-    df.to_csv(outputdir / (fname + '-cell_adj_list.csv'))
+    # df = pd.DataFrame(np.zeros(1))
+    # df.to_csv(outputdir / (fname + '-cell_adj_list.csv'))
+
+
+def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
+    minValue = np.inf
+    for k in range(len(cellCoords_cur[0])):
+        subtracted = np.asarray(
+            [cellCoords_control[0] - cellCoords_cur[0, k], cellCoords_control[1] - cellCoords_cur[1, k]])
+        distance = LA.norm(subtracted, axis=0)
+        if np.min(distance) < thr:
+            return np.min(distance)
+    return 0
+
+
+def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_dir, thr=3, window=None):
+    loc = mask.get_labels('cell_boundaries')
+    # print('adjacency calculation begin')
+    start = time.perf_counter()
+
+    numCells = len(cellEdgeList)
+    adjacencyMatrix = np.zeros((numCells, numCells))
+    cellGraph = dict()
+
+    cell_center = np.zeros((numCells, 2))
+
+    # for i in range(numCells):
+    #     m = (np.sum(cellEdgeList[i], axis=1) / cellEdgeList[i].shape[1]).astype(int)
+    #     cell_center[i, 0] = m[0]
+    #     cell_center[i, 1] = m[1]
+
+    for i in range(1, numCells):
+        cellGraph[i] = set()
+    if window == None:
+        delta = 3
+    else:
+        delta = len(window) + 3
+    maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+
+    for i in range(1, numCells):
+        maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+        xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
+            cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
+
+        xmin = xmin - delta if xmin - delta > 0 else 0
+        xmax = xmax + delta + 1 if xmax + delta + 1 < maskImg.shape[0] else maskImg.shape[0]
+        ymin = ymin - delta if ymin - delta > 0 else 0
+        ymax = ymax + delta + 1 if ymax + delta + 1 < maskImg.shape[1] else maskImg.shape[1]
+        tempImg = np.zeros((xmax - xmin, ymax - ymin))
+
+        tempImg[cellEdgeList[i][0] - xmin, cellEdgeList[i][1] - ymin] = 1
+        dilatedImg = binary_dilation(tempImg, selem=window)  ##
+        mask_cropped = maskImg[xmin:xmax, ymin:ymax]
+        # print('tempimg:',np.shape(tempImg),'cropped:',np.shape(mask_cropped))
+        multipliedImg = mask_cropped * dilatedImg
+        cellids = np.unique(multipliedImg)
+        cellids = np.delete(cellids, cellids <= i)
+        for j in cellids:
+            minDist = CheckAdjacency(cellEdgeList[i], cellEdgeList[j], thr)
+            if minDist != 0 and minDist < thr:
+                adjacencyMatrix[i, j] = minDist
+                adjacencyMatrix[j, i] = minDist
+                cellGraph[i].add(j)
+                cellGraph[j].add(i)
+
+    AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph,
+                          output_dir / (baseoutputfilename + '_AdjacencyGraph.png'), thr)
+    # Remove background
+    adjacencyMatrix = np.delete(adjacencyMatrix, 0, axis=0)
+    adjacencyMatrix = np.delete(adjacencyMatrix, 0, axis=1)
+    adjacencyMatrix_df = pd.DataFrame(adjacencyMatrix, index=np.arange(1, len(adjacencyMatrix) + 1),
+                                      columns=np.arange(1, len(adjacencyMatrix) + 1))
+    adjacencyMatrix_df.to_csv(output_dir / (baseoutputfilename + '_AdjacencyMatrix.csv'))
+    # return adjacencyMatrix
+
+
+def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph, name, thr):
+    fig, ax = plt.subplots(figsize=(17.0, 17.0))
+    plt.plot(cell_center[:, 0], cell_center[:, 1], 'o')
+    plt.title('Cell Adjacency Graph, distance <' + str(thr))
+    for i in range(1, len(cell_center)):
+        line2draw = cell_center[list(cellGraph[i])]
+        lines = [[cell_center[i], r] for r in line2draw]
+        line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
+        ax.add_collection(line)
+        for j in range(len(list(cellGraph[i]))):
+            gap = (cell_center[i] - line2draw[j]) / np.sqrt(
+                (cell_center[i] - line2draw[j]) * (cell_center[i] - line2draw[j]))
+            ax.text(cell_center[i][0] + gap[0], cell_center[i][1] + gap[1],
+                    '%.1f' % adjacencyMatrix[i][list(cellGraph[i])[j]], ha='center', va='center')
+    plt.savefig(name)
 
 
 def try_parse_int(value: str) -> Union[int, str]:
