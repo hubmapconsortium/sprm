@@ -471,6 +471,10 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
     df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
     adj_cell_list(mask, ROI_coords[3], fname, outputdir)
 
+    # adj_cell_list(cellmask, fname, outputdir)
+
+    return cell_center
+
 
 def AdjacencyMatrix(maskImg, cellEdgeList, interiorCells, thr=5, window=None):
     '''
