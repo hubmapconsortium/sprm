@@ -3,7 +3,7 @@ from typing import Optional
 
 from .SPRM_pkg import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
-
+from .YJLee_cellAdjacency_optimized import AdjacencyMatrix
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -99,7 +99,7 @@ def main(
         cell_total.append(len(inCells))
 
         #save cell graphs
-        cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
+        cell_centers=cell_graphs(ROI_coords, inCells, baseoutputfilename, output_dir)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, options)
@@ -136,7 +136,8 @@ def main(
         # also merge in optional additional image if present
         reallocate_and_merge_intensities(im, mask, opt_img_file, options)
         #generate_fake_stackimg(im, mask, opt_img_file, options)
-
+        
+        AdjacencyMatrix(mask,ROI_coords[2],baseoutputfilename,output_dir)
         if options.get('skip_texture'):
             #make fake textures matrix - all zeros
             textures = [np.zeros((1, 2, cell_total[idx], len(im.channel_labels) * 6, 1)), im.channel_labels * 12]

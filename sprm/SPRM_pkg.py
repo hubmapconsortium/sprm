@@ -467,6 +467,7 @@ def cell_graphs(ROI_coords: List, inCells: List, fname: str, outputdir: Path):
 
     df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
     adj_cell_list(cellmask, fname, outputdir)
+    return cell_center
 
 
 def adj_cell_list(cellmask: List[np.ndarray], fname: str, outputdir: Path):
