@@ -3,7 +3,6 @@ from typing import Optional
 
 from .SPRM_pkg import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape,  pca_recon, bin_pca
-from .YJLee_cellAdjacency_optimized import AdjacencyMatrix
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
@@ -102,7 +101,7 @@ def main(
         cell_centers = cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir)
 
         # signal to noise ratio of the image
-        SNR(im, baseoutputfilename, output_dir, options)
+        SNR(im, baseoutputfilename, output_dir, inCells, options)
 
         bestz = mask.get_bestz()
         # empty mask skip tile
@@ -125,7 +124,7 @@ def main(
         plot_img(superpixels, bestz[0], baseoutputfilename + '-Superpixels.png', output_dir)
 
         # do PCA on the channel values to find channel components
-        reducedim = clusterchannels(im, baseoutputfilename, output_dir, options)
+        reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
         PCA_img = plotprincomp(reducedim, bestz[0], baseoutputfilename + '-Top3ChannelPCA.png', output_dir, options)
 
         # writing out as a ometiff file of visualizations by channels
@@ -148,7 +147,7 @@ def main(
                 df.index.name = 'ID'
                 df.to_csv(output_dir / (baseoutputfilename + '-' + mask.channel_labels[i] + '_1_texture.csv'))
         else:
-            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, ROI_coords, options)
+            textures = glcmProcedure(im, mask, bestz, output_dir, cell_total, baseoutputfilename, ROI_coords, inCells, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
 
@@ -196,18 +195,18 @@ def main(
 
             if not options.get('skip_outlinePCA'):
                 # save the means, covars, shape and total for each cell
-                save_all(baseoutputfilename, im, mask, output_dir, options, mean_vector, covar_matrix, total_vector,
+                save_all(baseoutputfilename, im, mask, output_dir, inCells, options, mean_vector, covar_matrix, total_vector,
                          shape_vectors)
 
                 # do cell analyze
-                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, inCells, options, mean_vector,
                               covar_matrix,
                               total_vector,
                               shape_vectors, textures)
             else:
                 # same functions as above just without shape outlines
-                save_all(baseoutputfilename, im, seg_n, output_dir, options, mean_vector, covar_matrix, total_vector)
-                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, options, mean_vector,
+                save_all(baseoutputfilename, im, seg_n, output_dir, inCells, options, mean_vector, covar_matrix, total_vector)
+                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, inCells, options, mean_vector,
                               covar_matrix, total_vector, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
