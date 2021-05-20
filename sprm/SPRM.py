@@ -98,7 +98,7 @@ def main(
         cell_total.append(len(inCells))
 
         #save cell graphs
-        cell_centers = cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir)
+        cell_centers = cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
         # signal to noise ratio of the image
         SNR(im, baseoutputfilename, output_dir, inCells, options)
