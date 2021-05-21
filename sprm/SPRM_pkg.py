@@ -596,14 +596,17 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     # cellids = np.unique(multipliedImg)
     # cellids = np.delete(cellids, cellids <= i)
     for i in range(1, len(cellEdgeList)):
-        for j in cellids[i]:
-            # j = j.astype(int)
-            minDist = CheckAdjacency(cellEdgeList[i], cellEdgeList[j], thr)
-            if minDist != 0 and minDist < thr:
-                adjacencyMatrix[i, j] = minDist
-                adjacencyMatrix[j, i] = minDist
-                cellGraph[i].add(j)
-                cellGraph[j].add(i)
+        if cellids[i].size == 0:
+            continue
+        else:
+            for j in cellids[i]:
+                # j = j.astype(int)
+                minDist = CheckAdjacency(cellEdgeList[i], cellEdgeList[j], thr)
+                if minDist != 0 and minDist < thr:
+                    adjacencyMatrix[i, j] = minDist
+                    adjacencyMatrix[j, i] = minDist
+                    cellGraph[i].add(j)
+                    cellGraph[j].add(i)
 
     AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph,
                           output_dir / (baseoutputfilename + '_AdjacencyGraph.png'), thr)
