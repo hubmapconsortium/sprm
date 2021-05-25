@@ -525,7 +525,7 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     minValue = np.inf
 
     for k in nb.prange(len(cellCoords_cur[0])):
-    
+
         sub = cellCoords_control[0] - cellCoords_cur[0, k]
         sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
         subtracted = np.stack((sub, sub2))
@@ -608,11 +608,11 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     # maskcrop = list(map(lambda x: maskImg[x[0]:x[1], x[2]:x[3]], windowXY))
     maskcrop = [maskImg[x[0]:x[1], x[2]:x[3]] for x in windowXY]
     # nimglist = list(map(lambda x, y: x * y, maskcrop, dimglist))
-    nimglist = [x * y for x in maskcrop for y in dimglist]
+    nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
     # cellids = list(map(lambda x: np.unique(x), nimglist))
     cellids = [np.unique(x) for x in nimglist]
     idx = np.arange(len(cellids))
-    cellids = [np.delete(x, x <= y) for x in cellids for y in idx]
+    cellids = [np.delete(x, x <= y) for x, y in zip(cellids, idx)]
     # cellids = list(map(lambda x, y: np.delete(x, x <= y), cellids, idx))
     # cellids = list(map(lambda x: x.astype(int), cellids))
     # dilatedImg = binary_dilation(tempImg, selem=window)
