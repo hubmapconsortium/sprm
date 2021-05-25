@@ -497,22 +497,46 @@ def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, f
         df = pd.DataFrame(np.zeros(1))
         df.to_csv(outputdir / (fname + '-cell_adj_list.csv'))
 
-# @nb.njit(parallel=True)
-def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
+@nb.njit(parallel=True)
+def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
     minValue = np.inf
-    for k in range(len(cellCoords_cur[0])):
+
+    for k in nb.prange(len(cellCoords_cur[0])):
+        l = nbList()
         sub = cellCoords_control[0] - cellCoords_cur[0, k]
         sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
-        subtracted = np.stack((sub, sub2))
+        # subtracted = np.stack((sub, sub2))
+        for j in nb.prange(len(sub)):
+            a = np.array([sub[j], sub2[j]], dtype=np.float32)
+            norm = LA.norm(a)
+            l.append(norm)
+        # distance = np.array(l)
         # subtracted = np.asarray([cellCoords_control[0] - cellCoords_cur[0, k], cellCoords_control[1] - cellCoords_cur[1, k]])
-        distance = LA.norm(subtracted, axis=0)
+        # distance = LA.norm(subtracted, axis=0)
         # d = LA.norm(subtracted)
-        if np.min(distance) < thr:
-            return np.min(distance)
+        if min(l) < thr:
+            return min(l)
 
     return 0
 
+def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
+
+    minValue = np.inf
+
+    for k in nb.prange(len(cellCoords_cur[0])):
+        l = nbList()
+        sub = cellCoords_control[0] - cellCoords_cur[0, k]
+        sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
+        subtracted = np.stack((sub, sub2))
+        # distance = np.array(l)
+        # subtracted = np.asarray([cellCoords_control[0] - cellCoords_cur[0, k], cellCoords_control[1] - cellCoords_cur[1, k]])
+        # distance = LA.norm(subtracted, axis=0)
+        # d = LA.norm(subtracted)
+        if min(l) < thr:
+            return min(l)
+
+    return 0
 
 def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_dir, options: Dict, thr=3, window=None):
     '''
@@ -595,12 +619,11 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     # multipliedImg = mask_cropped * dilatedImg
     # cellids = np.unique(multipliedImg)
     # cellids = np.delete(cellids, cellids <= i)
-    for i in range(1, len(cellEdgeList)):
+    for i in range(len(cellids)):
         if cellids[i].size == 0:
             continue
         else:
             for j in cellids[i]:
-                # j = j.astype(int)
                 minDist = CheckAdjacency(cellEdgeList[i], cellEdgeList[j], thr)
                 if minDist != 0 and minDist < thr:
                     adjacencyMatrix[i, j] = minDist
