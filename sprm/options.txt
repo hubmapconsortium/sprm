@@ -26,5 +26,5 @@ tSNE_all_preprocess none zscore blockwise_zscore
 tSNE_all_perplexity 35
 tSNE_all_tSNEInitialization pca random
 tsne_all_svdsolver4pca full randomized
-cell_adj_parallel 1
+cell_adj_parallel 0
 cell_graph 1
