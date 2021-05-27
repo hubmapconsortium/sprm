@@ -746,8 +746,8 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph, name, thr):
     plt.title('Cell Adjacency Graph, distance <' + str(thr))
     for i in range(1, len(cell_center)):
         idx = list(cellGraph[i])
-        if any(x < len(cell_center) for x in idx):
-            line2draw = cell_center[list(cellGraph[i])]
+        if all(x < len(cell_center) for x in idx):
+            line2draw = cell_center[idx]
             lines = [[cell_center[i], r] for r in line2draw]
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
