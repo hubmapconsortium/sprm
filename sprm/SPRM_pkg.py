@@ -745,15 +745,19 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph, name, thr):
     plt.plot(cell_center[:, 0], cell_center[:, 1], 'o')
     plt.title('Cell Adjacency Graph, distance <' + str(thr))
     for i in range(1, len(cell_center)):
-        line2draw = cell_center[list(cellGraph[i])]
-        lines = [[cell_center[i], r] for r in line2draw]
-        line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
-        ax.add_collection(line)
-        for j in range(len(list(cellGraph[i]))):
-            gap = (cell_center[i] - line2draw[j]) / np.sqrt(
-                (cell_center[i] - line2draw[j]) * (cell_center[i] - line2draw[j]))
-            ax.text(cell_center[i][0] + gap[0], cell_center[i][1] + gap[1],
-                    '%.1f' % adjacencyMatrix[i][list(cellGraph[i])[j]], ha='center', va='center')
+        idx = list(cellGraph[i])
+        if any(x < len(cell_center) for x in idx):
+            line2draw = cell_center[list(cellGraph[i])]
+            lines = [[cell_center[i], r] for r in line2draw]
+            line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
+            ax.add_collection(line)
+            for j in range(len(list(cellGraph[i]))):
+                gap = (cell_center[i] - line2draw[j]) / np.sqrt(
+                    (cell_center[i] - line2draw[j]) * (cell_center[i] - line2draw[j]))
+                ax.text(cell_center[i][0] + gap[0], cell_center[i][1] + gap[1],
+                        '%.1f' % adjacencyMatrix[i][list(cellGraph[i])[j]], ha='center', va='center')
+        else:
+            continue
     plt.savefig(name)
 
 
