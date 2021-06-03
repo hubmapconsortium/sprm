@@ -25,6 +25,8 @@ from numba.typed import Dict as nbDict
 from numba.typed import List as nbList
 from sklearn.metrics import silhouette_score
 from scipy import stats
+import scipy.io
+import scipy.sparse
 from skimage.morphology import binary_dilation
 from sklearn.manifold import TSNE
 from numpy import linalg as LA
@@ -546,9 +548,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     ###
     # change from list[np.arrays] -> np.array
     ###
-    cel = nbList()
-    for i in range(len(cellEdgeList)):
-        cel.append(cellEdgeList[i])
+    cel = nbList(cellEdgeList)
 
     paraopt = options.get('cell_adj_parallel')
     loc = mask.get_labels('cell_boundaries')
@@ -559,7 +559,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
-    adjacencyMatrix = np.zeros((numCells, numCells))
+    adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
 
     # cell_center = np.zeros((numCells, 2))
@@ -636,11 +636,12 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_
     AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph,
                           output_dir / (baseoutputfilename + '_AdjacencyGraph.png'), thr)
     # Remove background
-    adjacencyMatrix = np.delete(adjacencyMatrix, 0, axis=0)
-    adjacencyMatrix = np.delete(adjacencyMatrix, 0, axis=1)
-    adjacencyMatrix_df = pd.DataFrame(adjacencyMatrix, index=np.arange(1, len(adjacencyMatrix) + 1),
-                                      columns=np.arange(1, len(adjacencyMatrix) + 1))
-    adjacencyMatrix_df.to_csv(output_dir / (baseoutputfilename + '_AdjacencyMatrix.csv'))
+    adjacencyMatrix = adjacencyMatrix[1:, 1:]
+    adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
+    scipy.io.mmwrite(output_dir / (baseoutputfilename + '_AdjacencyMatrix.mtx'), adjacencyMatrix_csr)
+    with open(output_dir / (baseoutputfilename + '_AdjacencyMatrixRowColLabels.txt'), 'w') as f:
+        for i in range(1, numCells + 1):
+            print(i, file=f)
     # return adjacencyMatrix
 
 
