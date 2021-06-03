@@ -470,11 +470,11 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
         cell_center[i, 0] = m[0]
         cell_center[i, 1] = m[1]
 
-    df = pd.DataFrame(cell_center, index=inCells)
-    df.index.name = 'ID'
+    cell_center_df = pd.DataFrame(cell_center, index=inCells)
+    cell_center_df.index.name = 'ID'
 
-    df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
-    adj_cell_list(mask, ROI_coords, cell_center, fname, outputdir, options)
+    cell_center_df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
+    adj_cell_list(mask, ROI_coords, cell_center_df, fname, outputdir, options)
 
     # adj_cell_list(cellmask, fname, outputdir)
 
@@ -540,7 +540,7 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
     return 0
 
-def AdjacencyMatrix(mask, cellEdgeList, cell_center, baseoutputfilename, output_dir, options: Dict, thr=3, window=None):
+def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfilename, output_dir, options: Dict, thr=3, window=None):
     '''
     By: Young Je Lee and Ted Zhang
     '''
@@ -741,24 +741,30 @@ def nbget_windows(numCells, cellEdgeList, delta, a, b):
     return windowCoords, windowSize, windowRange_xy
 
 
-def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph, name, thr):
+def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: pd.DataFrame, cellGraph, name, thr):
+    cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
-    plt.plot(cell_center[:, 0], cell_center[:, 1], 'o')
+    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], 'o')
     plt.title('Cell Adjacency Graph, distance <' + str(thr))
-    for i in range(1, len(cell_center)):
+    for i, cell_coord in cell_center.iterrows():
         idx = list(cellGraph[i])
-        if all(x < len(cell_center) for x in idx):
-            line2draw = cell_center[idx]
-            lines = [[cell_center[i], r] for r in line2draw]
+        if idx and all(x in cells for x in idx):
+            neighbors = cell_center.loc[idx, :]
+            lines = []
+            for j, neighbor_coord in neighbors.iterrows():
+                lines.append([cell_coord, neighbor_coord])
+
+                dist = adjacencyMatrix[i, j]
+                gap = (neighbor_coord - cell_coord) / 2
+                ax.text(
+                    cell_coord[0] + gap[0],
+                    cell_coord[1] + gap[1],
+                    '%.1f' % dist,
+                    ha='center',
+                    va='center',
+                )
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
-            for j in range(len(list(cellGraph[i]))):
-                gap = (cell_center[i] - line2draw[j]) / np.sqrt(
-                    (cell_center[i] - line2draw[j]) * (cell_center[i] - line2draw[j]))
-                ax.text(cell_center[i][0] + gap[0], cell_center[i][1] + gap[1],
-                        '%.1f' % adjacencyMatrix[i][list(cellGraph[i])[j]], ha='center', va='center')
-        else:
-            continue
     plt.savefig(name)
 
 
