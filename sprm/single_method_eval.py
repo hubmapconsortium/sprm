@@ -12,6 +12,8 @@ from skimage.morphology import disk
 from skimage.morphology import closing
 from skimage.morphology import diameter_closing
 from .get_matched_masks import *
+import pickle
+
 """
 
 Companion to SPRM.py
@@ -226,6 +228,14 @@ def get_mask(cell_list, mask_shape):
 		mask[tuple(cell_list[cell_num].T)] = cell_num
 	return mask
 
+def flatten_dict(input_dict):
+	local_list = []
+	for key, value in input_dict.items():
+		if type(value) != int:
+			local_list.extend(flatten_dict(value))
+		else:
+			local_list.append(value)
+	return local_list
 
 def single_method_eval(img, mask, mask_dir, result_dir):
 	print('Calculating single-method metrics...')
@@ -273,7 +283,8 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			os.makedirs(channel_dir)
 		current_mask = metric_mask[channel]
 		mask_binary = np.sign(current_mask)
-		
+		metrics[channel_names[channel]] = {}
+	
 		if channel == 0:
 			# calculate mismatch metric if whole-cell mask
 			# mismatched_fraction_dir = mask_dir[:-8] + '_compartments_mismatched_fraction.txt'
@@ -311,8 +322,12 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			foreground_fraction, background_fraction, _ = fraction(img_binary, mask_binary)
 			# np.savetxt(join(channel_dir, 'cell_basic.txt'), [cell_num_normalized, mask_fraction, foreground_fraction, background_fraction, mask_foreground_fraction])
 			mismatched_fraction = 0  # temp solution, wait for Vasyl's update
-			metrics{channel[i]}{'NumberOfCellPerMicron'} = cell_num_normalized
 			
+			metrics[channel_names[channel]]['NumberOfCellPerMicron'] = cell_num_normalized
+			metrics[channel_names[channel]]['FractionOfCells'] = mask_fraction
+			metrics[channel_names[channel]]['FractionOfForegroundOccupiedByCells'] = foreground_fraction
+			metrics[channel_names[channel]]['FractionOfBackgroundOccupiedByCells'] = background_fraction
+			metrics_flat = [cell_num_normalized, mask_fraction, foreground_fraction, background_fraction]
 		else:
 			_, _, mask_foreground_fraction = fraction(img_binary, mask_binary)
 			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
@@ -327,9 +342,22 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			avg_cell_CV = np.average(cell_CV)
 			avg_cell_fraction = np.average(cell_fraction)
 			avg_cell_silhouette = np.average(cell_silhouette)
-			
 			# np.savetxt(join(channel_dir, 'cell_uniformity.txt'), [cell_CV, cell_fraction, cell_silhouette])
-		
+
+			metrics[channel_names[channel]]['FractionOfMaskInForeground'] = mask_foreground_fraction
+			metrics[channel_names[channel]]['AvgCVForegroundOutsideCells'] = foreground_CV
+			metrics[channel_names[channel]]['FirstPCForegroundOutsideCells'] = foreground_PCA
+			metrics[channel_names[channel]]['AvgCVBackgroundOutsideCells'] = background_CV
+			metrics[channel_names[channel]]['FirstPCBackgroundOutsideCells'] = background_PCA
+			metrics[channel_names[channel]]['AvgWeightedAvgCVCellIntensities'] = avg_cell_CV
+			metrics[channel_names[channel]]['AvgWeightedAvgFirstPCCellIntensities'] = avg_cell_fraction
+			metrics[channel_names[channel]]['AvgWeightedAvgSilhouette'] = avg_cell_silhouette
+			metrics_flat = metrics_flat + [mask_foreground_fraction, foreground_CV, foreground_PCA, background_CV, background_PCA, avg_cell_CV, avg_cell_fraction, avg_cell_silhouette]
+	pickle.dump(metrics, join(result_dir, 'evaluation_metrics.pickle'))
 	
+	print(metrics_flat)
+	metrics_flat = flatten_dict(metrics)
+	print(metrics_flat)
+
 
 
