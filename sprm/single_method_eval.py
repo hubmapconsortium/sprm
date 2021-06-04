@@ -310,7 +310,11 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			# 		os.system('mv ' + mismatched_fraction_dir + ' ' + join(channel_dir, 'compartments_mismatched_fraction.txt'))
 			# 	np.savetxt(join(channel_dir, 'compartments_mismatched_fraction.txt'), [0])  # temp
 			
-			mismatched_fraction = 0  # temp, waiting for Vasyl's update
+			mask_metadata = mask.img.metadata.to_xml()
+			mismatch_string = mask_metadata[mask_metadata.find('CompartmentsMismatchedFraction'):]
+			mismatch_ind = mismatch_string.find('0.')
+			mismatched_fraction = float(mismatch_string[mismatch_ind:mismatch_ind+7])
+			print(mismatched_fraction)
 			
 			# get pixel size in micron
 		
@@ -329,7 +333,9 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			# get coverage metrics
 			foreground_fraction, background_fraction, _ = fraction(img_binary, mask_binary)
 			# np.savetxt(join(channel_dir, 'cell_basic.txt'), [cell_num_normalized, mask_fraction, foreground_fraction, background_fraction, mask_foreground_fraction])
-			mismatched_fraction = 0  # temp solution, wait for Vasyl's update
+			
+			
+			# mismatched_fraction = 0  # temp solution, wait for Vasyl's update
 			
 			metrics[channel_names[channel]]['NumberOfCellPer1kMicron'] = cell_num_normalized
 			metrics[channel_names[channel]]['FractionOfCells'] = mask_fraction
@@ -370,15 +376,16 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	# print(metrics_flat)
 	
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-	print(metrics_flat)
+	# print(metrics_flat)
 	with open(join('/SPRM/sprm/standardization.pickle'), 'rb') as f:
 		ss = pickle.load(f)
 	with open(join('/SPRM/sprm/pca.pickle'), 'rb') as f:
 		pca = pickle.load(f)
-	
+
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
+	# print(pca_score)
 	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
 		pickle.dump(metrics, f)
 
