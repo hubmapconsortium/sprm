@@ -319,7 +319,7 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
 			micron_num = pixel_size * pixel_num
 			
-			# calculate number of cell per 1000 micron^2
+			# calculate number of cell per 10000 micron^2
 			cell_num = len(np.unique(current_mask)) - 1
 			cell_num_normalized = cell_num / micron_num * 10000
 			
