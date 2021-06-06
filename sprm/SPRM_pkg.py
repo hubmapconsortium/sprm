@@ -30,6 +30,7 @@ from sklearn.manifold import TSNE
 from numpy import linalg as LA
 from matplotlib import collections as mc
 from collections import defaultdict
+import json
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -1622,6 +1623,65 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
 
     df1.to_csv(output_dir / 'summary_zscore.csv', index=False)
     df2.to_csv(output_dir / 'summary_otsu.csv', index=False)
+
+def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options):
+
+    for i in range(len(img_files)):
+
+        struct = dict()
+
+        img_name = img_files[i].name
+        im = im_list[i]
+        mask = mask_list[i]
+
+        bestz = mask.get_bestz()
+
+        im_data = im.get_data()
+        im_dims = im_data.shape
+
+        im_channels = im_data[0, 0, :, :, :, :]
+        pixels = im_dims[-2] * im_dims[-1]
+        bgpixels = ROI_coords[0][0]
+
+        channels = im.get_channel_labels()
+
+        #read in total csv
+        total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
+        total_intensity_file = get_paths(total_intensity_path)
+        total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
+        total_intesnity_per_chancell = np.sum(total_intensity[:, 1:], axis = 0)
+
+        #read in silhouette scores
+        sscore_path = output_dir / (img_name + 'clusteringsilhouetteScores.csv')
+        sscore_file = get_paths(sscore_path)
+        sscore = pd.read_csv(sscore_file[0]).to_numpy()
+        mean_all = sscore[0, :]
+
+        struct['Number of Channels'] = len(channels)
+        struct['Number of Cells'] = cell_total
+        struct['Number of Background Pixels'] = len(bgpixels)
+        struct['Fraction of Image Occupied by Cells'] = len(bgpixels) / pixels
+
+        struct['Total Intensity (per channel)'] = dict()
+        struct['Average Per Cell Totals (per channel)'] = dict()
+        struct['Silhouette Scores From Clustering'] = dict()
+
+        for j in range(len(sscore)):
+            struct['Silhouette Scores From Clustering'][]
+
+
+
+        for j in range(len(channels)):
+            struct['Total Intensity (per channel)'][channels[j]] = dict()
+            struct['Total Intensity (per channel)'][channels[j]] = dict()
+            struct['Total Intensity (per channel)'][channels[j]]['Cells'] = total_intesnity_per_chancell[j]
+            struct['Total Intensity (per channel)'][channels[j]]['Background'] = im_channels[j, 0, bgpixels[0], bgpixels[1]]
+
+
+
+
+
+
 
 
 def check_shape(im, mask):

@@ -45,6 +45,9 @@ def main(
     total_vector = []
     cell_total = []
 
+    im_list = []
+    mask_list = []
+
     # store results in a dir
     check_output_dir(output_dir, options)
 
@@ -59,6 +62,7 @@ def main(
         print('Image name: ', img_file.name)
 
         im = IMGstruct(img_file, options)
+        im_list.append(im)
         if options.get("debug"): print('Image dimensions: ', im.get_data().shape)
 
         #hot fix for stitched images pipeline
@@ -76,6 +80,7 @@ def main(
 
         mask_file = mask_files[idx]
         mask = MaskStruct(mask_file, options)
+        mask_list.append(mask)
 
         #hot fix for stitched images pipeline
         #if there are scenes or time points - they should be channels
@@ -216,6 +221,8 @@ def main(
 
     # summary of all tiles/files in a single run
     summary(im, cell_total, img_files, output_dir, options)
+    quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options)
+
 
     # recluster features
     # recluster(output_dir, im, options)
