@@ -32,6 +32,8 @@ from sklearn.manifold import TSNE
 from numpy import linalg as LA
 from matplotlib import collections as mc
 from collections import defaultdict
+import json
+import pickle
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -193,6 +195,34 @@ class MaskStruct(IMGstruct):
 
     def get_bad_cells(self):
         return self.bad_cells
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """ Custom encoder for numpy data types """
+
+    def default(self, obj):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+                            np.int16, np.int32, np.int64, np.uint8,
+                            np.uint16, np.uint32, np.uint64)):
+
+            return int(obj)
+
+        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+            return float(obj)
+
+        elif isinstance(obj, (np.complex_, np.complex64, np.complex128)):
+            return {'real': obj.real, 'imag': obj.imag}
+
+        elif isinstance(obj, (np.ndarray,)):
+            return obj.tolist()
+
+        elif isinstance(obj, (np.bool_)):
+            return bool(obj)
+
+        elif isinstance(obj, (np.void)):
+            return None
+
+        return json.JSONEncoder.default(self, obj)
 
 
 def save_image(a: np.ndarray, file_path: Union[str, Path]):
@@ -457,7 +487,8 @@ def get_coordinates(mask, options):
     return channel_coords
 
 
-def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: List, fname: str, outputdir: Path, options: Dict):
+def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: List, fname: str, outputdir: Path,
+                options: Dict):
     '''
         Get cell centers as well as adj list of cells
     '''
@@ -481,7 +512,8 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
     return cell_center
 
 
-def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, fname: str, outputdir: Path, options: Dict):
+def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, fname: str, outputdir: Path,
+                  options: Dict):
     '''
         Construct adj list of neighboring cells
     '''
@@ -493,15 +525,15 @@ def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, f
 
     if options.get('cell_graph') == 1:
         AdjacencyMatrix(mask, ROI_coords[2], cell_center, fname, outputdir, options)
-    # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
+        # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         print('Runtime of adj matrix: ', time.monotonic() - stime)
     else:
         df = pd.DataFrame(np.zeros(1))
         df.to_csv(outputdir / (fname + '-cell_adj_list.csv'))
 
+
 @nb.njit(parallel=True)
 def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
-
     minValue = np.inf
 
     for k in nb.prange(len(cellCoords_cur[0])):
@@ -522,8 +554,8 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
     return 0
 
-def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
+def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     minValue = np.inf
 
     for k in nb.prange(len(cellCoords_cur[0])):
@@ -540,9 +572,10 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
     return 0
 
+
 def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfilename, output_dir, options: Dict, thr=3, window=None):
     '''
-    By: Young Je Lee and Ted Zhang
+    By: Young Je Lee, Ted Zhang and Matt Ruffalo
     '''
 
     ###
@@ -646,11 +679,9 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
 
 
 def get_windows(numCells, cellEdgeList, delta, a, b):
-
     windowCoords = []
     windowSize = []
     windowRange_xy = []
-
 
     for i in range(1, numCells):
         # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
@@ -668,7 +699,6 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
         x = xmax - xmin
         y = ymax - ymin
         c = np.array([x, y])
-
 
         temp1 = cellEdgeList[i][0] - xmin
         temp2 = cellEdgeList[i][1] - ymin
@@ -692,13 +722,12 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
 
     return windowCoords, windowSize, windowRange_xy
 
+
 @nb.njit(parallel=True)
 def nbget_windows(numCells, cellEdgeList, delta, a, b):
-
     windowCoords = nbList()
     windowSize = nbList()
     windowRange_xy = nbList()
-
 
     for i in nb.prange(1, numCells):
         # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
@@ -716,7 +745,6 @@ def nbget_windows(numCells, cellEdgeList, delta, a, b):
         x = xmax - xmin
         y = ymax - ymin
         c = np.array([x, y])
-
 
         temp1 = cellEdgeList[i][0] - xmin
         temp2 = cellEdgeList[i][1] - ymin
@@ -1629,6 +1657,138 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
 
     df1.to_csv(output_dir / 'summary_zscore.csv', index=False)
     df2.to_csv(output_dir / 'summary_otsu.csv', index=False)
+
+
+def multidim_intersect(arr1, arr2):
+    a = set((tuple(i) for i in arr1))
+    b = set((tuple(i) for i in arr2))
+
+    return np.array(list(a - b)).T
+
+
+def find_cytoplasm(ROI_coords):
+    cell_coords = ROI_coords[0]
+    nucleus_coords = ROI_coords[1]
+
+    cell_coords = [x.T for x in cell_coords]
+    nucleus_coords = [x.T for x in nucleus_coords]
+    # cell_coords = list(map(lambda x: x.T, cell_coords))
+    # nucleus_coords = list(map(lambda x: x.T, nucleus_coords))
+
+    cytoplasm = [multidim_intersect(x, y) for x, y in zip(cell_coords, nucleus_coords)]
+
+    # cytoplasm = []
+    # for i in range(1, len(cell_coords)):
+    #     cytoplasm.append(self.multidim_intersect())
+    # cytoplasm = list(map(lambda x, y: self.multidim_intersect(x, y), cell_coords, nucleus_coords))
+
+    return cytoplasm
+
+
+def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options):
+    '''
+        Quality Measurements for SPRM analysis
+    '''
+
+    for i in range(len(img_files)):
+        print('Writing out quality measures...')
+
+        struct = dict()
+
+        img_name = img_files[i].name
+        im = im_list[i]
+        mask = mask_list[i]
+
+        bestz = mask.get_bestz()
+
+        im_data = im.get_data()
+        im_dims = im_data.shape
+
+        im_channels = im_data[0, 0, :, bestz, :, :]
+        pixels = im_dims[-2] * im_dims[-1]
+        bgpixels = ROI_coords[0][0]
+        # cells = ROI_coords[0][1:]
+        # nuclei = ROI_coords[1][1:]
+
+        # get segmentation metrics from pickle
+        seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
+
+        struct['Segmentation Evaluation Metrics'] = seg_metrics
+        # get cytoplasm coords
+        cytoplasm = find_cytoplasm(ROI_coords)
+        channels = im.get_channel_labels()
+
+        # read in total csv
+        total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
+        total_intensity_file = get_paths(total_intensity_path)
+        total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
+        total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
+
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
+
+        total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
+        total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
+        total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
+        total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
+
+        # cytoplasm total intensity per channel
+        cytoplasm_all = np.concatenate(cytoplasm[1:], axis=1)
+        total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
+
+        nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm / cell_total
+        cell_bg_avgR = total_intensity_per_chancell / total_intensity_per_chanbg / cell_total
+
+        # read in silhouette scores
+        sscore_path = output_dir / (img_name + 'clusteringsilhouetteScores.csv')
+        sscore_file = get_paths(sscore_path)
+        sscore = pd.read_csv(sscore_file[0]).to_numpy()
+        mean_all = sscore[0, 1:]
+        maxscore = np.max(mean_all)
+        maxidx = np.argmax(mean_all) + 2
+
+        # read in signal csv
+        signal_path = output_dir / (img_name + '-SNR.csv')
+        signal_file = get_paths(signal_path)
+        SNR = pd.read_csv(signal_file[0]).to_numpy()
+        zscore = SNR[0, 1:]
+        otsu = SNR[1, 1:]
+
+        struct['Number of Channels'] = len(channels)
+        struct['Number of Cells'] = cell_total[0]
+        struct['Number of Background Pixels'] = len(bgpixels)
+        struct['Fraction of Image Occupied by Cells'] = len(bgpixels) / pixels
+
+        struct['Total Intensity (per channel)'] = dict()
+        struct['Average Total Intensity Per Cell (per channel)'] = dict()
+        struct['Silhouette Scores From Clustering'] = dict()
+        struct['Silhouette Scores From Clustering']['Mean-All'] = dict()
+        struct['Silhouette Scores From Clustering']['Max Silhouette Score'] = maxscore
+        struct['Silhouette Scores From Clustering']['Cluster with Max Score'] = maxidx
+
+        struct['Signal To Noise Otsu'] = dict()
+        struct['Signal To Noise Z-Score'] = dict()
+
+        for j in range(len(mean_all)):
+            struct['Silhouette Scores From Clustering']['Mean-All'][j + 2] = mean_all[j]
+
+        for j in range(len(channels)):
+            struct['Total Intensity (per channel)'][channels[j]] = dict()
+            struct['Total Intensity (per channel)'][channels[j]] = dict()
+            struct['Average Total Intensity Per Cell (per channel)'][channels[j]] = dict()
+            struct['Average Total Intensity Per Cell (per channel)'][channels[j]] = dict()
+
+            struct['Total Intensity (per channel)'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
+            struct['Total Intensity (per channel)'][channels[j]]['Background'] = total_intensity_per_chanbg[j]
+
+            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Nuclear / Cytoplasmic'] = \
+            nuc_cyto_avgR[j]
+            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
+
+            struct['Signal To Noise Otsu'][channels[j]] = otsu[j]
+            struct['Signal To Noise Z-Score'][channels[j]] = zscore[j]
+
+        with open(output_dir / (img_name + '-SPRM_Image_Quality_Measures.json'), 'w') as json_file:
+            json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
 
 
 def check_shape(im, mask):
