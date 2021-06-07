@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from typing import Optional
-
+import sys
 from .SPRM_pkg import *
 from .single_method_eval import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon, bin_pca
@@ -94,8 +94,15 @@ def main(
             data = data.reshape(c, t, s, z, y, x)
             mask.set_data(data)
 
-        # evaluation on single segmentation method
-        single_method_eval(im, mask, output_dir)
+        #0 == just sprm, 1 == segeval, 2 == both
+        eval_pathway = options.get('sprm_segeval_both')
+
+        if eval_pathway == 1:
+            # evaluation on single segmentation method
+            single_method_eval(im, mask, output_dir)
+            sys.exit('Finished Segmentation Evaluation')
+        elif eval_pathway == 2:
+            single_method_eval(im, mask, output_dir)
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)

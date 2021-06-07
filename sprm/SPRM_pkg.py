@@ -31,6 +31,7 @@ from numpy import linalg as LA
 from matplotlib import collections as mc
 from collections import defaultdict
 import json
+import pickle
 
 from .constants import (
     FILENAMES_TO_IGNORE,
@@ -1650,11 +1651,13 @@ def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: D
     df1.to_csv(output_dir / 'summary_zscore.csv', index=False)
     df2.to_csv(output_dir / 'summary_otsu.csv', index=False)
 
+
 def multidim_intersect(arr1, arr2):
     a = set((tuple(i) for i in arr1))
     b = set((tuple(i) for i in arr2))
 
     return np.array(list(a - b)).T
+
 
 def find_cytoplasm(ROI_coords):
     cell_coords = ROI_coords[0]
@@ -1673,6 +1676,7 @@ def find_cytoplasm(ROI_coords):
     # cytoplasm = list(map(lambda x, y: self.multidim_intersect(x, y), cell_coords, nucleus_coords))
 
     return cytoplasm
+
 
 def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options):
     '''
@@ -1696,10 +1700,14 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
         im_channels = im_data[0, 0, :, bestz, :, :]
         pixels = im_dims[-2] * im_dims[-1]
         bgpixels = ROI_coords[0][0]
-        cells = ROI_coords[0][1:]
-        nuclei = ROI_coords[1][1:]
+        # cells = ROI_coords[0][1:]
+        # nuclei = ROI_coords[1][1:]
 
-        #get cytoplasm coords
+        # get segmentation metrics from pickle
+        seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
+
+        struct['Segmentation Evaluation Metrics'] = seg_metrics
+        # get cytoplasm coords
         cytoplasm = find_cytoplasm(ROI_coords)
         channels = im.get_channel_labels()
 
@@ -1716,7 +1724,7 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
         total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
         total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
 
-        #cytoplasm total intensity per channel
+        # cytoplasm total intensity per channel
         cytoplasm_all = np.concatenate(cytoplasm[1:], axis=1)
         total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
 
@@ -1765,7 +1773,8 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
             struct['Total Intensity (per channel)'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
             struct['Total Intensity (per channel)'][channels[j]]['Background'] = total_intensity_per_chanbg[j]
 
-            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Nuclear / Cytoplasmic'] = nuc_cyto_avgR[j]
+            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Nuclear / Cytoplasmic'] = \
+            nuc_cyto_avgR[j]
             struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
 
             struct['Signal To Noise Otsu'][channels[j]] = otsu[j]

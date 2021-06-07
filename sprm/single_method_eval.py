@@ -237,7 +237,7 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, mask_dir, result_dir):
+def single_method_eval(img, mask, result_dir):
 	print('Calculating single-method metrics...')
 	try:
 		os.makedirs(join(result_dir, 'single_method_metric'))
