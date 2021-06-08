@@ -810,6 +810,7 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
                     '%.1f' % dist,
                     ha='center',
                     va='center',
+                    fontsize='xx-small'
                 )
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
