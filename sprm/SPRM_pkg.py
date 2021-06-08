@@ -27,7 +27,8 @@ from sklearn.metrics import silhouette_score
 from scipy import stats
 import scipy.io
 import scipy.sparse
-from skimage.morphology import binary_dilation
+# from skimage.morphology import binary_dilation
+from scipy.ndimage import binary_dilation
 from sklearn.manifold import TSNE
 from numpy import linalg as LA
 from matplotlib import collections as mc
@@ -494,14 +495,14 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
     '''
 
     cellmask = ROI_coords[0]
-    cell_center = np.zeros((len(inCells), 2))
+    cell_center = np.zeros((len(cellmask), 2))
 
-    for i in range(len(inCells)):
-        m = (np.sum(cellmask[inCells[i]], axis=1) / cellmask[inCells[i]].shape[1]).astype(int)
+    for i in range(1, len(cellmask)):
+        m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
         cell_center[i, 0] = m[0]
         cell_center[i, 1] = m[1]
 
-    cell_center_df = pd.DataFrame(cell_center, index=inCells)
+    cell_center_df = pd.DataFrame(cell_center)
     cell_center_df.index.name = 'ID'
 
     cell_center_df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
@@ -554,8 +555,21 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
     return 0
 
+def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
 
-def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
+    for j in cellids[i]:
+
+        k = idx[i]
+
+        sub = cell_center[k] - cell_center[j]
+        distance = LA.norm(sub)
+
+        adjmatrix[k, j] = distance
+        adjmatrix[j, k] = distance
+        cellGraph[k].add(j)
+        cellGraph[j].add(k)
+
+def CheckAdjacency(cellCoords_control, cellCoords_cur, cell_centers, thr):
     minValue = np.inf
 
     for k in range(len(cellCoords_cur[0])):
@@ -573,7 +587,7 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     return 0
 
 
-def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfilename, output_dir, options: Dict, thr=3, window=None):
+def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfilename, output_dir, options: Dict, window=None):
     '''
     By: Young Je Lee, Ted Zhang and Matt Ruffalo
     '''
@@ -582,6 +596,8 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     # change from list[np.arrays] -> np.array
     ###
     cel = nbList(cellEdgeList)
+    thr = options.get('cell_adj_dilation_itr')
+    cell_center = cell_center.to_numpy()
 
     paraopt = options.get('cell_adj_parallel')
     loc = mask.get_labels('cell_boundaries')
@@ -589,7 +605,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     # start = time.perf_counter()
 
     numCells = len(cellEdgeList)
-    intCells = mask.get_interior_cells()
+    # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
@@ -637,7 +653,8 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
         templist.append(tempImg)
 
     # dimglist = list(map(lambda x: binary_dilation(x, selem=window), templist))
-    dimglist = [binary_dilation(x, selem=window) for x in templist]
+    # dimglist = [binary_dilation(x, selem=window) for x in templist]
+    dimglist = [binary_dilation(x, iterations=thr) for x in templist]
     # maskcrop = list(map(lambda x: maskImg[x[0]:x[1], x[2]:x[3]], windowXY))
     maskcrop = [maskImg[x[0]:x[1], x[2]:x[3]] for x in windowXY]
     # nimglist = list(map(lambda x, y: x * y, maskcrop, dimglist))
@@ -658,16 +675,17 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
         if cellids[i].size == 0:
             continue
         else:
-            for j in cellids[i]:
-                minDist = CheckAdjacency(cellEdgeList[idx[i]], cellEdgeList[j], thr)
-                if minDist != 0 and minDist < thr:
-                    adjacencyMatrix[i, j] = minDist
-                    adjacencyMatrix[j, i] = minDist
-                    cellGraph[i].add(j)
-                    cellGraph[j].add(i)
+            CheckAdjacency_Distance(cell_center, cellids, idx, adjacencyMatrix, cellGraph, i,)
+            # for j in cellids[i]:
+            #     minDist = CheckAdjacency(cellEdgeList[idx[i]], cellEdgeList[j], thr)
+            #     if minDist != 0 and minDist < thr:
+            #         adjacencyMatrix[i, j] = minDist
+            #         adjacencyMatrix[j, i] = minDist
+            #         cellGraph[i].add(j)
+            #         cellGraph[j].add(i)
 
     AdjacencyMatrix2Graph(adjacencyMatrix, cell_center, cellGraph,
-                          output_dir / (baseoutputfilename + '_AdjacencyGraph.png'), thr)
+                          output_dir / (baseoutputfilename + '_AdjacencyGraph.pdf'), thr)
     # Remove background
     adjacencyMatrix = adjacencyMatrix[1:, 1:]
     adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
@@ -769,7 +787,9 @@ def nbget_windows(numCells, cellEdgeList, delta, a, b):
     return windowCoords, windowSize, windowRange_xy
 
 
-def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: pd.DataFrame, cellGraph, name, thr):
+def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, name, thr):
+
+    cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
     plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], 'o')
@@ -793,7 +813,7 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: pd.DataFrame, cellGraph,
                 )
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
-    plt.savefig(name)
+    plt.savefig(name, **figure_save_params)
 
 
 def try_parse_int(value: str) -> Union[int, str]:
@@ -1710,10 +1730,11 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
         # cells = ROI_coords[0][1:]
         # nuclei = ROI_coords[1][1:]
 
-        # get segmentation metrics from pickle
-        seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
+        if options.get('sprm_segeval_both') == 2:
+            # get segmentation metrics from pickle
+            seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
+            struct['Segmentation Evaluation Metrics'] = seg_metrics
 
-        struct['Segmentation Evaluation Metrics'] = seg_metrics
         # get cytoplasm coords
         cytoplasm = find_cytoplasm(ROI_coords)
         channels = im.get_channel_labels()

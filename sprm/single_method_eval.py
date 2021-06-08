@@ -215,13 +215,6 @@ def get_indexed_mask(mask, boundary):
 	boundary[boundary_loc] = mask[boundary_loc]
 	return boundary
 
-
-def get_boundary(mask):
-	mask_boundary = find_boundaries(mask)
-	mask_boundary_indexed = get_indexed_mask(mask, mask_boundary)
-	return mask_boundary_indexed
-
-
 def get_mask(cell_list, mask_shape):
 	mask = np.zeros((mask_shape))
 	for cell_num in range(len(cell_list)):

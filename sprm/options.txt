@@ -28,4 +28,5 @@ tSNE_all_tSNEInitialization pca random
 tsne_all_svdsolver4pca full randomized
 cell_adj_parallel 0
 cell_graph 1
-sprm_segeval_both 0
+cell_adj_dilation_itr 3
+sprm_segeval_both 2
