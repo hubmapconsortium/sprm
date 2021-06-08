@@ -100,6 +100,13 @@ def main(
         if eval_pathway == 1:
             # evaluation on single segmentation method
             single_method_eval(im, mask, output_dir)
+
+            struct = {}
+            seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
+            struct['Segmentation Evaluation Metrics'] = seg_metrics
+
+            with open(output_dir / (img_name + '-SPRM_Image_Quality_Measures.json'), 'w') as json_file:
+                json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
             sys.exit('Finished Segmentation Evaluation')
         elif eval_pathway == 2:
             single_method_eval(im, mask, output_dir)
