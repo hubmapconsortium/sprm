@@ -804,14 +804,14 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
 
                 dist = adjacencyMatrix[i, j]
                 gap = (neighbor_coord - cell_coord) / 2
-                ax.text(
-                    cell_coord[0] + gap[0],
-                    cell_coord[1] + gap[1],
-                    '%.1f' % dist,
-                    ha='center',
-                    va='center',
-                    fontsize='xx-small'
-                )
+                # ax.text(
+                #     cell_coord[0] + gap[0],
+                #     cell_coord[1] + gap[1],
+                #     '%.1f' % dist,
+                #     ha='center',
+                #     va='center',
+                #     fontsize='xx-small'
+                # )
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
     plt.savefig(name, **figure_save_params)
