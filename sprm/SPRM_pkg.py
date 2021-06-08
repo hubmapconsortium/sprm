@@ -558,7 +558,7 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 def CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     minValue = np.inf
 
-    for k in nb.prange(len(cellCoords_cur[0])):
+    for k in range(len(cellCoords_cur[0])):
 
         sub = cellCoords_control[0] - cellCoords_cur[0, k]
         sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
@@ -644,7 +644,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
     # cellids = list(map(lambda x: np.unique(x), nimglist))
     cellids = [np.unique(x) for x in nimglist]
-    idx = np.arange(len(cellids))
+    idx = np.arange(1, len(cellids) + 1)
     cellids = [np.delete(x, x <= y) for x, y in zip(cellids, idx)]
     # cellids = list(map(lambda x, y: np.delete(x, x <= y), cellids, idx))
     # cellids = list(map(lambda x: x.astype(int), cellids))
@@ -659,7 +659,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
             continue
         else:
             for j in cellids[i]:
-                minDist = CheckAdjacency(cellEdgeList[i], cellEdgeList[j], thr)
+                minDist = CheckAdjacency(cellEdgeList[idx[i]], cellEdgeList[j], thr)
                 if minDist != 0 and minDist < thr:
                     adjacencyMatrix[i, j] = minDist
                     adjacencyMatrix[j, i] = minDist
