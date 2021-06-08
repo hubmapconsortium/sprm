@@ -804,14 +804,14 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
 
                 dist = adjacencyMatrix[i, j]
                 gap = (neighbor_coord - cell_coord) / 2
-                ax.text(
-                    cell_coord[0] + gap[0],
-                    cell_coord[1] + gap[1],
-                    '%.1f' % dist,
-                    ha='center',
-                    va='center',
-                    fontsize='xx-small'
-                )
+                # ax.text(
+                #     cell_coord[0] + gap[0],
+                #     cell_coord[1] + gap[1],
+                #     '%.1f' % dist,
+                #     ha='center',
+                #     va='center',
+                #     fontsize='xx-small'
+                # )
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
     plt.savefig(name, **figure_save_params)
@@ -1690,13 +1690,21 @@ def multidim_intersect(arr1, arr2):
 def find_cytoplasm(ROI_coords):
     cell_coords = ROI_coords[0]
     nucleus_coords = ROI_coords[1]
+    cell_boundary_coords = ROI_coords[2]
+    nuclei_boundary_coords = ROI_coords[3]
 
     cell_coords = [x.T for x in cell_coords]
     nucleus_coords = [x.T for x in nucleus_coords]
+    cbc = [x.T for x in cell_boundary_coords]
+    nbc = [x.T for x in nuclei_boundary_coords]
     # cell_coords = list(map(lambda x: x.T, cell_coords))
     # nucleus_coords = list(map(lambda x: x.T, nucleus_coords))
 
-    cytoplasm = [multidim_intersect(x, y) for x, y in zip(cell_coords, nucleus_coords)]
+    cytoplasm_raw = [multidim_intersect(x, y) for x, y in zip(cell_coords, nucleus_coords)]
+    cytoplasm_raw = [x.T for x in cytoplasm_raw]
+    cytoplasm_cbc = [multidim_intersect(x, y) for x, y in zip(cytoplasm_raw, cbc)]
+    cytoplasm_cbc = [x.T for x in cytoplasm_cbc]
+    cytoplasm = [multidim_intersect(x, y) for x, y in zip(cytoplasm_cbc, nbc)]
 
     # cytoplasm = []
     # for i in range(1, len(cell_coords)):
@@ -1728,8 +1736,8 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
         im_channels = im_data[0, 0, :, bestz, :, :]
         pixels = im_dims[-2] * im_dims[-1]
         bgpixels = ROI_coords[0][0]
-        # cells = ROI_coords[0][1:]
-        # nuclei = ROI_coords[1][1:]
+        cells = ROI_coords[0][1:]
+        nuclei = ROI_coords[1][1:]
 
         if options.get('sprm_segeval_both') == 2:
             # get segmentation metrics from pickle
@@ -1740,25 +1748,31 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
         cytoplasm = find_cytoplasm(ROI_coords)
         channels = im.get_channel_labels()
 
-        # read in total csv
-        total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
-        total_intensity_file = get_paths(total_intensity_path)
-        total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
+        # cell total intensity per channel
+        # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
+        # total_intensity_file = get_paths(total_intensity_path)
+        # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
+        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_per_chancell = np.sum(im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0)
+        # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
 
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0) 
 
-        total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
-        total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
-        total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
-        total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
+        # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
+        # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
+        # total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
+        # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
+
+        # nuclei total intensity per channel
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        total_intensity_nuclei_per_chan = np.sum(im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0)
 
         # cytoplasm total intensity per channel
         cytoplasm_all = np.concatenate(cytoplasm[1:], axis=1)
         total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
 
-        nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm / cell_total
-        cell_bg_avgR = total_intensity_per_chancell / total_intensity_per_chanbg / cell_total
+        nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
+        cell_bg_avgR = total_intensity_per_chancell / (total_intensity_per_chanbg / bgpixels.shape[1]) / cell_total
 
         # read in silhouette scores
         sscore_path = output_dir / (img_name + 'clusteringsilhouetteScores.csv')
@@ -1777,11 +1791,11 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
 
         struct['Number of Channels'] = len(channels)
         struct['Number of Cells'] = cell_total[0]
-        struct['Number of Background Pixels'] = len(bgpixels)
-        struct['Fraction of Image Occupied by Cells'] = len(bgpixels) / pixels
+        struct['Number of Background Pixels'] = bgpixels.shape[1]
+        struct['Fraction of Image Occupied by Cells'] = (pixels - bgpixels.shape[1]) / pixels
 
-        struct['Total Intensity (per channel)'] = dict()
-        struct['Average Total Intensity Per Cell (per channel)'] = dict()
+        struct['Total Intensity'] = dict()
+        struct['Average per Cell Ratios'] = dict()
         struct['Silhouette Scores From Clustering'] = dict()
         struct['Silhouette Scores From Clustering']['Mean-All'] = dict()
         struct['Silhouette Scores From Clustering']['Max Silhouette Score'] = maxscore
@@ -1794,17 +1808,14 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
             struct['Silhouette Scores From Clustering']['Mean-All'][j + 2] = mean_all[j]
 
         for j in range(len(channels)):
-            struct['Total Intensity (per channel)'][channels[j]] = dict()
-            struct['Total Intensity (per channel)'][channels[j]] = dict()
-            struct['Average Total Intensity Per Cell (per channel)'][channels[j]] = dict()
-            struct['Average Total Intensity Per Cell (per channel)'][channels[j]] = dict()
+            struct['Total Intensity'][channels[j]] = dict()
+            struct['Average per Cell Ratios'][channels[j]] = dict()
 
-            struct['Total Intensity (per channel)'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
-            struct['Total Intensity (per channel)'][channels[j]]['Background'] = total_intensity_per_chanbg[j]
+            struct['Total Intensity'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
+            struct['Total Intensity'][channels[j]]['Background'] = total_intensity_per_chanbg[j] 
 
-            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Nuclear / Cytoplasmic'] = \
-            nuc_cyto_avgR[j]
-            struct['Average Total Intensity Per Cell (per channel)'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
+            struct['Average per Cell Ratios'][channels[j]]['Nuclear / Cytoplasmic'] = nuc_cyto_avgR[j]
+            struct['Average per Cell Ratios'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
 
             struct['Signal To Noise Otsu'][channels[j]] = otsu[j]
             struct['Signal To Noise Z-Score'][channels[j]] = zscore[j]
