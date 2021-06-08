@@ -1309,7 +1309,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
         retmarkers = findmarkers(argv[3], options)
         table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall, options)
         write_2_csv(markers, table, filename + '-cluster_meanALLCH_legend', output_dir, inCells, options)
-        # showlegend(markers, table, filename + '-cluster_meanALLCH_legend.pdf', output_dir)
+        showlegend(markers, table, filename + '-cluster_meanALLCH_legend.pdf', output_dir)
 
         if not options.get('skip_outlinePCA'):
             feature_shape = ['shapefeat ' + str(ff) for ff in range(0, argv[4].shape[1])]
@@ -1317,19 +1317,19 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             retmarkers = findmarkers(argv[4], options)
             table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
             write_2_csv(markers, table, filename + '-clustercell_cellshape_legend', output_dir, inCells, options)
-            # showlegend(markers, table, filename + '-clustercells_cellshape_legend.pdf', output_dir)
+            showlegend(markers, table, filename + '-clustercells_cellshape_legend.pdf', output_dir)
 
         print('Finding cell texture cluster markers...')
         retmarkers = findmarkers(argv[5][0], options)
         table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
         write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
-        # showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+        showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
 
         print('Finding cell tsne all features cluster markers...')
         retmarkers = findmarkers(argv[6][0], options)
         table, markers = matchNShow_markers(argv[6][0], retmarkers, argv[6][1], options)
         write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
-        # showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+        showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
 
     print('Legend for mask channel: ' + str(i))
 
@@ -1342,7 +1342,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
             write_2_csv(markers, table, filename + '-cluster' + maskchn[i] + '_mean_legend', output_dir, inCells,
                         options)
-            # showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_mean_legend.pdf', output_dir)
+            showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_mean_legend.pdf', output_dir)
 
         elif j == 1:
             print('Finding covariance cluster markers...')
@@ -1350,7 +1350,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_covar, options)
             write_2_csv(markers, table, filename + '-cluster' + maskchn[i] + '_covariance_legend', output_dir, inCells,
                         options)
-            # showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_covariance_legend.pdf', output_dir)
+            showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_covariance_legend.pdf', output_dir)
 
         elif j == 2:
             print('Finding total cluster markers...')
@@ -1358,7 +1358,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
             write_2_csv(markers, table, filename + '-cluster' + maskchn[i] + '_total_legend', output_dir, inCells,
                         options)
-            # showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_total_legend.pdf', output_dir)
+            showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_total_legend.pdf', output_dir)
 
 
 def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, inCells: list, options: Dict, *argv):
