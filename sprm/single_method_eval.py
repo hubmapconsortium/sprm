@@ -240,11 +240,8 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, result_dir: Path):
-	print('Calculating single-method metrics...')
-
-	img_dir = result_dir / 'single_method_metric' / img.name
-	img_dir.mkdir(exist_ok=True, parents=True)
+def single_method_eval(img, mask, output_dir: Path):
+	print('Calculating single-method metrics for', img.path)
 
 	# get best z slice for future use
 	bestz = mask.bestz
@@ -270,9 +267,9 @@ def single_method_eval(img, mask, result_dir: Path):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
 	img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
-	np.savetxt(img_dir / 'img_binary.txt.gz', img_binary)
+	np.savetxt(output_dir / f'{img.name}_img_binary.txt.gz', img_binary)
 	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
-	fg_bg_image.save(img_dir / 'img_binary.png')
+	fg_bg_image.save(output_dir / f'{img.name}_img_binary.png')
 
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
