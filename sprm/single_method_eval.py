@@ -1,3 +1,4 @@
+import importlib.resources
 import numpy as np
 import os
 from os.path import join
@@ -13,8 +14,7 @@ from skimage.morphology import closing
 from skimage.morphology import diameter_closing
 import pickle
 import xml.etree.ElementTree as ET
-from .SPRM_pkg import get_paths
-import pathlib
+from pathlib import Path
 """
 
 Companion to SPRM.py
@@ -239,12 +239,11 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, result_dir):
+def single_method_eval(img, mask, result_dir: Path):
 	print('Calculating single-method metrics...')
 
 	path = result_dir / 'single_method_metric'
-	if not os.path.isdir(path):
-		os.makedirs(path)
+	path.mkdir(exist_ok=True, parents=True)
 
 	# get best z slice for future use
 	bestz = mask.bestz
@@ -343,26 +342,15 @@ def single_method_eval(img, mask, result_dir):
 			metrics[channel_names[channel]]['AvgOfWeightedAvgFractionOfFirstPCCellIntensitiesOver2~10NumberOfCluster'] = avg_cell_fraction
 			metrics[channel_names[channel]]['AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster'] = avg_cell_silhouette
 
-	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm_outputs/evaluation_metrics.pickle'), 'rb') as f:
-	# 	metrics = pickle.load(f)
-	# with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-	# 	pickle.dump(metrics, f)
-		
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 	# print(metrics_flat)
-	pca_path = pathlib.Path().absolute() / 'sprm/pca.pickle'
-	pca_file = get_paths(pca_path)[0]
 
-	with open(pca_file, 'rb') as f:
+	with importlib.resources.open_binary('sprm', 'pca.pickle') as f:
 		ss, pca = pickle.load(f)
-	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
-	# 	ss, pca = pickle.load(f)
+
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
 
-	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
+	with open(result_dir / 'evaluation_metrics.pickle', 'wb') as f:
 		pickle.dump(metrics, f)
-
-
-
