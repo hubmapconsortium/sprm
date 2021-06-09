@@ -1741,8 +1741,9 @@ def quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_
 
         if options.get('sprm_segeval_both') == 2:
             # get segmentation metrics from pickle
-            seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
-            struct['Segmentation Evaluation Metrics'] = seg_metrics
+            pickle_path = output_dir / 'single_method_metric' / im.name / 'evaluation_metrics.pickle'
+            with open(pickle_path, 'rb') as f:
+                struct['Segmentation Evaluation Metrics'] = pickle.load(f)
 
         # get cytoplasm coords
         cytoplasm = find_cytoplasm(ROI_coords)
