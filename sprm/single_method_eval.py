@@ -1,6 +1,8 @@
+import importlib.resources
 import numpy as np
 import os
 from os.path import join
+from PIL import Image
 from scipy.sparse import csr_matrix
 from skimage.io import imread
 from sklearn.decomposition import PCA
@@ -13,8 +15,7 @@ from skimage.morphology import closing
 from skimage.morphology import diameter_closing
 import pickle
 import xml.etree.ElementTree as ET
-from .SPRM_pkg import get_paths
-import pathlib
+from pathlib import Path
 """
 
 Companion to SPRM.py
@@ -239,12 +240,8 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, result_dir):
-	print('Calculating single-method metrics...')
-
-	path = result_dir / 'single_method_metric'
-	if not os.path.isdir(path):
-		os.makedirs(path)
+def single_method_eval(img, mask, output_dir: Path):
+	print('Calculating single-method metrics for', img.path)
 
 	# get best z slice for future use
 	bestz = mask.bestz
@@ -269,14 +266,11 @@ def single_method_eval(img, mask, result_dir):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_membrane_mask, 0)))
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
-	img_bi_dir = join(result_dir, 'img_binary.txt')
-	if not os.path.exists(img_bi_dir):
-		img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
-		np.savetxt(img_bi_dir, img_binary)
-		plt.imshow(img_binary)
-		plt.savefig(img_bi_dir[:-4] + '.png')
-	else:
-		img_binary = np.loadtxt(img_bi_dir)
+	img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
+	np.savetxt(output_dir / f'{img.name}_img_binary.txt.gz', img_binary)
+	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
+	fg_bg_image.save(output_dir / f'{img.name}_img_binary.png')
+
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
 	
@@ -343,26 +337,14 @@ def single_method_eval(img, mask, result_dir):
 			metrics[channel_names[channel]]['AvgOfWeightedAvgFractionOfFirstPCCellIntensitiesOver2~10NumberOfCluster'] = avg_cell_fraction
 			metrics[channel_names[channel]]['AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster'] = avg_cell_silhouette
 
-	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm_outputs/evaluation_metrics.pickle'), 'rb') as f:
-	# 	metrics = pickle.load(f)
-	# with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-	# 	pickle.dump(metrics, f)
-		
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 	# print(metrics_flat)
-	pca_path = pathlib.Path().absolute() / 'sprm/pca.pickle'
-	pca_file = get_paths(pca_path)[0]
 
-	with open(pca_file, 'rb') as f:
+	with importlib.resources.open_binary('sprm', 'pca.pickle') as f:
 		ss, pca = pickle.load(f)
-	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
-	# 	ss, pca = pickle.load(f)
+
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
 
-	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-		pickle.dump(metrics, f)
-
-
-
+	return metrics

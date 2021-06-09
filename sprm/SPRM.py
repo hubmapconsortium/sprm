@@ -49,6 +49,7 @@ def main(
 
     im_list = []
     mask_list = []
+    seg_metric_list = []
 
     # store results in a dir
     check_output_dir(output_dir, options)
@@ -99,17 +100,16 @@ def main(
 
         if eval_pathway == 1:
             # evaluation on single segmentation method
-            single_method_eval(im, mask, output_dir)
+            seg_metrics = single_method_eval(im, mask, output_dir)
+            struct = {'Segmentation Evaluation Metrics': seg_metrics}
 
-            struct = {}
-            seg_metrics = pickle.load(open(output_dir / 'evaluation_metrics.pickle', 'rb'))
-            struct['Segmentation Evaluation Metrics'] = seg_metrics
-
-            with open(output_dir / (img_name + '-SPRM_Image_Quality_Measures.json'), 'w') as json_file:
+            with open(output_dir / (im.name + '-SPRM_Image_Quality_Measures.json'), 'w') as json_file:
                 json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
-            sys.exit('Finished Segmentation Evaluation')
+            print('Finished Segmentation Evaluation for', im.path)
+            # loop to next image
+            continue
         elif eval_pathway == 2:
-            single_method_eval(im, mask, output_dir)
+            seg_metric_list.append(single_method_eval(im, mask, output_dir))
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
@@ -240,7 +240,7 @@ def main(
 
     # summary of all tiles/files in a single run
     summary(im, cell_total, img_files, output_dir, options)
-    quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options)
+    quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options)
 
     # recluster features
     # recluster(output_dir, im, options)
