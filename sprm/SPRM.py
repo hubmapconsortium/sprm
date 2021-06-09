@@ -49,6 +49,7 @@ def main(
 
     im_list = []
     mask_list = []
+    seg_metric_list = []
 
     # store results in a dir
     check_output_dir(output_dir, options)
@@ -108,7 +109,7 @@ def main(
             # loop to next image
             continue
         elif eval_pathway == 2:
-            single_method_eval(im, mask, output_dir)
+            seg_metric_list.append(single_method_eval(im, mask, output_dir))
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
@@ -239,7 +240,7 @@ def main(
 
     # summary of all tiles/files in a single run
     summary(im, cell_total, img_files, output_dir, options)
-    quality_measures(im_list, mask_list, cell_total, img_files, output_dir, ROI_coords, options)
+    quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options)
 
     # recluster features
     # recluster(output_dir, im, options)

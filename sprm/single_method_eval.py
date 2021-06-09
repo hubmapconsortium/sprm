@@ -350,7 +350,4 @@ def single_method_eval(img, mask, result_dir: Path):
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
 
-	with open(img_dir / 'evaluation_metrics.pickle', 'wb') as f:
-		pickle.dump(metrics, f)
-
 	return metrics
