@@ -13,13 +13,15 @@ from skimage.morphology import closing
 from skimage.morphology import diameter_closing
 import pickle
 import xml.etree.ElementTree as ET
-
+from .SPRM_pkg import get_paths
+import pathlib
 """
 
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
-Author: Haoran Chen
-05/17/2021
+Author: Haoran Chen and Ted Zhang
+Version: 1.0
+06/09/2021
 
 
 """
@@ -237,12 +239,13 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, mask_dir, result_dir):
+def single_method_eval(img, mask, result_dir):
 	print('Calculating single-method metrics...')
-	try:
-		os.makedirs(join(result_dir, 'single_method_metric'))
-	except:
-		pass
+
+	path = result_dir / 'single_method_metric'
+	if not os.path.isdir(path):
+		os.makedirs(path)
+
 	# get best z slice for future use
 	bestz = mask.bestz
 	
@@ -285,13 +288,20 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 		metrics[channel_names[channel]] = {}
 		if channel == 0:
 			# read fraction of match metric from metadata
-			root = ET.fromstring(mask.img.metadata.to_xml())
-			matched_fraction = float(root[1][0][0][0][1].text)
+			im_metadata = img.img.metadata.to_xml()
+			mask_metadata = mask.img.metadata.to_xml()
+
+			tag = mask_metadata.find('FractionOfMatchedCellsAndNuclei')
+			if tag is None:
+				matched_fraction = 1.0
+			else:
+				matched_fraction = float(tag)
+			# matched_fraction = float(root[1][0][0][0][1].text)
 	
 			# get pixel size in squared micron
-		
-			start_ind = img.img.metadata.to_xml().find('PhysicalSizeX=') + len('PhysicalSizeX=') + 1
-			pixel_size = float(img.img.metadata.to_xml()[start_ind:start_ind+5]) ** 2
+			start_ind = im_metadata.find('PhysicalSizeX=') + len('PhysicalSizeX=') + 1
+			pixel_size = float(im_metadata[start_ind:start_ind+5]) ** 2
+
 			pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
 			micron_num = pixel_size * pixel_num
 			
@@ -340,11 +350,17 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 		
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 	# print(metrics_flat)
-	with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
+	pca_path = pathlib.Path().absolute() / 'sprm/pca.pickle'
+	pca_file = get_paths(pca_path)[0]
+
+	with open(pca_file, 'rb') as f:
 		ss, pca = pickle.load(f)
+	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
+	# 	ss, pca = pickle.load(f)
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
+
 	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
 		pickle.dump(metrics, f)
 
