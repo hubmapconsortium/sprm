@@ -2,6 +2,7 @@ import importlib.resources
 import numpy as np
 import os
 from os.path import join
+from PIL import Image
 from scipy.sparse import csr_matrix
 from skimage.io import imread
 from sklearn.decomposition import PCA
@@ -242,8 +243,8 @@ def flatten_dict(input_dict):
 def single_method_eval(img, mask, result_dir: Path):
 	print('Calculating single-method metrics...')
 
-	path = result_dir / 'single_method_metric'
-	path.mkdir(exist_ok=True, parents=True)
+	img_dir = result_dir / 'single_method_metric' / img.name
+	img_dir.mkdir(exist_ok=True, parents=True)
 
 	# get best z slice for future use
 	bestz = mask.bestz
@@ -268,14 +269,11 @@ def single_method_eval(img, mask, result_dir: Path):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_membrane_mask, 0)))
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
-	img_bi_dir = join(result_dir, 'img_binary.txt')
-	if not os.path.exists(img_bi_dir):
-		img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
-		np.savetxt(img_bi_dir, img_binary)
-		plt.imshow(img_binary)
-		plt.savefig(img_bi_dir[:-4] + '.png')
-	else:
-		img_binary = np.loadtxt(img_bi_dir)
+	img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
+	np.savetxt(img_dir / 'img_binary.txt.gz', img_binary)
+	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
+	fg_bg_image.save(img_dir / 'img_binary.png')
+
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
 	
@@ -352,5 +350,7 @@ def single_method_eval(img, mask, result_dir: Path):
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
 
-	with open(result_dir / 'evaluation_metrics.pickle', 'wb') as f:
+	with open(img_dir / 'evaluation_metrics.pickle', 'wb') as f:
 		pickle.dump(metrics, f)
+
+	return metrics
