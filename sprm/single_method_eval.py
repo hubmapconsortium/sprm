@@ -35,36 +35,26 @@ def fraction(img_bi, mask_bi):
 	foreground = np.sum(mask_bi * img_bi)
 	return foreground / foreground_all, background / background_all, foreground / mask_all
 
-
 def foreground_separation(img):
 	from skimage.filters import threshold_mean
 	from skimage import measure
-	threshold = threshold_mean(img)
+	threshold = threshold_mean(img.astype(np.int64))
 	img_sep = img > threshold
 	img_sep = img_sep.astype(int)
-	img_sep = closing(img_sep, disk(3))
-	# img_sep = -img_sep + 1
-	# img_sep = diameter_closing(img_sep, 5)
-	#
-	# labels = measure.label(img_sep, background=0, connectivity=2)
-	#
-	# label_num = np.unique(labels)
-	# label_coords = get_indices_sparse(labels)
-	# # label_coords = list(map(lambda x: np.array(x).T, label_coords))
-	# for i in label_num:
-	# 	label_loc = label_coords[i]
-	#
-	# 	if i == 0:
-	# 		labels[label_loc] = 0
-	# 	elif len(label_loc) > 5000:
-	# 		labels[label_loc] = -1
-	# 	else:
-	# 		labels[label_loc] = 0
-	# labels = labels + 1
-	# plt.imshow(labels)
-	# plt.show()
-	
-	return img_sep
+	img_sep = closing(img_sep, disk(5))
+	img_sep = -img_sep + 1
+	labels = measure.label(img_sep, background=0, connectivity=2)
+	label_num = np.unique(labels)
+	label_coords = get_indices_sparse(labels)
+	for i in label_num:
+		label_loc = label_coords[i]
+		if i == 0:
+			labels[label_loc] = 1
+		elif len(label_loc[0]) > 20000:
+			labels[label_loc] = 0
+		else:
+			labels[label_loc] = 1
+	return labels
 
 
 def uniformity_CV(loc, channels):
