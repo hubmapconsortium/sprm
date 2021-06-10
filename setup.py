@@ -21,7 +21,6 @@ setup(
     author_email="tedz@andrew.cmu.edu, murphy@andrew.cmu.edu",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -29,7 +28,7 @@ setup(
     keywords="sprm",
     packages=find_packages(),
     package_data={
-        "": ["*.txt"],
+        "": ["*.txt", "*.pickle"],
     },
     install_requires=[
         "aicsimageio<3.2",
@@ -40,12 +39,12 @@ setup(
         "numpy",
         "pandas",
         "scikit-image",
-        "scikit-learn",
+        "scikit-learn==0.23.2",
         "shapely",
         "tables",
         "tifffile==2020.2.16",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     entry_points={
         "console_scripts": [
             "sprm=sprm.SPRM:argparse_wrapper",
