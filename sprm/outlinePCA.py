@@ -574,5 +574,5 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
             break
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
-        plt.savefig(f'{filename}-cellshapescluster{k}.png', **figure_save_params)
+        plt.savefig(f'{filename}-cellshapescluster{k}.pdf', **figure_save_params)
 
