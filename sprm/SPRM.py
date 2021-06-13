@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from typing import Optional
-import sys
+import faulthandler
+
 from .SPRM_pkg import *
 from .single_method_eval import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon, bin_pca
@@ -252,15 +253,22 @@ def argparse_wrapper():
     p.add_argument('mask_dir', type=Path)
     p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
-    p.add_argument('optional_img_dir', type=Path, nargs='?', default=False)
+    p.add_argument('optional_img_dir', type=Path, nargs='?')
     p.add_argument('--enable-manhole', action='store_true')
+    p.add_argument('--enable-faulthandler', action='store_true')
     argss = p.parse_args()
 
     if argss.enable_manhole:
         import manhole
         manhole.install(activate_on='USR1')
 
-    if argss.optional_img_dir:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)
-    else:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)
+    if argss.enable_faulthandler:
+        faulthandler.enable(all_threads=True)
+
+    main(
+        argss.img_dir,
+        argss.mask_dir,
+        argss.output_dir,
+        argss.options_file,
+        argss.optional_img_dir,
+    )
