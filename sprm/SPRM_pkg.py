@@ -1754,10 +1754,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         cytoplasm_ndims = np.asarray(cytoplasm_ndims)
         idx_ndims = np.where(cytoplasm_ndims == 1)[0]
 
-        for j in idx_ndims:
-            del cytoplasm[j]
-
-        channels = im.get_channel_labels()
+        cytoplasm = np.delete(cytoplasm, idx_ndims).tolist()
 
         # cell total intensity per channel
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
