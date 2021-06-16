@@ -1746,6 +1746,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         if options.get('sprm_segeval_both') == 2:
             struct['Segmentation Evaluation Metrics'] = seg_metric_list[i]
 
+        channels = im.get_channel_labels()
         # get cytoplasm coords
         cytoplasm = find_cytoplasm(ROI_coords)
 
