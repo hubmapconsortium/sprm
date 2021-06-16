@@ -595,7 +595,7 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     ###
     # change from list[np.arrays] -> np.array
     ###
-    cel = nbList(cellEdgeList)
+    # cel = nbList()
     thr = options.get('cell_adj_dilation_itr')
     cell_center = cell_center.to_numpy()
 
@@ -629,9 +629,10 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     b = maskImg.shape[1]
 
     if paraopt == 1:
+        cel = nbList(cellEdgeList)
         windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows(numCells, cel, delta, a, b)
+        windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, delta, a, b)
 
     # for i in range(1, numCells):
     #     # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
@@ -1739,11 +1740,23 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         cells = ROI_coords[0][1:]
         nuclei = ROI_coords[1][1:]
 
+        if options.get('sprm_segeval_both') == 1:
+            struct['Segmentation Evaluation Metrics'] = seg_metric_list[i]
+            continue
         if options.get('sprm_segeval_both') == 2:
             struct['Segmentation Evaluation Metrics'] = seg_metric_list[i]
 
         # get cytoplasm coords
         cytoplasm = find_cytoplasm(ROI_coords)
+
+        #check / filter out 1-D coords - hot fix
+        cytoplasm_ndims = [x.ndim for x in cytoplasm]
+        cytoplasm_ndims = np.asarray(cytoplasm_ndims)
+        idx_ndims = np.where(cytoplasm_ndims == 1)[0]
+
+        for j in idx_ndims:
+            del cytoplasm[j]
+
         channels = im.get_channel_labels()
 
         # cell total intensity per channel
@@ -1766,7 +1779,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         total_intensity_nuclei_per_chan = np.sum(im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0)
 
         # cytoplasm total intensity per channel
-        cytoplasm_all = np.concatenate(cytoplasm[1:], axis=1)
+        cytoplasm_all = np.concatenate(cytoplasm, axis=1)
         total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
 
         nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
