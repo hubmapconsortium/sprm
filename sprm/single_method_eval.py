@@ -323,8 +323,8 @@ def single_method_eval(img, mask, output_dir: Path):
 			metrics[channel_names[channel]]['FractionOfMaskInForeground'] = mask_foreground_fraction
 			metrics[channel_names[channel]]['1/AvgCVForegroundOutsideCells'] = 1 / foreground_CV
 			metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
-			metrics[channel_names[channel]]['1/AvgCVBackgroundOutsideCells'] = 1 / background_CV
-			metrics[channel_names[channel]]['FractionOfFirstPCBackgroundOutsideCells'] = background_PCA
+			metrics[channel_names[channel]]['1/AvgCVBackground'] = 1 / background_CV
+			metrics[channel_names[channel]]['FractionOfFirstPCBackground'] = background_PCA
 			metrics[channel_names[channel]]['1/AvgOfWeightedAvgCVCellIntensitiesOver2~10NumberOfCluster'] = 1 / avg_cell_CV
 			metrics[channel_names[channel]]['AvgOfWeightedAvgFractionOfFirstPCCellIntensitiesOver2~10NumberOfCluster'] = avg_cell_fraction
 			metrics[channel_names[channel]]['AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster'] = avg_cell_silhouette
