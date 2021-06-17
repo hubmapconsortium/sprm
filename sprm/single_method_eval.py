@@ -261,7 +261,6 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_membrane_mask, 0)))
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
-	img_bi_dir = join(result_dir, 'img_binary.txt')
 	img_binary = sum(foreground_separation(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0)) for c in range(img.data.shape[2]))
 	img_binary[img_binary <= round(img.data.shape[2] * 0.75)] = 0
 	img_binary = np.sign(img_binary)
@@ -362,5 +361,4 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
-	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-		pickle.dump(metrics, f)
+	return metrics
