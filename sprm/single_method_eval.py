@@ -262,19 +262,12 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
 	img_bi_dir = join(result_dir, 'img_binary.txt')
-	# if not os.path.exists(img_bi_dir):
-	if True:
-		# img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
-		img_binary = sum(
-			foreground_separation(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0)) for c in range(img.data.shape[2])
-		)
-		# img_binary[img_binary <= round(img.data.shape[2] * 0.75)] = 0
-		img_binary = np.sign(img_binary)
-		np.savetxt(img_bi_dir, img_binary)
-		plt.imshow(img_binary)
-		plt.savefig(img_bi_dir[:-4] + '.png')
-	else:
-		img_binary = np.loadtxt(img_bi_dir)
+	img_binary = sum(foreground_separation(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0)) for c in range(img.data.shape[2]))
+	img_binary[img_binary <= round(img.data.shape[2] * 0.75)] = 0
+	img_binary = np.sign(img_binary)
+	np.savetxt(output_dir / f'{img.name}_img_binary.txt.gz', img_binary)
+	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
+	fg_bg_image.save(output_dir / f'{img.name}_img_binary.png')
 	
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
