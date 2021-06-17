@@ -1,6 +1,8 @@
+import importlib.resources
 import numpy as np
 import os
 from os.path import join
+from PIL import Image
 from scipy.sparse import csr_matrix
 from skimage.io import imread
 from sklearn.decomposition import PCA
@@ -13,13 +15,15 @@ from skimage.morphology import closing
 from skimage.morphology import diameter_closing
 import pickle
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 """
 
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
-Author: Haoran Chen
-05/17/2021
+Author: Haoran Chen and Ted Zhang
+Version: 1.0
+06/17/2021
 
 
 """
@@ -36,32 +40,23 @@ def fraction(img_bi, mask_bi):
 def foreground_separation(img):
 	from skimage.filters import threshold_mean
 	from skimage import measure
-	threshold = threshold_mean(img)
+	threshold = threshold_mean(img.astype(np.int64))
 	img_sep = img > threshold
 	img_sep = img_sep.astype(int)
-	img_sep = closing(img_sep, disk(3))
-	# img_sep = -img_sep + 1
-	# img_sep = diameter_closing(img_sep, 5)
-	#
-	# labels = measure.label(img_sep, background=0, connectivity=2)
-	#
-	# label_num = np.unique(labels)
-	# label_coords = get_indices_sparse(labels)
-	# # label_coords = list(map(lambda x: np.array(x).T, label_coords))
-	# for i in label_num:
-	# 	label_loc = label_coords[i]
-	#
-	# 	if i == 0:
-	# 		labels[label_loc] = 0
-	# 	elif len(label_loc) > 5000:
-	# 		labels[label_loc] = -1
-	# 	else:
-	# 		labels[label_loc] = 0
-	# labels = labels + 1
-	# plt.imshow(labels)
-	# plt.show()
-	
-	return img_sep
+	img_sep = closing(img_sep, disk(5))
+	img_sep = -img_sep + 1
+	labels = measure.label(img_sep, background=0, connectivity=2)
+	label_num = np.unique(labels)
+	label_coords = get_indices_sparse(labels)
+	for i in label_num:
+		label_loc = label_coords[i]
+		if i == 0:
+			labels[label_loc] = 1
+		elif len(label_loc[0]) > 5000:
+			labels[label_loc] = 0
+		else:
+			labels[label_loc] = 1
+	return labels
 
 
 def uniformity_CV(loc, channels):
@@ -216,10 +211,10 @@ def get_indexed_mask(mask, boundary):
 	return boundary
 
 
-def get_boundary(mask):
-	mask_boundary = find_boundaries(mask)
-	mask_boundary_indexed = get_indexed_mask(mask, mask_boundary)
-	return mask_boundary_indexed
+# def get_boundary(mask):
+# 	mask_boundary = find_boundaries(mask)
+# 	mask_boundary_indexed = get_indexed_mask(mask, mask_boundary)
+# 	return mask_boundary_indexed
 
 
 def get_mask(cell_list, mask_shape):
@@ -267,13 +262,20 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	metric_mask = np.vstack((metric_mask, np.expand_dims(no_mem_nuclear_matched_mask, 0)))
 	# separate image foreground background
 	img_bi_dir = join(result_dir, 'img_binary.txt')
-	if not os.path.exists(img_bi_dir):
-		img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
+	# if not os.path.exists(img_bi_dir):
+	if True:
+		# img_binary = foreground_separation(np.sum(np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0), axis=0))
+		img_binary = sum(
+			foreground_separation(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0)) for c in range(img.data.shape[2])
+		)
+		# img_binary[img_binary <= round(img.data.shape[2] * 0.75)] = 0
+		img_binary = np.sign(img_binary)
 		np.savetxt(img_bi_dir, img_binary)
 		plt.imshow(img_binary)
 		plt.savefig(img_bi_dir[:-4] + '.png')
 	else:
 		img_binary = np.loadtxt(img_bi_dir)
+	
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
 	
@@ -285,18 +287,32 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 		metrics[channel_names[channel]] = {}
 		if channel == 0:
 			# read fraction of match metric from metadata
-			root = ET.fromstring(mask.img.metadata.to_xml())
-			matched_fraction = float(root[1][0][0][0][1].text)
-	
-			# get pixel size in squared micron
-		
-			start_ind = img.img.metadata.to_xml().find('PhysicalSizeX=') + len('PhysicalSizeX=') + 1
-			pixel_size = float(img.img.metadata.to_xml()[start_ind:start_ind+5]) ** 2
+			# root = ET.fromstring(mask.img.metadata.to_xml())
+			# matched_fraction = float(root[1][0][0][0][1].text)
+			mask_metadata = mask.img.metadata.to_xml()
+
+			tag = mask_metadata.find('FractionOfMatchedCellsAndNuclei')
+			if tag == -1:
+				matched_fraction = 1.0
+			else:
+				root = ET.fromstring(mask.img.metadata.to_xml())
+				matched_fraction = float(root[1][0][0][0][1].text)
+			
+			
+			len_start_ind = img.img.metadata.to_xml().find('PhysicalSizeX=') + len('PhysicalSizeX=') + 1
+			unit_start_ind = img.img.metadata.to_xml().find('PhysicalSizeXUnit=') + len('PhysicalSizeXUnit=') + 1
+			pixel_unit = img.img.metadata.to_xml()[unit_start_ind:unit_start_ind+2]
+			if pixel_unit == 'nm':
+				pixel_size = (float(img.img.metadata.to_xml()[len_start_ind:len_start_ind+3]) / 1000) ** 2
+			elif pixel_unit == 'um':
+				pixel_size = float(img.img.metadata.to_xml()[len_start_ind:len_start_ind+3]) ** 2
+			
 			pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
 			micron_num = pixel_size * pixel_num
 			
 			# calculate number of cell per 100 squared micron
 			cell_num = len(np.unique(current_mask)) - 1
+
 			cell_num_normalized = cell_num / micron_num * 100
 			
 			# get fraction of image occupied by the mask
@@ -305,18 +321,26 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			# get coverage metrics
 			foreground_fraction, background_fraction, _ = fraction(img_binary, mask_binary)
 			
+			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
+			
+			foreground_CV, foreground_PCA = foreground_uniformity(img_binary, mask_binary, img_channels)
+			background_CV, background_PCA = background_uniformity(img_binary, mask_binary, img_channels)
 			metrics[channel_names[channel]]['NumberOfCellPer100SquareMicrons'] = cell_num_normalized
 			metrics[channel_names[channel]]['FractionOfImageOccupiedByCells'] = mask_fraction
 			metrics[channel_names[channel]]['FractionOfForegroundOccupiedByCells'] = foreground_fraction
 			metrics[channel_names[channel]]['1-FractionOfBackgroundOccupiedByCells'] = 1 - background_fraction
 			metrics[channel_names[channel]]['FractionOfMatchedCellsAndNuclei'] = matched_fraction
+			metrics[channel_names[channel]]['1/AvgCVForegroundOutsideCells'] = 1 / foreground_CV
+			metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
+			metrics[channel_names[channel]]['1/AvgCVBackground'] = 1 / background_CV
+			metrics[channel_names[channel]]['FractionOfFirstPCBackground'] = background_PCA
 			
 		else:
 			_, _, mask_foreground_fraction = fraction(img_binary, mask_binary)
 			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
 			# get background and foreground uniformity
-			foreground_CV, foreground_PCA = foreground_uniformity(img_binary, mask_binary, img_channels)
-			background_CV, background_PCA = background_uniformity(img_binary, mask_binary, img_channels)
+			# foreground_CV, foreground_PCA = foreground_uniformity(img_binary, mask_binary, img_channels)
+			# background_CV, background_PCA = background_uniformity(img_binary, mask_binary, img_channels)
 			
 			# get cell uniformity
 			cell_CV, cell_fraction, cell_silhouette = cell_uniformity(current_mask, img_channels)
@@ -325,21 +349,21 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			avg_cell_silhouette = np.average(cell_silhouette)
 
 			metrics[channel_names[channel]]['FractionOfMaskInForeground'] = mask_foreground_fraction
-			metrics[channel_names[channel]]['1/AvgCVForegroundOutsideCells'] = 1 / foreground_CV
-			metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
-			metrics[channel_names[channel]]['1/AvgCVBackgroundOutsideCells'] = 1 / background_CV
-			metrics[channel_names[channel]]['FractionOfFirstPCBackgroundOutsideCells'] = background_PCA
+			# metrics[channel_names[channel]]['1/AvgCVForegroundOutsideCells'] = 1 / foreground_CV
+			# metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
+			# metrics[channel_names[channel]]['1/AvgCVBackground'] = 1 / background_CV
+			# metrics[channel_names[channel]]['FractionOfFirstPCBackground'] = background_PCA
 			metrics[channel_names[channel]]['1/AvgOfWeightedAvgCVCellIntensitiesOver2~10NumberOfCluster'] = 1 / avg_cell_CV
 			metrics[channel_names[channel]]['AvgOfWeightedAvgFractionOfFirstPCCellIntensitiesOver2~10NumberOfCluster'] = avg_cell_fraction
 			metrics[channel_names[channel]]['AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster'] = avg_cell_silhouette
-
+	#
 	# with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm_outputs/evaluation_metrics.pickle'), 'rb') as f:
 	# 	metrics = pickle.load(f)
 	# with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
 	# 	pickle.dump(metrics, f)
 		
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-	# print(metrics_flat)
+	
 	with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
 		ss, pca = pickle.load(f)
 	metrics_flat_scaled = ss.transform(metrics_flat)
@@ -347,6 +371,3 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	metrics['QualityScore'] = pca_score
 	with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
 		pickle.dump(metrics, f)
-
-
-
