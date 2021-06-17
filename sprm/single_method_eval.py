@@ -36,7 +36,6 @@ def fraction(img_bi, mask_bi):
 	foreground = np.sum(mask_bi * img_bi)
 	return foreground / foreground_all, background / background_all, foreground / mask_all
 
-
 def foreground_separation(img):
 	from skimage.filters import threshold_mean
 	from skimage import measure
@@ -232,12 +231,9 @@ def flatten_dict(input_dict):
 			local_list.append(value)
 	return local_list
 
-def single_method_eval(img, mask, mask_dir, result_dir):
-	print('Calculating single-method metrics...')
-	try:
-		os.makedirs(join(result_dir, 'single_method_metric'))
-	except:
-		pass
+def single_method_eval(img, mask, output_dir: Path):
+	print('Calculating single-method metrics for', img.path)
+
 	# get best z slice for future use
 	bestz = mask.bestz
 	
@@ -267,7 +263,7 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 	np.savetxt(output_dir / f'{img.name}_img_binary.txt.gz', img_binary)
 	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
 	fg_bg_image.save(output_dir / f'{img.name}_img_binary.png')
-	
+  
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
 	
@@ -298,7 +294,7 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 				pixel_size = (float(img.img.metadata.to_xml()[len_start_ind:len_start_ind+3]) / 1000) ** 2
 			elif pixel_unit == 'um':
 				pixel_size = float(img.img.metadata.to_xml()[len_start_ind:len_start_ind+3]) ** 2
-			
+
 			pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
 			micron_num = pixel_size * pixel_num
 			
@@ -341,6 +337,7 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 			avg_cell_silhouette = np.average(cell_silhouette)
 
 			metrics[channel_names[channel]]['FractionOfMaskInForeground'] = mask_foreground_fraction
+
 			# metrics[channel_names[channel]]['1/AvgCVForegroundOutsideCells'] = 1 / foreground_CV
 			# metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
 			# metrics[channel_names[channel]]['1/AvgCVBackground'] = 1 / background_CV
@@ -356,9 +353,12 @@ def single_method_eval(img, mask, mask_dir, result_dir):
 		
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 	
-	with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm/pca.pickle'), 'rb') as f:
+
+	with importlib.resources.open_binary('sprm', 'pca.pickle') as f:
 		ss, pca = pickle.load(f)
+
 	metrics_flat_scaled = ss.transform(metrics_flat)
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics['QualityScore'] = pca_score
+
 	return metrics
