@@ -47,8 +47,8 @@ from .constants import (
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 02/23/2020
-Version: 1.00
+01/21/2020 - 06/17/2020
+Version: 1.03
 
 
 """
@@ -1316,10 +1316,13 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
     if not options.get('skip_outlinePCA'):
         plot_img(argv[4], 0, filename + '-Cluster_Shape.png', output_dir)
 
-    plot_img(argv[5], 0, filename + '-clusterbyTexture.png', output_dir)
-    plot_img(argv[2], 0, filename + '-clusterbyMeansAll.png', output_dir)
-    plot_img(argv[6], 0, filename + '-clusterbytSNEAllFeatures.png', output_dir)
-
+        plot_img(argv[5], 0, filename + '-clusterbyTexture.png', output_dir)
+        plot_img(argv[2], 0, filename + '-clusterbyMeansAll.png', output_dir)
+        plot_img(argv[6], 0, filename + '-clusterbytSNEAllFeatures.png', output_dir)
+    else:
+        plot_img(argv[4], 0, filename + '-clusterbyTexture.png', output_dir)
+        plot_img(argv[1], 0, filename + '-clusterbyMeansAll.png', output_dir)
+        plot_img(argv[5], 0, filename + '-clusterbytSNEAllFeatures.png', output_dir)
 
 def make_legends(feature_names, feature_covar, feature_meanall, filename: str, output_dir: Path, i: int, maskchn: List,
                  inCells: list,
@@ -1341,17 +1344,29 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             write_2_csv(markers, table, filename + '-clustercell_cellshape_legend', output_dir, inCells, options)
             showlegend(markers, table, filename + '-clustercells_cellshape_legend.pdf', output_dir)
 
-        print('Finding cell texture cluster markers...')
-        retmarkers = findmarkers(argv[5][0], options)
-        table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
-        write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
-        showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+            print('Finding cell texture cluster markers...')
+            retmarkers = findmarkers(argv[5][0], options)
+            table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
+            write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
+            showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
 
-        print('Finding cell tsne all features cluster markers...')
-        retmarkers = findmarkers(argv[6][0], options)
-        table, markers = matchNShow_markers(argv[6][0], retmarkers, argv[6][1], options)
-        write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
-        showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+            print('Finding cell tsne all features cluster markers...')
+            retmarkers = findmarkers(argv[6][0], options)
+            table, markers = matchNShow_markers(argv[6][0], retmarkers, argv[6][1], options)
+            write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
+            showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+        else:
+            print('Finding cell texture cluster markers...')
+            retmarkers = findmarkers(argv[4][0], options)
+            table, markers = matchNShow_markers(argv[4][0], retmarkers, argv[4][1], options)
+            write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
+            showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
+
+            print('Finding cell tsne all features cluster markers...')
+            retmarkers = findmarkers(argv[5][0], options)
+            table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
+            write_2_csv(markers, table, filename + '-clustercell_texture_legend', output_dir, inCells, options)
+            showlegend(markers, table, filename + '-clustercells_texture_legend.pdf', output_dir)
 
     print('Legend for mask channel: ' + str(i))
 
@@ -1421,12 +1436,11 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
 
     if not options.get('skip_outlinePCA'):
         shape_vectors = argv[3]
+        texture_vectors = argv[4][0]
+        texture_channels = argv[4][1]
     else:
         texture_vectors = argv[3][0]
         texture_channels = argv[3][1]
-
-    texture_vectors = argv[4][0]
-    texture_channels = argv[4][1]
 
     # get channel labels
     maskchs = mask.get_channel_labels()
@@ -1475,13 +1489,23 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                                                                  'covar-' + maskchs[i], options)
         clustercells_total, clustercells_totalcenters = cell_cluster(total_vector_f, types_list, all_clusters,
                                                                      'total-' + maskchs[i], options)
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(mask, options,
+
+        if options.get('skip_outlinePCA'):
+            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(mask, options,
                                                                                              mean_vector_f,
                                                                                              covar_matrix_f,
                                                                                              total_vector_f,
                                                                                              meanAll_vector_f,
-                                                                                             shape_vectors,
                                                                                              texture_matrix)
+        else:
+            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(mask, options,
+                                                                                                 mean_vector_f,
+                                                                                                 covar_matrix_f,
+                                                                                                 total_vector_f,
+                                                                                                 meanAll_vector_f,
+                                                                                                 shape_vectors,
+                                                                                                 texture_matrix)
+
 
         # map back to the mask segmentation of indexed cell region
         print('Mapping cell index in segmented mask to cluster IDs...')
@@ -1517,7 +1541,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
                          clustercells_uvallcenters, [clustercells_texturecenters, texture_channels],
-                         [clustercells_tsneAll, tsneAll_header])
+                         [clustercells_tsneAllcenters, tsneAll_header])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
             cell_cluster_IDs(filename, output_dir, i, maskchs, inCells, options, clustercells_uv, clustercells_cov,
@@ -1525,7 +1549,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                              clustercells_uvall, clustercells_texture, clustercells_tsneAll)
             # plots the cluster imgs for the best z plane
             print('Saving pngs of cluster plots by best focal plane...')
-            plot_imgs(filename, output_dir, i, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
+            plot_imgs(filename, output_dir, i, maskchs, options, cluster_cell_imgu[bestz], cluster_cell_imgcov[bestz],
                       cluster_cell_imguall[bestz],
                       cluster_cell_imgtotal[bestz], cluster_cell_texture[bestz], cluster_cell_imgtsneAll[bestz])
 
@@ -1748,14 +1772,14 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
 
         channels = im.get_channel_labels()
         # get cytoplasm coords
-        cytoplasm = find_cytoplasm(ROI_coords)
+        # cytoplasm = find_cytoplasm(ROI_coords)
 
         #check / filter out 1-D coords - hot fix
-        cytoplasm_ndims = [x.ndim for x in cytoplasm]
-        cytoplasm_ndims = np.asarray(cytoplasm_ndims)
-        idx_ndims = np.where(cytoplasm_ndims == 1)[0]
-
-        cytoplasm = np.delete(cytoplasm, idx_ndims).tolist()
+        # cytoplasm_ndims = [x.ndim for x in cytoplasm]
+        # cytoplasm_ndims = np.asarray(cytoplasm_ndims)
+        # idx_ndims = np.where(cytoplasm_ndims == 1)[0]
+        #
+        # cytoplasm = np.delete(cytoplasm, idx_ndims).tolist()
 
         # cell total intensity per channel
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
@@ -1777,10 +1801,11 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         total_intensity_nuclei_per_chan = np.sum(im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0)
 
         # cytoplasm total intensity per channel
-        cytoplasm_all = np.concatenate(cytoplasm, axis=1)
-        total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
+        # cytoplasm_all = np.concatenate(cytoplasm, axis=1)
+        # total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
 
-        nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
+        # nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
+        nuc_cell_avgR = total_intensity_nuclei_per_chan / total_intensity_per_chancell
         cell_bg_avgR = total_intensity_per_chancell / (total_intensity_per_chanbg / bgpixels.shape[1]) / cell_total
 
         # read in silhouette scores
@@ -1823,7 +1848,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
             struct['Total Intensity'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
             struct['Total Intensity'][channels[j]]['Background'] = total_intensity_per_chanbg[j] 
 
-            struct['Average per Cell Ratios'][channels[j]]['Nuclear / Cytoplasmic'] = nuc_cyto_avgR[j]
+            struct['Average per Cell Ratios'][channels[j]]['Nuclear / Cell'] = nuc_cell_avgR[j]
             struct['Average per Cell Ratios'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
 
             struct['Signal To Noise Otsu'][channels[j]] = otsu[j]
@@ -2200,13 +2225,24 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, ROI_coords,
     return [texture, texture_featureNames]
 
 
-def tSNE_AllFeatures(mask, options, matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape,
-                     matrix_texture):
+def tSNE_AllFeatures(mask, options, *argv):
     '''
 
         By: Young Je Lee and Ted Zhang
 
     '''
+
+    matrix_mean = argv[0]
+    matrix_cov = argv[1]
+    matrix_total = argv[2]
+    matrix_meanAll = argv[3]
+
+    if options.get('skip_outlinePCA'):
+        matrix_texture = argv[4]
+        matrix_shape = np.zeros((matrix_mean.shape[0], 100))
+    else:
+        matrix_shape = argv[4]
+        matrix_texture = argv[5]
 
     tSNE_allfeatures_headers = []
     cmd = options.get('tSNE_all_preprocess')[0]

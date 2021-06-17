@@ -22,7 +22,7 @@ Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.0
-06/09/2021
+06/17/2021
 
 
 """
