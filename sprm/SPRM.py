@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from typing import Optional
-import sys
+import faulthandler
+
 from .SPRM_pkg import *
 from .single_method_eval import *
 from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon, bin_pca
@@ -13,8 +14,8 @@ Inputs:    channel OME-TIFFs in "img_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy
-Version:   1.00
-01/21/2020 - 02/23/2020
+Version:   1.03
+01/21/2020 - 06/21/2020
  
 
 """
@@ -70,13 +71,13 @@ def main(
 
         # hot fix for stitched images pipeline
         # if there are scenes or time points - they should be channels
-        if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
-            # data = im.get_data()[0, 0, :, :, :, :]
-            # data = data[np.newaxis, np.newaxis, :, :, :, :]
-            data = im.get_data()
-            s, t, c, z, y, x = data.shape
-            data = data.reshape(c, t, s, z, y, x)
-            im.set_data(data)
+        # if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
+        #     # data = im.get_data()[0, 0, :, :, :, :]
+        #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
+        #     data = im.get_data()
+        #     s, t, c, z, y, x = data.shape
+        #     data = data.reshape(c, t, s, z, y, x)
+        #     im.set_data(data)
 
         # get base file name for all output files
         baseoutputfilename = im.get_name()
@@ -87,15 +88,30 @@ def main(
 
         # hot fix for stitched images pipeline
         # if there are scenes or time points - they should be channels
-        if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
-            # data = im.get_data()[0, 0, :, :, :, :]
-            # data = data[np.newaxis, np.newaxis, :, :, :, :]
-            data = mask.get_data()
-            s, t, c, z, y, x = data.shape
-            data = data.reshape(c, t, s, z, y, x)
-            mask.set_data(data)
+        # if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
+        #     # data = im.get_data()[0, 0, :, :, :, :]
+        #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
+        #     data = mask.get_data()
+        #     s, t, c, z, y, x = data.shape
+        #     data = data.reshape(c, t, s, z, y, x)
+        #     mask.set_data(data)
 
-        #0 == just sprm, 1 == segeval, 2 == both
+        # switch channels and z dims
+        ##############################
+        ##############################
+        # data = im.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # im.set_data(data)
+        #
+        # data = mask.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # mask.set_data(data)
+        ##############################
+        ##############################
+
+        # 0 == just sprm, 1 == segeval, 2 == both
         eval_pathway = options.get('sprm_segeval_both')
 
         if eval_pathway == 1:
@@ -228,9 +244,9 @@ def main(
                               shape_vectors, textures)
             else:
                 # same functions as above just without shape outlines
-                save_all(baseoutputfilename, im, seg_n, output_dir, inCells, options, mean_vector, covar_matrix,
+                save_all(baseoutputfilename, im, mask, output_dir, inCells, options, mean_vector, covar_matrix,
                          total_vector)
-                cell_analysis(im, mask, baseoutputfilename, bestz, seg_n, output_dir, inCells, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, inCells, options, mean_vector,
                               covar_matrix, total_vector, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
@@ -252,15 +268,22 @@ def argparse_wrapper():
     p.add_argument('mask_dir', type=Path)
     p.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument('--options-file', type=Path, default=DEFAULT_OPTIONS_FILE)
-    p.add_argument('optional_img_dir', type=Path, nargs='?', default=False)
+    p.add_argument('optional_img_dir', type=Path, nargs='?')
     p.add_argument('--enable-manhole', action='store_true')
+    p.add_argument('--enable-faulthandler', action='store_true')
     argss = p.parse_args()
 
     if argss.enable_manhole:
         import manhole
         manhole.install(activate_on='USR1')
 
-    if argss.optional_img_dir:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file, argss.optional_img_dir)
-    else:
-        main(argss.img_dir, argss.mask_dir, argss.output_dir, argss.options_file)
+    if argss.enable_faulthandler:
+        faulthandler.enable(all_threads=True)
+
+    main(
+        argss.img_dir,
+        argss.mask_dir,
+        argss.output_dir,
+        argss.options_file,
+        argss.optional_img_dir,
+    )

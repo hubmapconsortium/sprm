@@ -39,7 +39,7 @@ setup(
         "numpy",
         "pandas",
         "scikit-image",
-        "scikit-learn==0.23.2",
+        "scikit-learn",
         "shapely",
         "tables",
         "tifffile==2020.2.16",
