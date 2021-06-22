@@ -451,9 +451,9 @@ def get_coordinates(mask, options):
     # find cell index - if not sequential
     cell_num = np.unique(mask_data)
     maxvalue = len(cell_num)
-    mask.set_cell_index(cell_num)
+    mask.set_cell_index(cell_num[1:])
 
-    if maxvalue - 1 != np.max(mask_data):
+    if maxvalue != np.max(mask_data):
         cell_num_idx = np.arange(0, len(cell_num))
         # cell_num_dict = dict(zip(cell_num, cell_num_idx))
         cell_num_dict = nb_populate_dict(cell_num, cell_num_idx)
@@ -466,6 +466,11 @@ def get_coordinates(mask, options):
         fmask_data = fmask_data.reshape((s, t, c, z, y, x))
         mask.set_data(fmask_data)
         mask_data = mask.get_data()
+
+        cell_num = np.unique(mask_data)
+        maxvalue = len(cell_num)
+
+    assert((maxvalue - 1) == np.max(mask_data))
 
     # post-process for edge case cell coordinates - only 1 point
     freq = np.unique(mask_data[0, 0, 0, 0, :, :], return_counts=True)
@@ -496,6 +501,7 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
 
     cellmask = ROI_coords[0]
     cell_center = np.zeros((len(cellmask), 2))
+    # cell_idx = mask.get_cell_index()
 
     for i in range(1, len(cellmask)):
         m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
@@ -506,26 +512,26 @@ def cell_graphs(mask: MaskStruct, ROI_coords: List[List[np.ndarray]], inCells: L
     cell_center_df.index.name = 'ID'
 
     cell_center_df.to_csv(outputdir / (fname + '-cell_centers.csv'), header=['x', 'y'])
-    adj_cell_list(mask, ROI_coords, cell_center_df, fname, outputdir, options)
+    adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
 
     # adj_cell_list(cellmask, fname, outputdir)
 
-    return cell_center
+    # return cell_center
 
 
-def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, fname: str, outputdir: Path,
+def adj_cell_list(mask, ROI_coords: List[np.ndarray], cell_center: np.ndarray, inCells: list, fname: str, outputdir: Path,
                   options: Dict):
     '''
         Construct adj list of neighboring cells
     '''
     print('Finding cell adjacency matrix...')
 
-    mask_data = mask.get_data()[0, 0, 3, 0, :, :]
-    interiorCells = mask.get_interior_cells()
+    # mask_data = mask.get_data()[0, 0, 3, 0, :, :]
+    # interiorCells = mask.get_interior_cells()
     stime = time.monotonic()
 
     if options.get('cell_graph') == 1:
-        AdjacencyMatrix(mask, ROI_coords[2], cell_center, fname, outputdir, options)
+        AdjacencyMatrix(mask, ROI_coords[2], cell_center, inCells, fname, outputdir, options)
         # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         print('Runtime of adj matrix: ', time.monotonic() - stime)
     else:
@@ -559,6 +565,9 @@ def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
 
     for j in cellids[i]:
 
+        # if j >= idx[-1]:
+        #     continue
+
         k = idx[i]
 
         sub = cell_center[k] - cell_center[j]
@@ -587,7 +596,7 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, cell_centers, thr):
     return 0
 
 
-def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfilename, output_dir, options: Dict, window=None):
+def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, inCells: list, baseoutputfilename, output_dir, options: Dict, window=None):
     '''
     By: Young Je Lee, Ted Zhang and Matt Ruffalo
     '''
@@ -604,7 +613,9 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     print('adjacency calculation begin')
     # start = time.perf_counter()
 
+    # numCells = len(inCells)
     numCells = len(cellEdgeList)
+    cellidx = mask.get_cell_index()
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
@@ -630,9 +641,9 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
 
     if paraopt == 1:
         cel = nbList(cellEdgeList)
-        windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, delta, a, b)
+        windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, delta, a, b)
+        windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, inCells, delta, a, b)
 
     # for i in range(1, numCells):
     #     # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
@@ -692,18 +703,21 @@ def AdjacencyMatrix(mask, cellEdgeList, cell_center: pd.DataFrame, baseoutputfil
     adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
     scipy.io.mmwrite(output_dir / (baseoutputfilename + '_AdjacencyMatrix.mtx'), adjacencyMatrix_csr)
     with open(output_dir / (baseoutputfilename + '_AdjacencyMatrixRowColLabels.txt'), 'w') as f:
-        for i in range(1, numCells + 1):
+        for i in range(numCells):
             print(i, file=f)
     # return adjacencyMatrix
 
 
-def get_windows(numCells, cellEdgeList, delta, a, b):
+def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
     windowCoords = []
     windowSize = []
     windowRange_xy = []
 
-    for i in range(1, numCells):
+    for i in range(1,numCells):
         # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+        # xmin, xmax, ymin, ymax = np.min(cellEdgeList[inCells[i]][0]), np.max(cellEdgeList[inCells[i]][0]), np.min(
+        #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
+
         xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
             cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
 
@@ -743,12 +757,12 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
 
 
 @nb.njit(parallel=True)
-def nbget_windows(numCells, cellEdgeList, delta, a, b):
+def nbget_windows(numCells, cellEdgeList, inCells, delta, a, b):
     windowCoords = nbList()
     windowSize = nbList()
     windowRange_xy = nbList()
 
-    for i in nb.prange(1, numCells):
+    for i in nb.prange(numCells):
         # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
         xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
             cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
@@ -877,20 +891,20 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
     return header, sub_matrix
 
 
-def write_2_file(sub_matrix, s: str, img: IMGstruct, output_dir: Path, inCells: list, options: Dict):
+def write_2_file(sub_matrix, s: str, img: IMGstruct, output_dir: Path, cellidx: list, options: Dict):
     header, sub_matrix = get_df_format(sub_matrix, s, img, options)
-    write_2_csv(header, sub_matrix, s, output_dir, inCells, options)
+    write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
 
 
-def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, inCells: list, options: Dict):
+def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: list, options: Dict):
     global row_index
 
     if row_index:
         df = pd.DataFrame(sub_matrix, index=options.get('row_index_names'))
     else:
         df = pd.DataFrame(sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)))
-        if len(inCells) == sub_matrix.shape[0]:
-            df = pd.DataFrame(sub_matrix, index=inCells)
+        if len(cellidx) == sub_matrix.shape[0]:
+            df = pd.DataFrame(sub_matrix, index=cellidx)
 
     if options.get("debug"): print(df)
     f = output_dir / (s + '.csv')
@@ -919,13 +933,13 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, inCells: lis
         store.put(hdf_key, df)
 
 
-def write_cell_polygs(polyg_list: List[np.ndarray], filename: str, output_dir: Path, options: Dict):
+def write_cell_polygs(polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict):
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str([[round(i, 4), round(j, 4)] for i, j in zip(polyg_list[i][:, 0], polyg_list[i][:, 1])])
         coord_pairs.append(tlist)
 
-    df = pd.DataFrame({0: coord_pairs}, index=list(range(1, len(coord_pairs) + 1)))
+    df = pd.DataFrame({0: coord_pairs}, index=cellidx)
     if options.get("debug"): print(df)
     f = output_dir / (filename + '-cell_polygons_spatial.csv')
     df.index.name = 'ID'
@@ -1398,7 +1412,7 @@ def make_legends(feature_names, feature_covar, feature_meanall, filename: str, o
             showlegend(markers, table, filename + '-cluster' + maskchn[i] + '_total_legend.pdf', output_dir)
 
 
-def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, inCells: list, options: Dict, *argv):
+def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, cellidx: list, options: Dict, *argv):
     # hard coded for now
     print('Writing to csv all matrices...')
     mean_vector = argv[0]
@@ -1407,27 +1421,28 @@ def save_all(filename: str, im: IMGstruct, mask: MaskStruct, output_dir: Path, i
 
     if not options.get('skip_outlinePCA'):
         outline_vectors = argv[3]
-        write_2_file(outline_vectors, filename + '-cell_shape', im, output_dir, inCells, options)
+        write_2_file(outline_vectors, filename + '-cell_shape', im, output_dir, cellidx, options)
 
-    write_2_file(mean_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAll', im, output_dir, inCells, options)
+    write_2_file(mean_vector[0, -1, :, :, 0], filename + '-cell_channel_meanAll', im, output_dir, cellidx, options)
     # write_2_file(texture_v[0, -1, :, :, 0], filename + '-cell_channel_textures', im, output_dir, options)
 
     for i in range(len(mask.channel_labels)):
         write_2_file(mean_vector[0, i, :, :, 0], filename + '-' + mask.get_channel_labels()[i] + '_channel_mean', im,
-                     output_dir, inCells, options)
+                     output_dir, cellidx, options)
         write_2_file(covar_matrix[0, i, :, :, :], filename + '-' + mask.get_channel_labels()[i] + '_channel_covar', im,
-                     output_dir, inCells, options)
+                     output_dir, cellidx, options)
         write_2_file(total_vector[0, i, :, :, 0], filename + '-' + mask.get_channel_labels()[i] + '_channel_total', im,
-                     output_dir, inCells, options)
+                     output_dir, cellidx, options)
 
 
 def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, output_dir: Path, seg_n: int,
-                  inCells: list,
+                  cellidx: list,
                   options: Dict, *argv):
     '''
         cluster and statisical analysis done on cell:
         clusters/maps and makes a legend out of the most promient channels and writes them to a csv
     '''
+    # cellidx = mask.get_cell_index()
     stime = time.monotonic() if options.get("debug") else None
     # hard coded for now
     mean_vector = argv[0]
@@ -1516,7 +1531,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
         print('Getting markers that separate clusters to make legend...')
         if not options.get('skip_outlinePCA'):
             # get markers for each respective cluster & then save the legend/markers
-            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, maskchs, inCells,
+            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, maskchs, cellidx,
                          options,
                          clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
@@ -1525,7 +1540,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          [clustercells_tsneAllcenters, tsneAll_header])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
-            cell_cluster_IDs(filename, output_dir, i, maskchs, inCells, options, clustercells_uv, clustercells_cov,
+            cell_cluster_IDs(filename, output_dir, i, maskchs, cellidx, options, clustercells_uv, clustercells_cov,
                              clustercells_total,
                              clustercells_uvall,
                              clustercells_shapevectors, clustercells_texture, clustercells_tsneAll)
@@ -1536,7 +1551,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                       cluster_cell_imgtotal[bestz], clustercells_shape[bestz], cluster_cell_texture[bestz],
                       cluster_cell_imgtsneAll[bestz])
         else:
-            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, maskchs, inCells,
+            make_legends(feature_names, feature_covar, feature_meanall, filename, output_dir, i, maskchs, cellidx,
                          options,
                          clustercells_uvcenters, clustercells_covcenters,
                          clustercells_totalcenters,
@@ -1544,7 +1559,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
                          [clustercells_tsneAllcenters, tsneAll_header])
             # save all clusterings to one csv
             print('Writing out all cell cluster IDs for all cell clusterings...')
-            cell_cluster_IDs(filename, output_dir, i, maskchs, inCells, options, clustercells_uv, clustercells_cov,
+            cell_cluster_IDs(filename, output_dir, i, maskchs, cellidx, options, clustercells_uv, clustercells_cov,
                              clustercells_total,
                              clustercells_uvall, clustercells_texture, clustercells_tsneAll)
             # plots the cluster imgs for the best z plane
@@ -1571,7 +1586,7 @@ def cell_analysis(im: IMGstruct, mask: MaskStruct, filename: str, bestz: int, ou
     options['cluster_types'] = types_list
 
     write_2_file(all_clusters, filename + 'clustering' + options.get('num_cellclusters')[0] + 'Scores', im, output_dir,
-                 inCells, options)
+                 cellidx, options)
 
 
 def make_DOT(mc, fc, coeffs, ll):
@@ -2063,9 +2078,18 @@ def find_edge_cells(mask):
 
     sMask = mask.get_data()[0, 0, 0, :, :, :]
     unique = np.unique(sMask)[1:]
-    interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
-    # interiorCells = [i for i in unique if i not in mask.get_bad_cells()]
-    mask.set_interior_cells(interiorCells)
+    og_cell_idx = mask.get_cell_index()
+
+    if (og_cell_idx == unique).all():
+        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
+        mask.set_interior_cells(interiorCells)
+        mask.set_cell_index(interiorCells)
+    else:
+        og_in_cell_idx = [og for og, new in zip(og_cell_idx, unique) if new not in border and new not in mask.get_bad_cells()]
+        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
+        mask.set_interior_cells(interiorCells)
+        mask.set_cell_index(og_in_cell_idx)
+
 
 
 # @nb.njit()
@@ -2117,6 +2141,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
 
     # texture_all=[]
     # header = []
+    cellidx = mask.get_cell_index()
 
     colIndex = ['contrast', 'dissimilarity', 'homogeneity', 'ASM', 'energy', 'correlation']
     inCells = mask.get_interior_cells().copy()
@@ -2196,7 +2221,7 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
     ctexture = ctexture.reshape(cell_total[0], -1)
 
     # For csv writing
-    write_2_csv(header, ctexture, filename + '_' + 'texture', output_dir, inCells, options)
+    write_2_csv(header, ctexture, filename + '_' + 'texture', output_dir, cellidx, options)
 
     # add timepoint dim so that feature is in sync
     texture_all = texture_all[np.newaxis, :, :, :, :]
