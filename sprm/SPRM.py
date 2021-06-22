@@ -135,13 +135,14 @@ def main(
 
         # get cells to be processed
         inCells = mask.get_interior_cells()
+        cellidx = mask.get_cell_index()
         cell_total.append(len(inCells))
 
         # save cell graphs
-        cell_centers = cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
+        cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
         # signal to noise ratio of the image
-        SNR(im, baseoutputfilename, output_dir, inCells, options)
+        SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
         bestz = mask.get_bestz()
         # empty mask skip tile
@@ -205,7 +206,7 @@ def main(
                     bin_pca(shape_vectors, 1, cell_polygons, output_dir)  # just for testing
                     pca_recon(shape_vectors, 1, pca, output_dir)  # just for testing
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
-                write_cell_polygs(cell_polygons, baseoutputfilename, output_dir, options)
+                write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
             else:
                 print('Skipping outlinePCA...')
             # loop of types of segmentation (channels in the mask img)
@@ -233,20 +234,20 @@ def main(
 
             if not options.get('skip_outlinePCA'):
                 # save the means, covars, shape and total for each cell
-                save_all(baseoutputfilename, im, mask, output_dir, inCells, options, mean_vector, covar_matrix,
+                save_all(baseoutputfilename, im, mask, output_dir, cellidx, options, mean_vector, covar_matrix,
                          total_vector,
                          shape_vectors)
 
                 # do cell analyze
-                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, inCells, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, cellidx, options, mean_vector,
                               covar_matrix,
                               total_vector,
                               shape_vectors, textures)
             else:
                 # same functions as above just without shape outlines
-                save_all(baseoutputfilename, im, mask, output_dir, inCells, options, mean_vector, covar_matrix,
+                save_all(baseoutputfilename, im, mask, output_dir, cellidx, options, mean_vector, covar_matrix,
                          total_vector)
-                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, inCells, options, mean_vector,
+                cell_analysis(im, mask, baseoutputfilename, bestz, output_dir, seg_n, cellidx, options, mean_vector,
                               covar_matrix, total_vector, textures)
 
         if options.get("debug"): print('Per image runtime: ' + str(time.monotonic() - stime))
