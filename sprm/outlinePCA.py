@@ -260,7 +260,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
     cell_boundary = ROI_by_CH[2]
 
     # for i in range(1, np.amax(cellmask)+1):
-    for i in range(0, len(interiorCells)):
+    for i in range(len(interiorCells)):
         # if i not in cellmask:
         #    continue
         # coor = np.where(cellmask == i)
