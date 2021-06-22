@@ -453,7 +453,7 @@ def get_coordinates(mask, options):
     maxvalue = len(cell_num)
     mask.set_cell_index(cell_num[1:])
 
-    if maxvalue != np.max(mask_data):
+    if maxvalue - 1 != np.max(mask_data):
         cell_num_idx = np.arange(0, len(cell_num))
         # cell_num_dict = dict(zip(cell_num, cell_num_idx))
         cell_num_dict = nb_populate_dict(cell_num, cell_num_idx)
