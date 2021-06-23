@@ -1,16 +1,16 @@
+import faulthandler
 from argparse import ArgumentParser
 from typing import Optional
-import faulthandler
 
-from .SPRM_pkg import *
+from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
 from .single_method_eval import *
-from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_recon, bin_pca
+from .SPRM_pkg import *
 
 """
 
 Function:  Spatial Pattern and Relationship Modeling for HubMap common imaging pipeline
 Inputs:    channel OME-TIFFs in "img_hubmap" folder
-		   paired segmentation OME-TIFFs in "mask_hubmap" folder
+           paired segmentation OME-TIFFs in "mask_hubmap" folder
 Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy

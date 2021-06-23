@@ -1,42 +1,39 @@
-from aicsimageio import AICSImage
-from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-from PIL import Image
-import numpy as np
+import json
+import math
+import time
+from collections import defaultdict
+from itertools import chain, combinations, product
+from pathlib import Path
+from typing import Any, Dict, List, Sequence, Union
+
 import matplotlib
 import matplotlib.cm
-from matplotlib import pyplot as plt
-from sklearn.cluster import KMeans
-import time
-from sklearn.decomposition import PCA
-import pandas as pd
-from itertools import product, chain, combinations
-import math
-from typing import Dict, List, Any, Sequence, Union
-from pathlib import Path
-from .outlinePCA import shape_cluster
-from skimage.filters import threshold_otsu
-from .ims_sparse_allchan import findpixelfractions
-from .ims_sparse_allchan import reallocateIMS as reallo
-from skimage.feature.texture import greycomatrix, greycoprops
 import numba as nb
-from numba.typed import Dict as nbDict
-from numba.typed import List as nbList
-from sklearn.metrics import silhouette_score
-from scipy import stats
+import numpy as np
+import pandas as pd
 import scipy.io
 import scipy.sparse
-from scipy.ndimage import binary_dilation
-from sklearn.manifold import TSNE
-from numpy import linalg as LA
+from aicsimageio import AICSImage
+from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from matplotlib import collections as mc
-from collections import defaultdict
-import json
+from matplotlib import pyplot as plt
+from numba.typed import Dict as nbDict
+from numba.typed import List as nbList
+from numpy import linalg as LA
+from PIL import Image
+from scipy import stats
+from scipy.ndimage import binary_dilation
+from skimage.feature.texture import greycomatrix, greycoprops
+from skimage.filters import threshold_otsu
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.metrics import silhouette_score
 
-from .constants import (
-    FILENAMES_TO_IGNORE,
-    INTEGER_PATTERN,
-    figure_save_params,
-)
+from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
+from .ims_sparse_allchan import findpixelfractions
+from .ims_sparse_allchan import reallocateIMS as reallo
+from .outlinePCA import shape_cluster
 
 """
 

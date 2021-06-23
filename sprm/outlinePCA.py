@@ -1,16 +1,18 @@
-import numpy as np
-from skimage import measure
-from matplotlib import pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from typing import List, Dict
-from scipy import interpolate, stats
+import math
 from collections import defaultdict
-from sklearn.metrics import silhouette_score
+from typing import Dict, List
+
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy import interpolate, stats
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
+from skimage import measure
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
+
 from .constants import figure_save_params
-import math
 
 """
 

@@ -1,17 +1,17 @@
 import importlib.resources
-import numpy as np
-from PIL import Image
-from scipy.sparse import csr_matrix
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from scipy.stats import variation
-from sklearn.metrics import silhouette_score
-import matplotlib.pyplot as plt
-from skimage.morphology import disk
-from skimage.morphology import closing
 import pickle
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+from scipy.sparse import csr_matrix
+from scipy.stats import variation
+from skimage.morphology import closing, disk
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
 
 """
 
@@ -33,8 +33,8 @@ def fraction(img_bi, mask_bi):
 	return foreground / foreground_all, background / background_all, foreground / mask_all
 
 def foreground_separation(img):
-	from skimage.filters import threshold_mean
 	from skimage import measure
+	from skimage.filters import threshold_mean
 	threshold = threshold_mean(img.astype(np.int64))
 	img_sep = img > threshold
 	img_sep = img_sep.astype(int)
