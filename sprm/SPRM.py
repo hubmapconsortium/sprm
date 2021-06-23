@@ -4,7 +4,7 @@ import faulthandler
 
 from .SPRM_pkg import *
 from .single_method_eval import *
-from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_cluster_shape, pca_recon, bin_pca
+from .outlinePCA import getparametricoutline, getcellshapefeatures, pca_recon, bin_pca
 
 """
 

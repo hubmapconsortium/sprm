@@ -1,10 +1,7 @@
 import importlib.resources
 import numpy as np
-import os
-from os.path import join
 from PIL import Image
 from scipy.sparse import csr_matrix
-from skimage.io import imread
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from scipy.stats import variation
@@ -12,7 +9,6 @@ from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 from skimage.morphology import disk
 from skimage.morphology import closing
-from skimage.morphology import diameter_closing
 import pickle
 import xml.etree.ElementTree as ET
 from pathlib import Path

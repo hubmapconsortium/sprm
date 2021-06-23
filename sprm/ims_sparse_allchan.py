@@ -1,10 +1,9 @@
 import numpy as np
 from math import floor
-from scipy.sparse import lil_matrix, coo_matrix, csr_matrix, csc_matrix, find
+from scipy.sparse import lil_matrix, coo_matrix, find
 from sklearn import preprocessing
 import numba as nb
-# from numba.typed import List as nbList
-from typing import Dict, List, Any, Sequence, Union
+from typing import List
 from datetime import datetime
 
 """

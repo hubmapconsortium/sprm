@@ -17,8 +17,6 @@ from .outlinePCA import shape_cluster
 from skimage.filters import threshold_otsu
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
-import multiprocessing
-# from joblib import Parallel, delayed
 from skimage.feature.texture import greycomatrix, greycoprops
 import numba as nb
 from numba.typed import Dict as nbDict
@@ -27,14 +25,12 @@ from sklearn.metrics import silhouette_score
 from scipy import stats
 import scipy.io
 import scipy.sparse
-# from skimage.morphology import binary_dilation
 from scipy.ndimage import binary_dilation
 from sklearn.manifold import TSNE
 from numpy import linalg as LA
 from matplotlib import collections as mc
 from collections import defaultdict
 import json
-import pickle
 
 from .constants import (
     FILENAMES_TO_IGNORE,
