@@ -151,7 +151,7 @@ def cell_uniformity(mask, channels):
 				silhouette.append(silhouette_score(feature_matrix, labels))
 			except:
 				silhouette.append(0)
-		
+
 		for i in range(c):
 			cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
 			CV_current.append(cell_uniformity_CV(cluster_feature_matrix))
@@ -236,7 +236,7 @@ def single_method_eval(img, mask, output_dir: Path):
 
 	# get best z slice for future use
 	bestz = mask.bestz
-	
+
 	# get compartment masks
 	matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
 	cell_matched_mask = matched_mask[0]
@@ -263,10 +263,10 @@ def single_method_eval(img, mask, output_dir: Path):
 	np.savetxt(output_dir / f'{img.name}_img_binary.txt.gz', img_binary)
 	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode='L').convert('1')
 	fg_bg_image.save(output_dir / f'{img.name}_img_binary.png')
-  
+
 	# set mask channel names
 	channel_names = ['matched_cells', 'cell_membrane', 'cytoplasm', 'nuclear_membrane', 'nucleus_no_mem']
-	
+
 	metrics = {}
 	for channel in range(metric_mask.shape[0]):
 		# print('--Calculating ' + channel_names[channel] + ' channel')
@@ -285,8 +285,8 @@ def single_method_eval(img, mask, output_dir: Path):
 			else:
 				root = ET.fromstring(mask.img.metadata.to_xml())
 				matched_fraction = float(root[1][0][0][0][1].text)
-			
-			
+
+
 			len_start_ind = img.img.metadata.to_xml().find('PhysicalSizeX=') + len('PhysicalSizeX=') + 1
 			unit_start_ind = img.img.metadata.to_xml().find('PhysicalSizeXUnit=') + len('PhysicalSizeXUnit=') + 1
 			pixel_unit = img.img.metadata.to_xml()[unit_start_ind:unit_start_ind+2]
@@ -297,20 +297,20 @@ def single_method_eval(img, mask, output_dir: Path):
 
 			pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
 			micron_num = pixel_size * pixel_num
-			
+
 			# calculate number of cell per 100 squared micron
 			cell_num = len(np.unique(current_mask)) - 1
 
 			cell_num_normalized = cell_num / micron_num * 100
-			
+
 			# get fraction of image occupied by the mask
 			mask_fraction = 1 - (len(np.where(current_mask == 0)[0]) / (current_mask.shape[0] * current_mask.shape[1]))
-			
+
 			# get coverage metrics
 			foreground_fraction, background_fraction, _ = fraction(img_binary, mask_binary)
-			
+
 			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
-			
+
 			foreground_CV, foreground_PCA = foreground_uniformity(img_binary, mask_binary, img_channels)
 			background_CV, background_PCA = background_uniformity(img_binary, mask_binary, img_channels)
 			metrics[channel_names[channel]]['NumberOfCellPer100SquareMicrons'] = cell_num_normalized
@@ -322,14 +322,14 @@ def single_method_eval(img, mask, output_dir: Path):
 			metrics[channel_names[channel]]['FractionOfFirstPCForegroundOutsideCells'] = foreground_PCA
 			metrics[channel_names[channel]]['1/AvgCVBackground'] = 1 / background_CV
 			metrics[channel_names[channel]]['FractionOfFirstPCBackground'] = background_PCA
-			
+
 		else:
 			_, _, mask_foreground_fraction = fraction(img_binary, mask_binary)
 			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
 			# get background and foreground uniformity
 			# foreground_CV, foreground_PCA = foreground_uniformity(img_binary, mask_binary, img_channels)
 			# background_CV, background_PCA = background_uniformity(img_binary, mask_binary, img_channels)
-			
+
 			# get cell uniformity
 			cell_CV, cell_fraction, cell_silhouette = cell_uniformity(current_mask, img_channels)
 			avg_cell_CV = np.average(cell_CV)
@@ -350,9 +350,9 @@ def single_method_eval(img, mask, output_dir: Path):
 	# 	metrics = pickle.load(f)
 	# with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
 	# 	pickle.dump(metrics, f)
-		
+
 	metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-	
+
 
 	with importlib.resources.open_binary('sprm', 'pca.pickle') as f:
 		ss, pca = pickle.load(f)

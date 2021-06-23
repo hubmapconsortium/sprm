@@ -544,7 +544,7 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
 
     # find XM and prune for 0s - only need to do this once
     XM, Areal, Mreal = updateXM(X, M, A, relevantpixels)
-    
+
     # not process specific channel if the threshold is surpassed
     chidx = []
     for iter in range(0, maxiter):

@@ -270,10 +270,10 @@ def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarra
 
 def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> np.array:
     '''
-    Receives out_matrix and extracts information to output a vector: 
+    Receives out_matrix and extracts information to output a vector:
     len # of cells with corresponding cluster number
     '''
-    # extracting all cells through all timepoints --> 4D matrix 
+    # extracting all cells through all timepoints --> 4D matrix
     # cell_matrix = outmatrix[:,0,:,:,:]
     # dims = get_dims(cell_matrix)
     # t, cl, cha, chb  = dims[0], dims[1], dims[2], dims[3]
@@ -1804,7 +1804,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
         total_intensity_per_chancell = np.sum(im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0)
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
 
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0) 
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -1861,7 +1861,7 @@ def quality_measures(im_list, mask_list, seg_metric_list, cell_total, img_files,
             struct['Average per Cell Ratios'][channels[j]] = dict()
 
             struct['Total Intensity'][channels[j]]['Cells'] = int(total_intensity_per_chancell[j])
-            struct['Total Intensity'][channels[j]]['Background'] = total_intensity_per_chanbg[j] 
+            struct['Total Intensity'][channels[j]]['Background'] = total_intensity_per_chanbg[j]
 
             struct['Average per Cell Ratios'][channels[j]]['Nuclear / Cell'] = nuc_cell_avgR[j]
             struct['Average per Cell Ratios'][channels[j]]['Cell / Background'] = cell_bg_avgR[j]
