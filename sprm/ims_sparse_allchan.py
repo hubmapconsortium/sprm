@@ -59,7 +59,7 @@ def findpixelfractions(ROI: np.ndarray, rshape: tuple, mshape: tuple, c: int):
     # A is fraction of area of a cell from a given pixel
     # A = np.zeros(Y.shape)
     # A = lil_matrix(Y.shape, dtype='float32')
-    A = coo_matrix((max(ROI) + 1, reducedsize), dtype='float32')
+    A = coo_matrix((max(ROI) + 1, reducedsize), dtype="float32")
     A = A.tolil()
 
     col1 = np.arange(ROI.shape[0])
@@ -164,7 +164,17 @@ def IMSmap_new(k: np.ndarray, rshape: int, mshape: int) -> np.ndarray:
 #     return j
 
 
-def calcM(ROI: np.ndarray, ROIshape, M, Mshape, X, meanIntenCell, averagebackground, smallpixelsperbigpixel, chidx):
+def calcM(
+    ROI: np.ndarray,
+    ROIshape,
+    M,
+    Mshape,
+    X,
+    meanIntenCell,
+    averagebackground,
+    smallpixelsperbigpixel,
+    chidx,
+):
     # newM = [0] * ROI.shape[0]
     newM = np.zeros((M.shape[0], ROI.shape[0]), dtype=np.uint32)
     # newM1 = np.zeros(ROI.shape, dtype=np.uint32)
@@ -238,7 +248,9 @@ def updateXM(X, M, A, relevantpixels):
 # def fill_channel_idx(channel_idx):
 #     for i in nb.prange(channel_idx.shape[0]):
 #         channel_idx[i, :] = i
-def estimatedeltas(relevantpixels: List, maxROI: int, reducedsize: int, XM, M, Areal, Mreal, chidx):
+def estimatedeltas(
+    relevantpixels: List, maxROI: int, reducedsize: int, XM, M, Areal, Mreal, chidx
+):
     # totInten = [0] * (maxROI + 1)
     totInten = np.zeros((M.shape[0], maxROI + 1))
     # meanIntenPixel = lil_matrix((maxROI + 1, reducedsize))
@@ -298,8 +310,13 @@ def estimatedeltas(relevantpixels: List, maxROI: int, reducedsize: int, XM, M, A
     meanIntenPixel = []
     deltax = []
     for i in range(M.shape[0]):
-        a = coo_matrix((XMdA[i, :], (relevantpixels[0], relevantpixels[1])), shape=(maxROI + 1, reducedsize))
-        b = coo_matrix((deltaxReal[i, :], (relevantpixels[0], relevantpixels[1])), shape=(maxROI + 1, reducedsize))
+        a = coo_matrix(
+            (XMdA[i, :], (relevantpixels[0], relevantpixels[1])), shape=(maxROI + 1, reducedsize)
+        )
+        b = coo_matrix(
+            (deltaxReal[i, :], (relevantpixels[0], relevantpixels[1])),
+            shape=(maxROI + 1, reducedsize),
+        )
 
         meanIntenPixel.append(a.tolil())
         deltax.append(b.tolil())
@@ -340,7 +357,9 @@ def calc_weightedDif(weightedDif, A, totInten, meanintenPixel, ROI, ch):
             weightedDif[ch, ROI[i]] += A[i] * abs(totInten[i] - meanintenPixel[i]) / totInten[i]
 
 
-def estimatemean(relevantpixels, totInten, Areal, meanIntenPixel, cellArea, nonemptycellslist, chidx):
+def estimatemean(
+    relevantpixels, totInten, Areal, meanIntenPixel, cellArea, nonemptycellslist, chidx
+):
     # meanIntenCell = [0] * (maxROI + 1)
     # weighteddif = [0] * (maxROI + 1)
     # meanIntenCell = np.zeros(maxROI + 1)
@@ -351,7 +370,9 @@ def estimatemean(relevantpixels, totInten, Areal, meanIntenPixel, cellArea, none
 
     # iter on channels
     for i in range(len(meanIntenPixel)):
-        meanIntenPixelreal = meanIntenPixel[i][relevantpixels[0], relevantpixels[1]].toarray().reshape(-1)
+        meanIntenPixelreal = (
+            meanIntenPixel[i][relevantpixels[0], relevantpixels[1]].toarray().reshape(-1)
+        )
         totIntenreal = totInten[i][relevantpixels[0]]
 
         calc_weightedDif(weightedDif, Areal, totIntenreal, meanIntenPixelreal, ROI, i)
@@ -394,13 +415,13 @@ def updateX(X, maxROI, relevantpixels, drate, deltax, chidx):
     # Xreal = X[relevantpixels[0], relevantpixels[1]]
 
     drdeltax = list(map(lambda x: drate * x[relevantpixels[0], relevantpixels[1]], deltax))
-    #drdeltax = drate * deltax[:][relevantpixels[0], relevantpixels[1]]
+    # drdeltax = drate * deltax[:][relevantpixels[0], relevantpixels[1]]
 
     a = list(map(lambda x, y: y + x, drdeltax, Xreal_CH))
     bool_CH = list(map(lambda x: find(x < 0), a))
     check_bool_CH = list(map(lambda x: len(x[0]) == 0, bool_CH))
     idx_check = [i for i, val in enumerate(check_bool_CH) if val]
-    #loop - might be more efficient way
+    # loop - might be more efficient way
     # for i in range(len(deltax)):
     #     X[relevantpixels[0], relevantpixels] = Xreal + drdeltax[i]
     #     X_CH.append(X)
@@ -417,10 +438,9 @@ def updateX(X, maxROI, relevantpixels, drate, deltax, chidx):
     # print('sumsumX=',sum(sumX))
     # adjust the fractions to sum to 1 (conserve intensity)
 
-
     for i in range(len(X)):
         X[i][relevantpixels[0], relevantpixels[1]] = a[i]
-        X[i] = preprocessing.normalize(X[i], norm='l1', axis=0)
+        X[i] = preprocessing.normalize(X[i], norm="l1", axis=0)
         X[i] = X[i].tolil()
 
     # X = preprocessing.normalize(X, norm='l1', axis=0)
@@ -498,10 +518,10 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # averagebackground average the pixels that don't have cells
 
     # print('IN REALLOCATE: ch-' + str(ichan) + '   time:' + str(datetime.now()))
-    descentrate = options.get('reallocation_descent_rate')
-    thresh = options.get('reallocation_quit_criterion')
-    maxiter = options.get('num_of_reallocations')
-    averagebackground = options.get('reallocation_avg_bg')
+    descentrate = options.get("reallocation_descent_rate")
+    thresh = options.get("reallocation_quit_criterion")
+    maxiter = options.get("num_of_reallocations")
+    averagebackground = options.get("reallocation_avg_bg")
     # ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
     drate = descentrate  # set initial descent rate
     # M is all channels
@@ -511,7 +531,7 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     boolnp = np.isnan(M)
     M[boolnp] = 0
 
-    outfile = 'temp'
+    outfile = "temp"
     # plt.imshow(M)
     # plt.savefig(outfile + 'ims.png')
     # plt.imshow(ROI)
@@ -535,9 +555,9 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # print(A)
     # print(cellArea.shape)
 
-    print('START getindexlists...' + '   time:' + str(datetime.now()))
+    print("START getindexlists..." + "   time:" + str(datetime.now()))
     nonemptycellindices, relevantpixels = getindexlists(cellArea, A)
-    print('END getindexlists...' + '   time:' + str(datetime.now()))
+    print("END getindexlists..." + "   time:" + str(datetime.now()))
     # Xold = lil_matrix((maxROI + 1, reducedsize))
     Xold = X
     oldweighteddif = [0] * Mshape[0]
@@ -549,29 +569,42 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     chidx = []
     for iter in range(0, maxiter):
 
-        print('IN ITR LOOP: ' + str(iter) + '   time:' + str(datetime.now()))
+        print("IN ITR LOOP: " + str(iter) + "   time:" + str(datetime.now()))
         # calculate the mean intensity for the contribution of each pixel
         # to each cell
-        print('START estimatedeltas...' + '   time:' + str(datetime.now()))
-        totInten, meanIntenPixel, deltax = estimatedeltas(relevantpixels, maxROI, reducedsize, XM, M, Areal, Mreal, chidx)
-        print('END estimatedeltas... \nSTART estimatemean...' + '   time:' + str(datetime.now()))
-        meanIntenCell, overallweighteddif, maxweighteddif = estimatemean(relevantpixels, totInten, Areal,
-                                                                         meanIntenPixel, cellArea, nonemptycellindices, chidx)
+        print("START estimatedeltas..." + "   time:" + str(datetime.now()))
+        totInten, meanIntenPixel, deltax = estimatedeltas(
+            relevantpixels, maxROI, reducedsize, XM, M, Areal, Mreal, chidx
+        )
+        print("END estimatedeltas... \nSTART estimatemean..." + "   time:" + str(datetime.now()))
+        meanIntenCell, overallweighteddif, maxweighteddif = estimatemean(
+            relevantpixels, totInten, Areal, meanIntenPixel, cellArea, nonemptycellindices, chidx
+        )
 
-        print('END estimatemean...' + '   time:' + str(datetime.now()))
+        print("END estimatemean..." + "   time:" + str(datetime.now()))
         if iter == 0:
-            print('initial weighted fractional difference=', overallweighteddif)
-            print('initial max weighted fractional difference=', maxweighteddif)
+            print("initial weighted fractional difference=", overallweighteddif)
+            print("initial max weighted fractional difference=", maxweighteddif)
 
         maxdeltas = list(map(lambda x: np.amax(abs(x)), deltax))
 
         # print('maxdeltas=', maxdeltas)
 
         if iter == 0:
-            print('START calcM...' + '   time:' + str(datetime.now()))
+            print("START calcM..." + "   time:" + str(datetime.now()))
             # make naive estimate of contribution of intensity per cell
-            initM = calcM(ROI, ROIshape, M, Mshape, X, meanIntenCell, averagebackground, smallpixelsperbigpixel, chidx)
-            print('END calcM...' + '   time:' + str(datetime.now()))
+            initM = calcM(
+                ROI,
+                ROIshape,
+                M,
+                Mshape,
+                X,
+                meanIntenCell,
+                averagebackground,
+                smallpixelsperbigpixel,
+                chidx,
+            )
+            print("END calcM..." + "   time:" + str(datetime.now()))
             # print('sum of initM=', sum(initM))
             # plt.imshow(initM.reshape(ROIshape))
             # plt.savefig(outfile + 'start.png')
@@ -597,7 +630,7 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
                 deltax[i] = olddeltax[i].copy()
                 overallweighteddif[i] = oldweighteddif[i].copy()
             drate = drate / 2
-            #sumX = np.sum(X, axis=0)
+            # sumX = np.sum(X, axis=0)
 
         # if (iter > 0 and overallweighteddif > oldweighteddif):
         #     X = Xold  # restore previous fractions
@@ -608,7 +641,7 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
         #     sumX = np.sum(X, axis=0)  # sum of fractions for each pixel
         #     # print('sumsumX=',sum(sumX))
 
-        #have not implemented yet
+        # have not implemented yet
         if descentrate / drate > 100:
             # print('descent rate below minimum')
             # print(drate)
@@ -621,13 +654,23 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
 
         # update
         if iter < maxiter - 1:
-            print('START updateX...' + '   time:' + str(datetime.now()))
+            print("START updateX..." + "   time:" + str(datetime.now()))
             X = updateX(X, maxROI, relevantpixels, drate, deltax, chidx)
-            print('END updateX...' + '   time:' + str(datetime.now()))
+            print("END updateX..." + "   time:" + str(datetime.now()))
 
     if maxiter != 1:
-        print('START LAST calcM...' + '   time:' + str(datetime.now()))
-        newM = calcM(ROI, ROIshape, M, Mshape, X, meanIntenCell, averagebackground, smallpixelsperbigpixel, chidx)
+        print("START LAST calcM..." + "   time:" + str(datetime.now()))
+        newM = calcM(
+            ROI,
+            ROIshape,
+            M,
+            Mshape,
+            X,
+            meanIntenCell,
+            averagebackground,
+            smallpixelsperbigpixel,
+            chidx,
+        )
     # newM = np.asarray(newM, dtype=np.float32)
     # plt.imshow(newM.reshape(ROIshape))
     # plt.savefig(outfile + 'end.png')
@@ -639,12 +682,12 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # plt.imshow(diffM.reshape(ROIshape))
     # plt.savefig(outfile + 'difference.png')
 
-    print('final weighted fractional difference=', overallweighteddif)
-    print('final max weighted fractional difference=', maxweighteddif)
-    newM_CH = np.asarray(newM).reshape(((Mshape[0], ) + ROIshape))
+    print("final weighted fractional difference=", overallweighteddif)
+    print("final max weighted fractional difference=", maxweighteddif)
+    newM_CH = np.asarray(newM).reshape(((Mshape[0],) + ROIshape))
     # sumnewM = sum(newM)
     # print('sum of newM=',sumnewM,'; difference=',totalIntensity-sumnewM)
 
-    print('FINISH REALLOCATION' + 'time:' + str(datetime.now()))
+    print("FINISH REALLOCATION" + "time:" + str(datetime.now()))
 
     return newM_CH
