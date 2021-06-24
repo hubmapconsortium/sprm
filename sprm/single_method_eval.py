@@ -308,10 +308,12 @@ def single_method_eval(img, mask, output_dir: Path):
                 pixel_size = (
                     float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) / 1000
                 ) ** 2
-            elif pixel_unit == "um":
+            elif pixel_unit in {"um", "µm"}:
                 pixel_size = (
                     float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) ** 2
                 )
+            else:
+                raise ValueError(f"Unsupported pixel_unit: {pixel_unit}")
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
@@ -386,11 +388,6 @@ def single_method_eval(img, mask, output_dir: Path):
             metrics[channel_names[channel]][
                 "AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster"
             ] = avg_cell_silhouette
-    #
-    # with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm_outputs/evaluation_metrics.pickle'), 'rb') as f:
-    # 	metrics = pickle.load(f)
-    # with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-    # 	pickle.dump(metrics, f)
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 
