@@ -41,7 +41,7 @@ from .outlinePCA import shape_cluster
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/17/2020
+01/21/2020 - 06/25/2020
 Version: 1.03
 
 
@@ -1548,7 +1548,7 @@ def make_legends(
             write_2_csv(
                 markers,
                 table,
-                filename + "-clustercell_texture_legend",
+                filename + "-clustercell_tSNE_legend",
                 output_dir,
                 inCells,
                 options,
@@ -1574,7 +1574,7 @@ def make_legends(
             write_2_csv(
                 markers,
                 table,
-                filename + "-clustercell_texture_legend",
+                filename + "-clustercell_tSNE_legend",
                 output_dir,
                 inCells,
                 options,

@@ -15,7 +15,7 @@ Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy
 Version:   1.03
-01/21/2020 - 06/21/2020
+01/21/2020 - 06/25/2020
 
 
 """
