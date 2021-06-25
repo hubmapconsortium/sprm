@@ -3,6 +3,7 @@ import math
 import time
 from collections import defaultdict
 from itertools import chain, combinations, product
+from os import walk
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Union
 
@@ -912,7 +913,12 @@ def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
 
 def get_paths(img_dir: Path) -> Sequence[Path]:
     if img_dir.is_dir():
-        img_files = [c for c in img_dir.iterdir() if c.name not in FILENAMES_TO_IGNORE]
+        img_files = []
+
+        for dirpath_str, _, filenames in walk(img_dir):
+            dirpath = Path(dirpath_str)
+            filenames_usable = set(filenames) - FILENAMES_TO_IGNORE
+            img_files.extend(dirpath / filename for filename in filenames_usable)
     else:
         # assume it's a pattern, like Path('some/dir/*.tiff')
         # don't need to filter filenames, because the user passed a
