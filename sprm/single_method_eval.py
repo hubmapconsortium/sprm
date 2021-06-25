@@ -1,5 +1,6 @@
 import importlib.resources
 import pickle
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -14,15 +15,14 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 """
-
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.0
 06/17/2021
-
-
 """
+
+schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
 
 def fraction(img_bi, mask_bi):
@@ -232,6 +232,12 @@ def flatten_dict(input_dict):
     return local_list
 
 
+def get_schema_url(ome_xml_root_node: ET.Element) -> str:
+    if m := schema_url_pattern.match(ome_xml_root_node.tag):
+        return m.group(1)
+    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
+
+
 def single_method_eval(img, mask, output_dir: Path):
     print("Calculating single-method metrics for", img.path)
 
@@ -295,25 +301,17 @@ def single_method_eval(img, mask, output_dir: Path):
                 root = ET.fromstring(mask.img.metadata.to_xml())
                 matched_fraction = float(root[1][0][0][0][1].text)
 
-            len_start_ind = (
-                img.img.metadata.to_xml().find("PhysicalSizeX=") + len("PhysicalSizeX=") + 1
-            )
-            unit_start_ind = (
-                img.img.metadata.to_xml().find("PhysicalSizeXUnit=")
-                + len("PhysicalSizeXUnit=")
-                + 1
-            )
-            pixel_unit = img.img.metadata.to_xml()[unit_start_ind : unit_start_ind + 2]
-            if pixel_unit == "nm":
-                pixel_size = (
-                    float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) / 1000
-                ) ** 2
-            elif pixel_unit in {"um", "µm"}:
-                pixel_size = (
-                    float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) ** 2
-                )
+            schema_url = get_schema_url(img.img.metadata.root_node)
+            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            pixel_size_raw = float(pixels_node.attrib["PhysicalSizeX"])
+            pixel_size_unit = pixels_node.attrib["PhysicalSizeXUnit"]
+
+            if pixel_size_unit == "nm":
+                pixel_size = (pixel_size_raw / 1000) ** 2
+            elif pixel_size_unit in {"um", "µm"}:
+                pixel_size = pixel_size_raw ** 2
             else:
-                raise ValueError(f"Unsupported pixel_unit: {pixel_unit}")
+                raise ValueError(f"Unsupported pixel_unit: {pixel_size_unit}")
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
