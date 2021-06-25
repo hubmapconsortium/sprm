@@ -24,18 +24,17 @@ Options image file path
 
 ## Prerequisites
 
-Python 3.8 or newer
-
-Aicsimageio\
-Numpy\
-Sklearn\
-Pandas\
-Pint\
-Matplotlib\
-Numba\
-Scipy\
-PIL \
-Shapely
+* Python 3.8 or newer
+* AICSImageIO
+* Matplotlib
+* Numba
+* NumPy
+* Pandas
+* Pillow
+* Pint
+* scikit-learn
+* SciPy
+* Shapely
 
 ## Documentation 
 
