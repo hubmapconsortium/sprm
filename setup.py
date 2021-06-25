@@ -38,6 +38,7 @@ setup(
         "numba",
         "numpy",
         "pandas",
+        "pint",
         "scikit-image",
         "scikit-learn",
         "shapely",

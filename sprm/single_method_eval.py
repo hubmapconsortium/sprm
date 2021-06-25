@@ -2,11 +2,14 @@ import importlib.resources
 import pickle
 import re
 import xml.etree.ElementTree as ET
+from math import prod
 from pathlib import Path
+from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
 from skimage.morphology import closing, disk
@@ -238,6 +241,22 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
+def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+    """
+    Returns total pixel size in square micrometers.
+    """
+    reg = UnitRegistry()
+
+    sizes: List[Quantity] = []
+    for dimension in ["X", "Y"]:
+        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+        sizes.append(value * unit)
+
+    size = prod(sizes)
+    return size.to("micrometer ** 2").magnitude
+
+
 def single_method_eval(img, mask, output_dir: Path):
     print("Calculating single-method metrics for", img.path)
 
@@ -303,15 +322,7 @@ def single_method_eval(img, mask, output_dir: Path):
 
             schema_url = get_schema_url(img.img.metadata.root_node)
             pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            pixel_size_raw = float(pixels_node.attrib["PhysicalSizeX"])
-            pixel_size_unit = pixels_node.attrib["PhysicalSizeXUnit"]
-
-            if pixel_size_unit == "nm":
-                pixel_size = (pixel_size_raw / 1000) ** 2
-            elif pixel_size_unit in {"um", "µm"}:
-                pixel_size = pixel_size_raw ** 2
-            else:
-                raise ValueError(f"Unsupported pixel_unit: {pixel_size_unit}")
+            pixel_size = get_pixel_area(pixels_node.attrib)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
