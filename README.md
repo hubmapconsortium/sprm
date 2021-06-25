@@ -24,6 +24,8 @@ Options image file path
 
 ## Prerequisites
 
+Python 3.8 or newer
+
 Aicsimageio\
 Numpy\
 Sklearn\

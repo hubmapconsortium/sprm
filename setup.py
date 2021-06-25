@@ -21,7 +21,6 @@ setup(
     author_email="tedz@andrew.cmu.edu, murphy@andrew.cmu.edu",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
     ],
@@ -45,7 +44,7 @@ setup(
         "tables",
         "tifffile==2020.2.16",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     entry_points={
         "console_scripts": [
             "sprm=sprm.SPRM:argparse_wrapper",
