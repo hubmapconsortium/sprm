@@ -28,6 +28,7 @@ Aicsimageio\
 Numpy\
 Sklearn\
 Pandas\
+Pint\
 Matplotlib\
 Numba\
 Scipy\
