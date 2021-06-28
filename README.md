@@ -1,3 +1,4 @@
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # SPRM - Spatial Process & Relationship Modeling
 Ted Zhang and Bob Murphy, Carnegie Mellon University
 V1.0 March 1, 2021
@@ -23,21 +24,32 @@ Options image file path
 
 ## Prerequisites
 
-Aicsimageio\
-Numpy\
-Sklearn\
-Pandas\
-Matplotlib\
-Numba\
-Scipy\
-PIL \
-Shapely
+* Python 3.8 or newer
+* AICSImageIO
+* Matplotlib
+* Numba
+* NumPy
+* Pandas
+* Pillow
+* Pint
+* scikit-learn
+* SciPy
+* Shapely
 
 ## Documentation 
 
 For more information on specific analytical tools and outputs of SPRM: 
 
 [Documentation](https://docs.google.com/document/d/1ZSH9Ek8C4Ucvaytwxyg8LdrgLU6EHmgAsJ5z7Tcc8HQ/edit#heading=h.5y17kqj4hpjb)
+
+## Development information
+
+Code in this repository is formatted with [black](https://github.com/psf/black) and
+[isort](https://pypi.org/project/isort/).
+
+A [pre-commit](https://pre-commit.com/) hook configuration is provided, which runs `black` and `isort` before committing.
+Run `pre-commit install` in each clone of this repository which you will use for development (after `pip install pre-commit`
+into an appropriate Python environment, if necessary).
 
 ## Contact
 
