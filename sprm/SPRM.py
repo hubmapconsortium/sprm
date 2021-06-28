@@ -202,15 +202,7 @@ def main(
                 )
         else:
             textures = glcmProcedure(
-                im,
-                mask,
-                bestz,
-                output_dir,
-                cell_total,
-                baseoutputfilename,
-                ROI_coords,
-                inCells,
-                options,
+                im, mask, output_dir, baseoutputfilename, ROI_coords, inCells, options
             )
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
