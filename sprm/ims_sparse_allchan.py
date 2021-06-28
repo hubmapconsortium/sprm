@@ -1,12 +1,10 @@
 from datetime import datetime
 from math import floor
-
-# from numba.typed import List as nbList
-from typing import Any, Dict, List, Sequence, Union
+from typing import List
 
 import numba as nb
 import numpy as np
-from scipy.sparse import coo_matrix, csc_matrix, csr_matrix, find, lil_matrix
+from scipy.sparse import coo_matrix, find, lil_matrix
 from sklearn import preprocessing
 
 """

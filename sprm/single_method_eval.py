@@ -1,31 +1,31 @@
 import importlib.resources
-import os
 import pickle
+import re
 import xml.etree.ElementTree as ET
-from os.path import join
+from math import prod
 from pathlib import Path
+from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
-from skimage.io import imread
-from skimage.morphology import closing, diameter_closing, disk
+from skimage.morphology import closing, disk
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 """
-
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.0
 06/17/2021
-
-
 """
+
+schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
 
 def fraction(img_bi, mask_bi):
@@ -235,6 +235,28 @@ def flatten_dict(input_dict):
     return local_list
 
 
+def get_schema_url(ome_xml_root_node: ET.Element) -> str:
+    if m := schema_url_pattern.match(ome_xml_root_node.tag):
+        return m.group(1)
+    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
+
+
+def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+    """
+    Returns total pixel size in square micrometers.
+    """
+    reg = UnitRegistry()
+
+    sizes: List[Quantity] = []
+    for dimension in ["X", "Y"]:
+        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+        sizes.append(value * unit)
+
+    size = prod(sizes)
+    return size.to("micrometer ** 2").magnitude
+
+
 def single_method_eval(img, mask, output_dir: Path):
     print("Calculating single-method metrics for", img.path)
 
@@ -298,23 +320,9 @@ def single_method_eval(img, mask, output_dir: Path):
                 root = ET.fromstring(mask.img.metadata.to_xml())
                 matched_fraction = float(root[1][0][0][0][1].text)
 
-            len_start_ind = (
-                img.img.metadata.to_xml().find("PhysicalSizeX=") + len("PhysicalSizeX=") + 1
-            )
-            unit_start_ind = (
-                img.img.metadata.to_xml().find("PhysicalSizeXUnit=")
-                + len("PhysicalSizeXUnit=")
-                + 1
-            )
-            pixel_unit = img.img.metadata.to_xml()[unit_start_ind : unit_start_ind + 2]
-            if pixel_unit == "nm":
-                pixel_size = (
-                    float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) / 1000
-                ) ** 2
-            elif pixel_unit == "um":
-                pixel_size = (
-                    float(img.img.metadata.to_xml()[len_start_ind : len_start_ind + 3]) ** 2
-                )
+            schema_url = get_schema_url(img.img.metadata.root_node)
+            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            pixel_size = get_pixel_area(pixels_node.attrib)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
@@ -389,11 +397,6 @@ def single_method_eval(img, mask, output_dir: Path):
             metrics[channel_names[channel]][
                 "AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster"
             ] = avg_cell_silhouette
-    #
-    # with open(join('/home/hrchen/Documents/Research/hubmap/script/SPRM/sprm_outputs/evaluation_metrics.pickle'), 'rb') as f:
-    # 	metrics = pickle.load(f)
-    # with open(join(result_dir, 'evaluation_metrics.pickle'), 'wb') as f:
-    # 	pickle.dump(metrics, f)
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
 
