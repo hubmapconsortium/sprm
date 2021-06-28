@@ -41,7 +41,7 @@ from .outlinePCA import shape_cluster
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/17/2020
+01/21/2020 - 06/25/2020
 Version: 1.03
 
 
@@ -1548,7 +1548,7 @@ def make_legends(
             write_2_csv(
                 markers,
                 table,
-                filename + "-clustercell_texture_legend",
+                filename + "-clustercell_tSNE_legend",
                 output_dir,
                 inCells,
                 options,
@@ -1574,7 +1574,7 @@ def make_legends(
             write_2_csv(
                 markers,
                 table,
-                filename + "-clustercell_texture_legend",
+                filename + "-clustercell_tSNE_legend",
                 output_dir,
                 inCells,
                 options,
@@ -2514,15 +2514,12 @@ def find_edge_cells(mask):
 def glcm(
     im,
     mask,
-    bestz,
     output_dir,
-    cell_total,
     filename,
     options,
     angle,
     distances,
     ROI_coords,
-    inCells,
 ):
     """
     By: Young Je Lee and Ted Zhang
@@ -2535,7 +2532,7 @@ def glcm(
     colIndex = ["contrast", "dissimilarity", "homogeneity", "ASM", "energy", "correlation"]
     inCells = mask.get_interior_cells().copy()
     texture_all = np.zeros(
-        (2, cell_total[0], im.get_data().shape[2], len(colIndex) * len(distances))
+        (2, len(inCells), im.get_data().shape[2], len(colIndex) * len(distances))
     )
 
     # get headers
@@ -2640,7 +2637,7 @@ def glcm(
     return texture_all, header
 
 
-def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, ROI_coords, inCells, options):
+def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     """
     Wrapper for GLCM
     """
@@ -2655,17 +2652,7 @@ def glcmProcedure(im, mask, bestz, output_dir, cell_total, filename, ROI_coords,
     distances = [int(i) for i in distances]
     stime = time.monotonic()
     texture, texture_featureNames = glcm(
-        im,
-        mask,
-        bestz,
-        output_dir,
-        cell_total,
-        filename,
-        options,
-        angle,
-        distances,
-        ROI_coords,
-        inCells,
+        im, mask, output_dir, filename, options, angle, distances, ROI_coords
     )
     print("GLCM calculations completed: " + str(time.monotonic() - stime))
 

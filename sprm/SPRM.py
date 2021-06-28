@@ -15,7 +15,7 @@ Returns:   OME-TIFF, CSV and PNG Files
 Purpose:   Calculate various features and clusterings for multichannel images
 Authors:   Ted (Ce) Zhang and Robert F. Murphy
 Version:   1.03
-01/21/2020 - 06/21/2020
+01/21/2020 - 06/25/2020
 
 
 """
@@ -202,15 +202,7 @@ def main(
                 )
         else:
             textures = glcmProcedure(
-                im,
-                mask,
-                bestz,
-                output_dir,
-                cell_total,
-                baseoutputfilename,
-                ROI_coords,
-                inCells,
-                options,
+                im, mask, output_dir, baseoutputfilename, ROI_coords, inCells, options
             )
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
