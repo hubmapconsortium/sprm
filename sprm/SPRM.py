@@ -201,9 +201,7 @@ def main(
                     / (baseoutputfilename + "-" + mask.channel_labels[i] + "_1_texture.csv")
                 )
         else:
-            textures = glcmProcedure(
-                im, mask, output_dir, baseoutputfilename, ROI_coords, inCells, options
-            )
+            textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # time point loop (don't expect multiple time points)
