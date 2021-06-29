@@ -2626,7 +2626,7 @@ def glcm(
                         ).flatten()[0]
 
     ctexture = np.concatenate(texture_all, axis=1)
-    ctexture = ctexture.reshape(cell_total[0], -1)
+    ctexture = ctexture.reshape(len(inCells), -1)
 
     # For csv writing
     write_2_csv(header, ctexture, filename + "_" + "texture", output_dir, cellidx, options)
