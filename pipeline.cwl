@@ -19,6 +19,9 @@ inputs:
   enable_faulthandler:
     label: "Whether to enable the Python 'faulthandler' module"
     type: boolean?
+  verbose:
+    label: "Whether to enable verbose/debug mode"
+    type: boolean?
 
 outputs:
   sprm_output:
@@ -39,6 +42,8 @@ steps:
         source: enable_manhole
       enable_faulthandler:
         source: enable_faulthandler
+      verbose:
+        source: verbose
     out: [output_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"

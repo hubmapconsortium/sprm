@@ -27,10 +27,15 @@ inputs:
     inputBinding:
       position: 3
       prefix: "--enable-faulthandler"
+  verbose:
+    type: boolean?
+    inputBinding:
+      position: 4
+      prefix: "--verbose"
   options_file:
     type: File?
     inputBinding:
-      position: 4
+      position: 128
       prefix: "--options-file"
 outputs:
   output_dir:
