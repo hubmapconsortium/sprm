@@ -48,6 +48,7 @@ def main(
     total_vector = []
     cell_total = []
 
+    # init list of saved
     im_list = []
     mask_list = []
     seg_metric_list = []
@@ -132,6 +133,7 @@ def main(
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
+        mask.set_ROI(ROI_coords)
 
         # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, ROI_coords, options)
@@ -318,7 +320,7 @@ def main(
     # summary of all tiles/files in a single run
     summary(im, cell_total, img_files, output_dir, options)
     quality_measures(
-        im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options
+        im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
     )
 
     # recluster features
