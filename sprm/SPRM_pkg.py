@@ -49,6 +49,10 @@ Version: 1.03
 
 
 class IMGstruct:
+    """
+    Main Struct for IMG information
+    """
+
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
         self.data = self.read_data(options)
@@ -108,6 +112,10 @@ class IMGstruct:
 
 
 class MaskStruct(IMGstruct):
+    """
+    Main structure for segmentation information
+    """
+
     def __init__(self, path: Path, options):
         super().__init__(path, options)
         self.bestz = self.get_bestz()
@@ -115,6 +123,7 @@ class MaskStruct(IMGstruct):
         self.edge_cells = []
         self.cell_index = []
         self.bad_cells = []
+        self.ROI = []
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -190,6 +199,12 @@ class MaskStruct(IMGstruct):
     def get_bad_cells(self):
         return self.bad_cells
 
+    def set_ROI(self, ROI):
+        self.ROI = ROI
+
+    def get_ROI(self):
+        return self.ROI
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
@@ -230,6 +245,15 @@ class NumpyEncoder(json.JSONEncoder):
             return None
 
         return json.JSONEncoder.default(self, obj)
+
+
+class Features:
+    """
+    Structure for all features --- will be implemented in the future
+    """
+
+    def __init__(self):
+        self.features = defaultdict()
 
 
 def save_image(a: np.ndarray, file_path: Union[str, Path]):
@@ -320,7 +344,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, type: str, options: Dict
+    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
@@ -366,7 +390,7 @@ def cell_cluster(
         print(cellbycluster_labels.shape)
 
     # save score and type it was
-    typelist.append(type)
+    typelist.append(s)
     all_clusters.append(cluster_score)
 
     return cellbycluster_labels, clustercenters
@@ -588,9 +612,7 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
 
 def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
-
     for j in cellids[i]:
-
         # if j >= idx[-1]:
         #     continue
 
@@ -863,7 +885,6 @@ def nbget_windows(numCells, cellEdgeList, inCells, delta, a, b):
 
 
 def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, name, thr):
-
     cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
@@ -1786,7 +1807,11 @@ def cell_analysis(
 
         if options.get("skip_outlinePCA"):
             clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                mask,
+                all_clusters,
+                types_list,
+                filename,
+                cellidx,
+                output_dir,
                 options,
                 mean_vector_f,
                 covar_matrix_f,
@@ -1796,7 +1821,11 @@ def cell_analysis(
             )
         else:
             clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                mask,
+                all_clusters,
+                types_list,
+                filename,
+                cellidx,
+                output_dir,
                 options,
                 mean_vector_f,
                 covar_matrix_f,
@@ -2113,7 +2142,7 @@ def find_cytoplasm(ROI_coords):
 
 
 def quality_measures(
-    im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options
+    im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
 ):
     """
     Quality Measurements for SPRM analysis
@@ -2129,6 +2158,7 @@ def quality_measures(
         mask = mask_list[i]
 
         bestz = mask.get_bestz()
+        ROI_coords = mask.get_ROI()
 
         im_data = im.get_data()
         im_dims = im_data.shape
@@ -2659,7 +2689,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return [texture, texture_featureNames]
 
 
-def tSNE_AllFeatures(mask, options, *argv):
+def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
     """
 
     By: Young Je Lee and Ted Zhang
@@ -2754,8 +2784,14 @@ def tSNE_AllFeatures(mask, options, *argv):
         print("Error in arguments for tSNE_all")
     tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
-    types_list = []
-    all_clusters = []
+    # 2D - Scatterplot
+    # tsne2D = tsne_all_OnlyCell[:, 0:2]
+
+    header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
+    write_2_csv(
+        header, tsne_all_OnlyCell, filename + "-tSNE_allfeatures", output_dir, cellidx, options
+    )
+
     clustercells_all, clustercells_allcenters = cell_cluster(
         tsne_all_OnlyCell, types_list, all_clusters, "tSNE_allfeatures", options
     )
