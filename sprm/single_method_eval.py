@@ -395,7 +395,7 @@ def single_method_eval(img, mask, output_dir: Path):
                 "AvgOfWeightedAvgFractionOfFirstPCCellIntensitiesOver2~10NumberOfCluster"
             ] = avg_cell_fraction
             metrics[channel_names[channel]][
-                "AvgOfWeightedAvgSilhouetteOver2~10NumberOfCluster"
+                "AvgSilhouetteOver2~10NumberOfCluster"
             ] = avg_cell_silhouette
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
