@@ -932,7 +932,7 @@ def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
     return [try_parse_int(c) for c in INTEGER_PATTERN.split(path.name)]
 
 
-def get_paths(img_dir: Path) -> Sequence[Path]:
+def get_paths(img_dir: Path) -> List[Path]:
     if img_dir.is_dir():
         img_files = []
 
@@ -2100,7 +2100,13 @@ def find_cytoplasm(ROI_coords):
 
 
 def quality_measures(
-    im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+    im_list: List[IMGstruct],
+    mask_list: List[MaskStruct],
+    seg_metric_list: List[Dict[str, Any]],
+    cell_total: List[int],
+    img_files: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
 ):
     """
     Quality Measurements for SPRM analysis
