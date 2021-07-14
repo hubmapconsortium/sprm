@@ -313,12 +313,10 @@ def main(
 
         if options.get("debug"):
             print("Per image runtime: " + str(time.monotonic() - stime))
-        print("Finished analyzing " + str(idx + 1) + " image(s)")
+        print(f"Finished analyzing {idx + 1} image(s)")
         mask.quit()
         im.quit()
 
-    # summary of all tiles/files in a single run
-    summary(im, cell_total, img_files, output_dir, options)
     quality_measures(
         im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
     )

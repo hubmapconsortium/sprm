@@ -2065,48 +2065,6 @@ def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
     return data[tuple(slc)]
 
 
-def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
-    """
-    Write out summary csv of full image analysis (combination of all tiles)
-    """
-    channel_n = im.get_channel_labels().copy()
-    channel_n = list(map(lambda x: x + ": SNR", channel_n))
-    img_files = list(map(lambda x: x.name, img_files))
-    # img_files = img_files[0:3]
-
-    snr_paths = output_dir / "*-SNR.csv"
-    snr_files = get_paths(snr_paths)
-
-    for i in range(0, len(snr_files)):
-        df1 = pd.read_csv(snr_files[i])
-
-        np1 = df1.to_numpy()
-        zscore = np1[0, 1:]
-        otsu = np1[1, 1:]
-
-        if i == 0:
-            f1 = zscore
-            f2 = otsu
-        else:
-            f1 = np.vstack((f1, zscore))
-            f2 = np.vstack((f2, otsu))
-
-    if i == 0:
-        f1 = f1.reshape(1, -1)
-        f2 = f2.reshape(1, -1)
-
-    df1 = pd.DataFrame(f1, columns=channel_n)
-    df2 = pd.DataFrame(f2, columns=channel_n)
-
-    df3 = pd.DataFrame({"Filename": img_files, "Total Cells": total_cells})
-
-    df1 = pd.concat([df3, df1], axis=1, sort=False)
-    df2 = pd.concat([df3, df2], axis=1, sort=False)
-
-    df1.to_csv(output_dir / "summary_zscore.csv", index=False)
-    df2.to_csv(output_dir / "summary_otsu.csv", index=False)
-
-
 def multidim_intersect(arr1, arr2):
     a = set((tuple(i) for i in arr1))
     b = set((tuple(i) for i in arr2))
