@@ -2176,7 +2176,7 @@ def quality_measures(
         cell_bg_avgR = (
             total_intensity_per_chancell
             / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total
+            / cell_total[i]
         )
 
         # read in silhouette scores
@@ -2195,7 +2195,7 @@ def quality_measures(
         otsu = SNR[1, 1:]
 
         struct["Number of Channels"] = len(channels)
-        struct["Number of Cells"] = cell_total[0]
+        struct["Number of Cells"] = cell_total[i]
         struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
 
