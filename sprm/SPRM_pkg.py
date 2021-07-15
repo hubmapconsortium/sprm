@@ -932,7 +932,7 @@ def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
     return [try_parse_int(c) for c in INTEGER_PATTERN.split(path.name)]
 
 
-def get_paths(img_dir: Path) -> Sequence[Path]:
+def get_paths(img_dir: Path) -> List[Path]:
     if img_dir.is_dir():
         img_files = []
 
@@ -2065,48 +2065,6 @@ def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
     return data[tuple(slc)]
 
 
-def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
-    """
-    Write out summary csv of full image analysis (combination of all tiles)
-    """
-    channel_n = im.get_channel_labels().copy()
-    channel_n = list(map(lambda x: x + ": SNR", channel_n))
-    img_files = list(map(lambda x: x.name, img_files))
-    # img_files = img_files[0:3]
-
-    snr_paths = output_dir / "*-SNR.csv"
-    snr_files = get_paths(snr_paths)
-
-    for i in range(0, len(snr_files)):
-        df1 = pd.read_csv(snr_files[i])
-
-        np1 = df1.to_numpy()
-        zscore = np1[0, 1:]
-        otsu = np1[1, 1:]
-
-        if i == 0:
-            f1 = zscore
-            f2 = otsu
-        else:
-            f1 = np.vstack((f1, zscore))
-            f2 = np.vstack((f2, otsu))
-
-    if i == 0:
-        f1 = f1.reshape(1, -1)
-        f2 = f2.reshape(1, -1)
-
-    df1 = pd.DataFrame(f1, columns=channel_n)
-    df2 = pd.DataFrame(f2, columns=channel_n)
-
-    df3 = pd.DataFrame({"Filename": img_files, "Total Cells": total_cells})
-
-    df1 = pd.concat([df3, df1], axis=1, sort=False)
-    df2 = pd.concat([df3, df2], axis=1, sort=False)
-
-    df1.to_csv(output_dir / "summary_zscore.csv", index=False)
-    df2.to_csv(output_dir / "summary_otsu.csv", index=False)
-
-
 def multidim_intersect(arr1, arr2):
     a = set((tuple(i) for i in arr1))
     b = set((tuple(i) for i in arr2))
@@ -2142,7 +2100,13 @@ def find_cytoplasm(ROI_coords):
 
 
 def quality_measures(
-    im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+    im_list: List[IMGstruct],
+    mask_list: List[MaskStruct],
+    seg_metric_list: List[Dict[str, Any]],
+    cell_total: List[int],
+    img_files: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
 ):
     """
     Quality Measurements for SPRM analysis
@@ -2218,7 +2182,7 @@ def quality_measures(
         cell_bg_avgR = (
             total_intensity_per_chancell
             / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total
+            / cell_total[i]
         )
 
         # read in silhouette scores
@@ -2237,7 +2201,7 @@ def quality_measures(
         otsu = SNR[1, 1:]
 
         struct["Number of Channels"] = len(channels)
-        struct["Number of Cells"] = cell_total[0]
+        struct["Number of Cells"] = cell_total[i]
         struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
 

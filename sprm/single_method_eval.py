@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -257,7 +257,7 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     return size.to("micrometer ** 2").magnitude
 
 
-def single_method_eval(img, mask, output_dir: Path):
+def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
     print("Calculating single-method metrics for", img.path)
 
     # get best z slice for future use
