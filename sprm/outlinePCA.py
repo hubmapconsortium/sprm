@@ -89,7 +89,7 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
     return features, pca_shapes
 
 
-def bin_pca(features, npca, cell_coord, output_dir):
+def bin_pca(features, npca, cell_coord, filename, output_dir):
     sort_idx = np.argsort(features[:, npca - 1])  # from min to max
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
     nfeatures = features[sort_idx, 0]
@@ -114,11 +114,11 @@ def bin_pca(features, npca, cell_coord, output_dir):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / "outlinePCA_bin_pca.pdf", **figure_save_params)
+    plt.savefig(output_dir / (filename + "-outlinePCA_bin_pca.pdf"), **figure_save_params)
     plt.close()
 
 
-def pca_recon(features, npca, pca, output_dir):
+def pca_recon(features, npca, pca, filename, output_dir):
 
     # d = defaultdict(list)
     sort_idx = np.argsort(features[:, 0])  # from min to max
@@ -145,7 +145,7 @@ def pca_recon(features, npca, pca, output_dir):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / "outlinePCA_pca_recon.pdf", **figure_save_params)
+    plt.savefig(output_dir / (filename + "-outlinePCA_pca_recon.pdf"), **figure_save_params)
     plt.close()
 
 

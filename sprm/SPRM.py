@@ -220,8 +220,8 @@ def main(
                 )
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get("debug"):
-                    bin_pca(shape_vectors, 1, cell_polygons, output_dir)  # just for testing
-                    pca_recon(shape_vectors, 1, pca, output_dir)  # just for testing
+                    bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)  # just for testing
+                    pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)  # just for testing
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
                 write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
             else:
