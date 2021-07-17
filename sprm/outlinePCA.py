@@ -1,6 +1,6 @@
 import math
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -67,7 +67,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, options):
     return cellbycluster_labels, clustercenters
 
 
-def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
+def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, PCA]:
     print("Getting cell shape features...")
     numpoints = options.get("num_outlinepoints")
     # check to make sure n_components is the min of (num_outlinepoints, outls[0], outls[1])
@@ -82,8 +82,7 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
     features = pca_shapes.fit_transform(outls)
     # print(features.shape)
     if features.shape[1] != numpoints:
-        print("error: dimensions do not match.")
-        exit()
+        raise ValueError("dimensions do not match.")
     #    shape_features = features.reshape(outls.shape[0],outls.shape[1],check)
 
     return features, pca_shapes
