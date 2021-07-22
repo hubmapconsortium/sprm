@@ -260,8 +260,17 @@ def save_image(a: np.ndarray, file_path: Union[str, Path]):
     """
     :param a: 2-dimensional NumPy array
     """
+    #make custom cmap
+    cmap = matplotlib.cm.get_cmap('Set1')
+
+    colors = np.array(cmap.colors)
+    colors = np.roll(colors, 1, axis=0)
+    colors = tuple(map(tuple, colors))
+
+    cmap.colors = colors
+
     norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
-    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.viridis)
+    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
     colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
     i = Image.fromarray(colors, mode="RGBA")
     i.save(file_path)
