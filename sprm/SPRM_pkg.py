@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Sequence, Union
 
 import matplotlib
 import matplotlib.cm
+import matplotlib.colors
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -256,23 +257,40 @@ class Features:
         self.features = defaultdict()
 
 
-def save_image(a: np.ndarray, file_path: Union[str, Path]):
+def adjust_matplotlib_categorical_cmap(
+    cmap: Union[str, matplotlib.colors.Colormap],
+    zero_color: float = 0.125,
+    zero_alpha: float = 1.0,
+) -> np.ndarray:
+    if isinstance(cmap, str):
+        cmap = matplotlib.cm.get_cmap(cmap)
+
+    colors = np.array([[zero_color] * 3, *cmap.colors])
+    colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
+    colors[0, 3] = zero_alpha
+    return colors
+
+
+def save_image(
+    a: np.ndarray,
+    file_path: Union[str, Path],
+    cmap: Union[str, matplotlib.colors.Colormap] = "Set1",
+):
     """
     :param a: 2-dimensional NumPy array
     """
-    #make custom cmap
-    cmap = matplotlib.cm.get_cmap('Set1')
+    if (a.round() != a).any():
+        raise ValueError("need integral values for categorical plots")
+    a = a.astype(np.uint)
 
-    colors = np.array(cmap.colors)
-    colors = np.roll(colors, 1, axis=0)
-    colors = tuple(map(tuple, colors))
+    adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
 
-    cmap.colors = colors
+    if a.max() not in range(len(adjusted_cmap)):
+        raise ValueError("more categorical values than cmap entries")
 
-    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
-    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-    colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
-    i = Image.fromarray(colors, mode="RGBA")
+    image_rgb = adjusted_cmap[a]
+    image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
+    i = Image.fromarray(image_rgb_8bit, mode="RGBA")
     i.save(file_path)
 
 
