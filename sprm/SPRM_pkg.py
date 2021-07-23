@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Sequence, Union
 
 import matplotlib
 import matplotlib.cm
+import matplotlib.colors
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -49,6 +50,10 @@ Version: 1.03
 
 
 class IMGstruct:
+    """
+    Main Struct for IMG information
+    """
+
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
         self.data = self.read_data(options)
@@ -108,6 +113,10 @@ class IMGstruct:
 
 
 class MaskStruct(IMGstruct):
+    """
+    Main structure for segmentation information
+    """
+
     def __init__(self, path: Path, options):
         super().__init__(path, options)
         self.bestz = self.get_bestz()
@@ -115,6 +124,7 @@ class MaskStruct(IMGstruct):
         self.edge_cells = []
         self.cell_index = []
         self.bad_cells = []
+        self.ROI = []
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -190,6 +200,12 @@ class MaskStruct(IMGstruct):
     def get_bad_cells(self):
         return self.bad_cells
 
+    def set_ROI(self, ROI):
+        self.ROI = ROI
+
+    def get_ROI(self):
+        return self.ROI
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
@@ -232,14 +248,49 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def save_image(a: np.ndarray, file_path: Union[str, Path]):
+class Features:
+    """
+    Structure for all features --- will be implemented in the future
+    """
+
+    def __init__(self):
+        self.features = defaultdict()
+
+
+def adjust_matplotlib_categorical_cmap(
+    cmap: Union[str, matplotlib.colors.Colormap],
+    zero_color: float = 0.125,
+    zero_alpha: float = 1.0,
+) -> np.ndarray:
+    if isinstance(cmap, str):
+        cmap = matplotlib.cm.get_cmap(cmap)
+
+    colors = np.array([[zero_color] * 3, *cmap.colors])
+    colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
+    colors[0, 3] = zero_alpha
+    return colors
+
+
+def save_image(
+    a: np.ndarray,
+    file_path: Union[str, Path],
+    cmap: Union[str, matplotlib.colors.Colormap] = "Set1",
+):
     """
     :param a: 2-dimensional NumPy array
     """
-    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
-    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.viridis)
-    colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
-    i = Image.fromarray(colors, mode="RGBA")
+    if (a.round() != a).any():
+        raise ValueError("need integral values for categorical plots")
+    a = a.astype(np.uint)
+
+    adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
+
+    if a.max() not in range(len(adjusted_cmap)):
+        raise ValueError("more categorical values than cmap entries")
+
+    image_rgb = adjusted_cmap[a]
+    image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
+    i = Image.fromarray(image_rgb_8bit, mode="RGBA")
     i.save(file_path)
 
 
@@ -285,9 +336,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     # dims = get_dims(cell_matrix)
     # t, cl, cha, chb  = dims[0], dims[1], dims[2], dims[3]
     if cell_matrix.shape[0] > 1:
-        print("cell_matrix has more than one time point")
-        print("Have not implemented support yet..")
-        exit()
+        raise NotImplementedError("cell matrix with > 1 time point is not supported yet")
     cell_matrix = cell_matrix[0, :, :, :]
     # optional: pull out one seg method
     if segnum >= 0:
@@ -320,7 +369,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, type: str, options: Dict
+    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
@@ -366,7 +415,7 @@ def cell_cluster(
         print(cellbycluster_labels.shape)
 
     # save score and type it was
-    typelist.append(type)
+    typelist.append(s)
     all_clusters.append(cluster_score)
 
     return cellbycluster_labels, clustercenters
@@ -588,9 +637,7 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
 
 def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
-
     for j in cellids[i]:
-
         # if j >= idx[-1]:
         #     continue
 
@@ -863,7 +910,6 @@ def nbget_windows(numCells, cellEdgeList, inCells, delta, a, b):
 
 
 def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, name, thr):
-
     cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
@@ -911,7 +957,7 @@ def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
     return [try_parse_int(c) for c in INTEGER_PATTERN.split(path.name)]
 
 
-def get_paths(img_dir: Path) -> Sequence[Path]:
+def get_paths(img_dir: Path) -> List[Path]:
     if img_dir.is_dir():
         img_files = []
 
@@ -1211,9 +1257,8 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     """
     print("Clustering voxels into superpixels...")
     if im.get_data().shape[0] > 1:
-        print("image has more than one time point")
-        print("Have not implemented support yet..")
-        exit()
+        raise NotImplementedError("images with > 1 time point are not supported yet")
+
     channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
@@ -1786,7 +1831,11 @@ def cell_analysis(
 
         if options.get("skip_outlinePCA"):
             clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                mask,
+                all_clusters,
+                types_list,
+                filename,
+                cellidx,
+                output_dir,
                 options,
                 mean_vector_f,
                 covar_matrix_f,
@@ -1796,7 +1845,11 @@ def cell_analysis(
             )
         else:
             clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                mask,
+                all_clusters,
+                types_list,
+                filename,
+                cellidx,
+                output_dir,
                 options,
                 mean_vector_f,
                 covar_matrix_f,
@@ -2036,48 +2089,6 @@ def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
     return data[tuple(slc)]
 
 
-def summary(im, total_cells: List, img_files: Path, output_dir: Path, options: Dict):
-    """
-    Write out summary csv of full image analysis (combination of all tiles)
-    """
-    channel_n = im.get_channel_labels().copy()
-    channel_n = list(map(lambda x: x + ": SNR", channel_n))
-    img_files = list(map(lambda x: x.name, img_files))
-    # img_files = img_files[0:3]
-
-    snr_paths = output_dir / "*-SNR.csv"
-    snr_files = get_paths(snr_paths)
-
-    for i in range(0, len(snr_files)):
-        df1 = pd.read_csv(snr_files[i])
-
-        np1 = df1.to_numpy()
-        zscore = np1[0, 1:]
-        otsu = np1[1, 1:]
-
-        if i == 0:
-            f1 = zscore
-            f2 = otsu
-        else:
-            f1 = np.vstack((f1, zscore))
-            f2 = np.vstack((f2, otsu))
-
-    if i == 0:
-        f1 = f1.reshape(1, -1)
-        f2 = f2.reshape(1, -1)
-
-    df1 = pd.DataFrame(f1, columns=channel_n)
-    df2 = pd.DataFrame(f2, columns=channel_n)
-
-    df3 = pd.DataFrame({"Filename": img_files, "Total Cells": total_cells})
-
-    df1 = pd.concat([df3, df1], axis=1, sort=False)
-    df2 = pd.concat([df3, df2], axis=1, sort=False)
-
-    df1.to_csv(output_dir / "summary_zscore.csv", index=False)
-    df2.to_csv(output_dir / "summary_otsu.csv", index=False)
-
-
 def multidim_intersect(arr1, arr2):
     a = set((tuple(i) for i in arr1))
     b = set((tuple(i) for i in arr2))
@@ -2113,7 +2124,13 @@ def find_cytoplasm(ROI_coords):
 
 
 def quality_measures(
-    im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options
+    im_list: List[IMGstruct],
+    mask_list: List[MaskStruct],
+    seg_metric_list: List[Dict[str, Any]],
+    cell_total: List[int],
+    img_files: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
 ):
     """
     Quality Measurements for SPRM analysis
@@ -2129,6 +2146,7 @@ def quality_measures(
         mask = mask_list[i]
 
         bestz = mask.get_bestz()
+        ROI_coords = mask.get_ROI()
 
         im_data = im.get_data()
         im_dims = im_data.shape
@@ -2188,7 +2206,7 @@ def quality_measures(
         cell_bg_avgR = (
             total_intensity_per_chancell
             / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total
+            / cell_total[i]
         )
 
         # read in silhouette scores
@@ -2207,7 +2225,7 @@ def quality_measures(
         otsu = SNR[1, 1:]
 
         struct["Number of Channels"] = len(channels)
-        struct["Number of Cells"] = cell_total[0]
+        struct["Number of Cells"] = cell_total[i]
         struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
 
@@ -2423,8 +2441,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     lower_bound = bestz[0] - bound
     upper_bound = bestz[0] + bound + 1
     if lower_bound < 0 or upper_bound > z:
-        print("zslice bound is invalid. Please reset and run SPRM")
-        exit(0)
+        raise ValueError("zslice bound is invalid. Please reset and run SPRM")
     else:
         new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
         new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
@@ -2626,7 +2643,7 @@ def glcm(
                         ).flatten()[0]
 
     ctexture = np.concatenate(texture_all, axis=1)
-    ctexture = ctexture.reshape(cell_total[0], -1)
+    ctexture = ctexture.reshape(len(inCells), -1)
 
     # For csv writing
     write_2_csv(header, ctexture, filename + "_" + "texture", output_dir, cellidx, options)
@@ -2659,7 +2676,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return [texture, texture_featureNames]
 
 
-def tSNE_AllFeatures(mask, options, *argv):
+def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
     """
 
     By: Young Je Lee and Ted Zhang
@@ -2754,8 +2771,14 @@ def tSNE_AllFeatures(mask, options, *argv):
         print("Error in arguments for tSNE_all")
     tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
-    types_list = []
-    all_clusters = []
+    # 2D - Scatterplot
+    # tsne2D = tsne_all_OnlyCell[:, 0:2]
+
+    header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
+    write_2_csv(
+        header, tsne_all_OnlyCell, filename + "-tSNE_allfeatures", output_dir, cellidx, options
+    )
+
     clustercells_all, clustercells_allcenters = cell_cluster(
         tsne_all_OnlyCell, types_list, all_clusters, "tSNE_allfeatures", options
     )
