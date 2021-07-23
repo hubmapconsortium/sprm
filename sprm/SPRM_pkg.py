@@ -276,8 +276,9 @@ def save_image(
     """
     :param a: 2-dimensional NumPy array
     """
-    if not np.issubdtype(a.dtype, np.integer):
-        raise ValueError("need integral dtype for categorical plots")
+    if (a.round() != a).any():
+        raise ValueError("need integral values for categorical plots")
+    a = a.astype(np.uint)
 
     adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
 
