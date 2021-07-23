@@ -336,9 +336,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     # dims = get_dims(cell_matrix)
     # t, cl, cha, chb  = dims[0], dims[1], dims[2], dims[3]
     if cell_matrix.shape[0] > 1:
-        print("cell_matrix has more than one time point")
-        print("Have not implemented support yet..")
-        exit()
+        raise NotImplementedError("cell matrix with > 1 time point is not supported yet")
     cell_matrix = cell_matrix[0, :, :, :]
     # optional: pull out one seg method
     if segnum >= 0:
@@ -1259,9 +1257,8 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     """
     print("Clustering voxels into superpixels...")
     if im.get_data().shape[0] > 1:
-        print("image has more than one time point")
-        print("Have not implemented support yet..")
-        exit()
+        raise NotImplementedError("images with > 1 time point are not supported yet")
+
     channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
@@ -2444,8 +2441,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     lower_bound = bestz[0] - bound
     upper_bound = bestz[0] + bound + 1
     if lower_bound < 0 or upper_bound > z:
-        print("zslice bound is invalid. Please reset and run SPRM")
-        exit(0)
+        raise ValueError("zslice bound is invalid. Please reset and run SPRM")
     else:
         new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
         new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
