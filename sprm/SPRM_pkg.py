@@ -260,12 +260,15 @@ class Features:
 def adjust_matplotlib_categorical_cmap(
     cmap: Union[str, matplotlib.colors.Colormap],
     zero_color: float = 0.125,
+    zero_alpha: float = 1.0,
 ) -> np.ndarray:
     if isinstance(cmap, str):
         cmap = matplotlib.cm.get_cmap(cmap)
 
-    colors = [[zero_color] * 3, *cmap.colors]
-    return np.array(colors)
+    colors = np.array([[zero_color] * 3, *cmap.colors])
+    colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
+    colors[0, 3] = zero_alpha
+    return colors
 
 
 def save_image(
@@ -287,7 +290,7 @@ def save_image(
 
     image_rgb = adjusted_cmap[a]
     image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
-    i = Image.fromarray(image_rgb_8bit, mode="RGB")
+    i = Image.fromarray(image_rgb_8bit, mode="RGBA")
     i.save(file_path)
 
 
