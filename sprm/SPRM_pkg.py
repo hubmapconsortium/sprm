@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Sequence, Union
 
 import matplotlib
 import matplotlib.cm
+import matplotlib.colors
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -256,24 +257,34 @@ class Features:
         self.features = defaultdict()
 
 
-def save_image(a: np.ndarray, file_path: Union[str, Path]):
+def adjust_matplotlib_categorical_cmap(
+    cmap: Union[str, matplotlib.colors.Colormap],
+    zero_color: float = 0.125,
+) -> np.ndarray:
+    if isinstance(cmap, str):
+        cmap = matplotlib.cm.get_cmap(cmap)
+
+    colors = [[zero_color] * 3, *cmap.colors]
+    return np.array(colors)
+
+
+def save_image(
+    a: np.ndarray,
+    file_path: Union[str, Path],
+    cmap: Union[str, matplotlib.colors.Colormap] = "Set1",
+):
     """
     :param a: 2-dimensional NumPy array
     """
     if not np.issubdtype(a.dtype, np.integer):
         raise ValueError("need integral dtype for categorical plots")
 
-    # make custom cmap
-    cmap = matplotlib.cm.get_cmap("Set1")
+    adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
 
-    colors = np.array(cmap.colors)
-    colors = np.roll(colors, 1, axis=0)
-    colors[0] = [0.125] * 3
-
-    if a.max() not in range(len(cmap.colors)):
+    if a.max() not in range(len(adjusted_cmap)):
         raise ValueError("more categorical values than cmap entries")
 
-    image_rgb = colors[a]
+    image_rgb = adjusted_cmap[a]
     image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
     i = Image.fromarray(image_rgb_8bit, mode="RGB")
     i.save(file_path)
