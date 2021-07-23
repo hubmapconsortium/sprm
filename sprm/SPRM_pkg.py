@@ -260,19 +260,22 @@ def save_image(a: np.ndarray, file_path: Union[str, Path]):
     """
     :param a: 2-dimensional NumPy array
     """
-    #make custom cmap
-    cmap = matplotlib.cm.get_cmap('Set1')
+    if not np.issubdtype(a.dtype, np.integer):
+        raise ValueError("need integral dtype for categorical plots")
+
+    # make custom cmap
+    cmap = matplotlib.cm.get_cmap("Set1")
 
     colors = np.array(cmap.colors)
     colors = np.roll(colors, 1, axis=0)
-    colors = tuple(map(tuple, colors))
+    colors[0] = [0.125] * 3
 
-    cmap.colors = colors
+    if a.max() not in range(len(cmap.colors)):
+        raise ValueError("more categorical values than cmap entries")
 
-    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=a.max(), clip=True)
-    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-    colors = (mapper.to_rgba(a) * 255).round().astype(np.uint8)
-    i = Image.fromarray(colors, mode="RGBA")
+    image_rgb = colors[a]
+    image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
+    i = Image.fromarray(image_rgb_8bit, mode="RGB")
     i.save(file_path)
 
 
