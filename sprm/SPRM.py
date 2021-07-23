@@ -48,6 +48,7 @@ def main(
     total_vector = []
     cell_total = []
 
+    # init list of saved
     im_list = []
     mask_list = []
     seg_metric_list = []
@@ -132,6 +133,7 @@ def main(
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
+        mask.set_ROI(ROI_coords)
 
         # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, ROI_coords, options)
@@ -201,9 +203,7 @@ def main(
                     / (baseoutputfilename + "-" + mask.channel_labels[i] + "_1_texture.csv")
                 )
         else:
-            textures = glcmProcedure(
-                im, mask, output_dir, baseoutputfilename, ROI_coords, inCells, options
-            )
+            textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
         # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # time point loop (don't expect multiple time points)
@@ -220,8 +220,8 @@ def main(
                 )
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get("debug"):
-                    bin_pca(shape_vectors, 1, cell_polygons, output_dir)  # just for testing
-                    pca_recon(shape_vectors, 1, pca, output_dir)  # just for testing
+                    bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)  # just for testing
+                    pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)  # just for testing
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
                 write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
             else:
@@ -313,14 +313,12 @@ def main(
 
         if options.get("debug"):
             print("Per image runtime: " + str(time.monotonic() - stime))
-        print("Finished analyzing " + str(idx + 1) + " image(s)")
+        print(f"Finished analyzing {idx + 1} image(s)")
         mask.quit()
         im.quit()
 
-    # summary of all tiles/files in a single run
-    summary(im, cell_total, img_files, output_dir, options)
     quality_measures(
-        im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, ROI_coords, options
+        im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
     )
 
     # recluster features
