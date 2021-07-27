@@ -1,6 +1,7 @@
 import json
 import math
 import time
+from bisect import bisect
 from collections import defaultdict
 from itertools import chain, combinations, product
 from os import walk
@@ -255,6 +256,52 @@ class Features:
 
     def __init__(self):
         self.features = defaultdict()
+
+
+colormap_choices = ["Set1", "tab20"]
+unlimited_colormap = "gist_rainbow"
+colormap_lengths = [len(matplotlib.cm.get_cmap(c).colors) for c in colormap_choices]
+
+
+def choose_colormap(a: np.ndarray) -> np.ndarray:
+    """
+    Choose a color map for an integer-valued array denoting categorical
+    values for each pixel. Returns a np.ndarray with three columns corresponding
+    to RGB channels, with either as many rows as in a categorical color map,
+    or as many rows as required to represent all values of `a` when adding
+    dark gray as color 0.
+
+    Uses the first color map in `colormap_choices` that fits all categorical
+    values, or falls back to `unlimited colormap`.
+
+    >>> a1 = np.arange(5)
+    >>> a1_cmap = choose_colormap(a1)
+    >>> (a1_cmap == np.array(matplotlib.cm.get_cmap('Set1').colors)).all()
+    True
+    >>> a2 = np.arange(12)
+    >>> a2_cmap = choose_colormap(a2)
+    >>> (a2_cmap == np.array(matplotlib.cm.get_cmap('tab20').colors)).all()
+    True
+    >>> a3 = np.arange(25)
+    >>> a3_cmap = choose_colormap(a3)
+    >>> a3_cmap.shape
+    (24, 3)
+    """
+    # We add dark gray as the first color, so we can handle one more
+    # color than the original color map -- handle this by subtracting
+    # 1 from the maximum categorical value
+    max_value = a.max() - 1
+    choice = bisect(colormap_lengths, max_value)
+    if choice in range(len(colormap_choices)):
+        cmap = matplotlib.cm.get_cmap(colormap_choices[choice])
+        return np.array(cmap.colors)
+
+    # else fall back to unlimited colormap
+    norm = matplotlib.colors.Normalize(vmin=a.min(), vmax=max_value, clip=True)
+    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=unlimited_colormap)
+    # Drop alpha channel; just want RGB from this function
+    colors = mapper.to_rgba(np.arange(a.max()))[:, :3]
+    return colors
 
 
 def adjust_matplotlib_categorical_cmap(
