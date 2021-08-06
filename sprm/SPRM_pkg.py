@@ -1506,20 +1506,22 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
+
     plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
 
-    if not options.get("skip_outlinePCA"):
-        plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
+    if i == 0:
+        if not options.get("skip_outlinePCA"):
+            plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
 
-        plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
-    else:
-        plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+            plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
+            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
+            plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+        else:
+            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
+            plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
+            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
 
 
 def make_legends(
@@ -1792,6 +1794,37 @@ def cell_analysis(
         )
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
+    if options.get("skip_outlinePCA"):
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+            all_clusters,
+            types_list,
+            filename,
+            cellidx,
+            output_dir,
+            options,
+            mean_vector,
+            covar_matrix,
+            total_vector,
+            meanAll_vector_f,
+            texture_matrix,
+        )
+    else:
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+            all_clusters,
+            types_list,
+            filename,
+            cellidx,
+            output_dir,
+            options,
+            mean_vector,
+            covar_matrix,
+            total_vector,
+            meanAll_vector_f,
+            shape_vectors,
+            texture_matrix,
+        )
+    cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+
     # for each channel in the mask
     for i in range(len(maskchs)):
         # for i in range(1):
@@ -1814,42 +1847,42 @@ def cell_analysis(
             total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
         )
 
-        if options.get("skip_outlinePCA"):
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                texture_matrix,
-            )
-        else:
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                shape_vectors,
-                texture_matrix,
-            )
+        # if options.get("skip_outlinePCA"):
+        #     clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        #         all_clusters,
+        #         types_list,
+        #         filename,
+        #         cellidx,
+        #         output_dir,
+        #         options,
+        #         mean_vector_f,
+        #         covar_matrix_f,
+        #         total_vector_f,
+        #         meanAll_vector_f,
+        #         texture_matrix,
+        #     )
+        # else:
+        #     clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        #         all_clusters,
+        #         types_list,
+        #         filename,
+        #         cellidx,
+        #         output_dir,
+        #         options,
+        #         mean_vector_f,
+        #         covar_matrix_f,
+        #         total_vector_f,
+        #         meanAll_vector_f,
+        #         shape_vectors,
+        #         texture_matrix,
+        #     )
 
         # map back to the mask segmentation of indexed cell region
         print("Mapping cell index in segmented mask to cluster IDs...")
         cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
         cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
         cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
-        cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+        # cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
         print("Getting markers that separate clusters to make legend...")
         if not options.get("skip_outlinePCA"):
             # get markers for each respective cluster & then save the legend/markers
@@ -2603,6 +2636,9 @@ def glcm(
 
             for j in range(len(im.channel_labels)):  # For each channel
 
+                #filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
+                #continue
+
                 # convert to uint
                 imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
                 index = np.arange(imgroi.shape[0])
@@ -2673,6 +2709,15 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     matrix_cov = argv[1]
     matrix_total = argv[2]
     matrix_meanAll = argv[3]
+
+    #get features into correct shapes - mean, cov, total
+    matrix_mean = matrix_mean[0]
+    matrix_cov = matrix_cov[0]
+    matrix_total = matrix_total[0]
+
+    matrix_mean = matrix_mean.reshape((matrix_mean.shape[1], matrix_mean.shape[0] * matrix_mean.shape[2] * matrix_mean.shape[3]))
+    matrix_cov = matrix_cov.reshape((matrix_cov.shape[1], matrix_cov.shape[0] * matrix_cov.shape[2] * matrix_cov.shape[3]))
+    matrix_total = matrix_total.reshape((matrix_total.shape[1], matrix_total.shape[0] * matrix_total.shape[2] * matrix_total.shape[3]))
 
     if options.get("skip_outlinePCA"):
         matrix_texture = argv[4]
@@ -2759,6 +2804,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     # 2D - Scatterplot
     # tsne2D = tsne_all_OnlyCell[:, 0:2]
+
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(

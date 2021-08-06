@@ -204,7 +204,6 @@ def main(
                 )
         else:
             textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
-        # generate_fake_stackimg(im, mask, opt_img_file, options)
 
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
