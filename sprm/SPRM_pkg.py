@@ -2692,8 +2692,8 @@ def glcm(
 
             for j in range(len(im.channel_labels)):  # For each channel
 
-                #filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
-                #continue
+                # filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
+                # continue
 
                 # convert to uint
                 imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
@@ -2766,14 +2766,23 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     matrix_total = argv[2]
     matrix_meanAll = argv[3]
 
-    #get features into correct shapes - mean, cov, total
+    # get features into correct shapes - mean, cov, total
     matrix_mean = matrix_mean[0]
     matrix_cov = matrix_cov[0]
     matrix_total = matrix_total[0]
 
-    matrix_mean = matrix_mean.reshape((matrix_mean.shape[1], matrix_mean.shape[0] * matrix_mean.shape[2] * matrix_mean.shape[3]))
-    matrix_cov = matrix_cov.reshape((matrix_cov.shape[1], matrix_cov.shape[0] * matrix_cov.shape[2] * matrix_cov.shape[3]))
-    matrix_total = matrix_total.reshape((matrix_total.shape[1], matrix_total.shape[0] * matrix_total.shape[2] * matrix_total.shape[3]))
+    matrix_mean = matrix_mean.reshape(
+        (matrix_mean.shape[1], matrix_mean.shape[0] * matrix_mean.shape[2] * matrix_mean.shape[3])
+    )
+    matrix_cov = matrix_cov.reshape(
+        (matrix_cov.shape[1], matrix_cov.shape[0] * matrix_cov.shape[2] * matrix_cov.shape[3])
+    )
+    matrix_total = matrix_total.reshape(
+        (
+            matrix_total.shape[1],
+            matrix_total.shape[0] * matrix_total.shape[2] * matrix_total.shape[3],
+        )
+    )
 
     if options.get("skip_outlinePCA"):
         matrix_texture = argv[4]
@@ -2860,7 +2869,6 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     # 2D - Scatterplot
     # tsne2D = tsne_all_OnlyCell[:, 0:2]
-
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
