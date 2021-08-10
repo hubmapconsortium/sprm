@@ -2232,11 +2232,13 @@ def quality_measures(
         cells = ROI_coords[0][1:]
         nuclei = ROI_coords[1][1:]
 
+        #Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"] = dict()
         if options.get("sprm_segeval_both") == 1:
-            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i]
+            struct["Image Quality Metrics that require cell segmentation"]["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
             continue
         if options.get("sprm_segeval_both") == 2:
-            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i]
+            struct["Image Quality Metrics that require cell segmentation"]["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
 
         channels = im.get_channel_labels()
         # get cytoplasm coords
@@ -2299,36 +2301,48 @@ def quality_measures(
         zscore = SNR[0, 1:]
         otsu = SNR[1, 1:]
 
-        struct["Number of Channels"] = len(channels)
-        struct["Number of Cells"] = cell_total[i]
-        struct["Number of Background Pixels"] = bgpixels.shape[1]
-        struct["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
+        #Image Information
+        struct["Image Information"] = dict()
+        #Image Quality Metrics not requiring image segmentation
+        struct["Image Quality Metrics not requiring image segmentation"] = dict()
+        #Image Quality Metrics requiring background segmentation
+        struct["Image Quality Metrics requiring background segmentation"] = dict()
+        struct["Image Quality Metrics requiring background segmentation"]["Fraction of Pixels in Image Background"] = seg_metric_list[i][1]
+        struct["Image Quality Metrics requiring background segmentation"]["1/AvgCVBackground"] = seg_metric_list[i][2]
+        struct["Image Quality Metrics requiring background segmentation"]["FractionOfFirstPCBackground"] = seg_metric_list[i][3]
+        #Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"] = dict()
+        struct["Image Information"]["Number of Channels"] = len(channels)
+        struct["Image Quality Metrics that require cell segmentation"]["Number of Cells"] = cell_total[i]
+        # struct["Number of Background Pixels"] = bgpixels.shape[1]
+        struct["Image Quality Metrics that require cell segmentation"]["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
 
-        struct["Total Intensity"] = dict()
-        struct["Average per Cell Ratios"] = dict()
-        struct["Silhouette Scores From Clustering"] = dict()
-        struct["Silhouette Scores From Clustering"]["Mean-All"] = dict()
-        struct["Silhouette Scores From Clustering"]["Max Silhouette Score"] = maxscore
-        struct["Silhouette Scores From Clustering"]["Cluster with Max Score"] = maxidx
 
-        struct["Signal To Noise Otsu"] = dict()
-        struct["Signal To Noise Z-Score"] = dict()
+        struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"]["Average per Cell Ratios"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Silhouette Scores From Clustering"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Silhouette Scores From Clustering"]["Mean-All"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Silhouette Scores From Clustering"]["Max Silhouette Score"] = maxscore
+        struct["Image Quality Metrics that require cell segmentation"]["Silhouette Scores From Clustering"]["Cluster with Max Score"] = maxidx
+
+        struct["Image Quality Metrics not requiring image segmentation"]["Signal To Noise Otsu"] = dict()
+        struct["Image Quality Metrics not requiring image segmentation"]["Signal To Noise Z-Score"] = dict()
 
         for j in range(len(mean_all)):
-            struct["Silhouette Scores From Clustering"]["Mean-All"][j + 2] = mean_all[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Silhouette Scores From Clustering"]["Mean-All"][j + 2] = mean_all[j]
 
         for j in range(len(channels)):
-            struct["Total Intensity"][channels[j]] = dict()
-            struct["Average per Cell Ratios"][channels[j]] = dict()
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][channels[j]] = dict()
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"]["Average per Cell Ratios"][channels[j]] = dict()
 
-            struct["Total Intensity"][channels[j]]["Cells"] = int(total_intensity_per_chancell[j])
-            struct["Total Intensity"][channels[j]]["Background"] = total_intensity_per_chanbg[j]
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][channels[j]]["Cells"] = int(total_intensity_per_chancell[j])
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][channels[j]]["Background"] = total_intensity_per_chanbg[j]
 
-            struct["Average per Cell Ratios"][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
-            struct["Average per Cell Ratios"][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"]["Average per Cell Ratios"][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"]["Average per Cell Ratios"][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
 
-            struct["Signal To Noise Otsu"][channels[j]] = otsu[j]
-            struct["Signal To Noise Z-Score"][channels[j]] = zscore[j]
+            struct["Image Quality Metrics not requiring image segmentation"]["Signal To Noise Otsu"][channels[j]] = otsu[j]
+            struct["Image Quality Metrics not requiring image segmentation"]["Signal To Noise Z-Score"][channels[j]] = zscore[j]
 
         with open(output_dir / (img_name + "-SPRM_Image_Quality_Measures.json"), "w") as json_file:
             json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
@@ -2802,10 +2816,18 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     n_iter = 1000
     learning_rate = 1
     matrix_texture = matrix_texture[:, : int(len(matrix_texture[0]) / 2)]
-    matrix_all_OnlyCell_original = np.concatenate(
-        (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
-        axis=1,
-    )
+
+    if options.get("tSNE_texture_calculation_skip"):
+        matrix_all_OnlyCell_original = np.concatenate(
+            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
+            axis=1,
+        )
+    else:
+        matrix_all_OnlyCell_original = np.concatenate(
+            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
+            axis=1,
+        )
+
     early_exaggeration = len(matrix_all_OnlyCell_original) / 10
 
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
