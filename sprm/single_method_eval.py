@@ -5,26 +5,26 @@ import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List
-
 import numpy as np
 from PIL import Image
 from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
-from skimage.filters import threshold_mean
-from skimage.morphology import area_closing, closing, disk
-from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
+from skimage.morphology import closing, disk, area_closing
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from skimage.filters import threshold_mean
+from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
 from sklearn.preprocessing import StandardScaler
+
 
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.1
-08/09/2021
+08/10/2021
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
@@ -79,15 +79,14 @@ def uniformity_CV(loc, channels):
 
 def uniformity_fraction(loc, channels):
 	n = len(channels)
+	feature_matrix_pieces = []
 	for i in range(n):
 		channel = channels[i]
 		ss = StandardScaler()
 		channel_z = ss.fit_transform(channel.copy())
 		intensity = channel_z[tuple(loc.T)]
-		if i == 0:
-			feature_matrix = intensity
-		else:
-			feature_matrix = np.vstack((feature_matrix, intensity))
+		feature_matrix_pieces.append(intensity)
+	feature_matrix = np.vstack(feature_matrix_pieces)
 	pca = PCA(n_components=1)
 	model = pca.fit(feature_matrix.T)
 	fraction = model.explained_variance_ratio_[0]
@@ -150,11 +149,37 @@ def cell_size_uniformity(mask):
 	cell_size_std = np.std(np.expand_dims(np.array(cell_size), 1))
 	return cell_size_std
 
-def cell_uniformity(mask, channels, label_list=[]):
+def cell_type(mask, channels):
+	label_list = []
 	n = len(channels)
 	cell_coord = get_indices_sparse(mask)[1:]
 	cell_coord_num = len(cell_coord)
 	ss = StandardScaler()
+	feature_matrix_z_pieces = []
+	for i in range(n):
+		channel = channels[i]
+		channel_z = ss.fit_transform(channel)
+		cell_intensity_z = []
+		for j in range(cell_coord_num):
+			cell_size_current = len(cell_coord[j][0])
+			if cell_size_current != 0:
+				single_cell_intensity_z = np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
+				cell_intensity_z.append(single_cell_intensity_z)
+		feature_matrix_z_pieces.append(cell_intensity_z)
+	
+	feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
+	for c in range(1, 11):
+		model = KMeans(n_clusters=c).fit(feature_matrix_z)
+		label_list.append(model.labels_.astype(int))
+	return label_list
+
+def cell_uniformity(mask, channels, label_list):
+	n = len(channels)
+	cell_coord = get_indices_sparse(mask)[1:]
+	cell_coord_num = len(cell_coord)
+	ss = StandardScaler()
+	feature_matrix_pieces = []
+	feature_matrix_z_pieces = []
 	for i in range(n):
 		channel = channels[i]
 		channel_z = ss.fit_transform(channel)
@@ -167,22 +192,14 @@ def cell_uniformity(mask, channels, label_list=[]):
 				single_cell_intensity_z = np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
 				cell_intensity.append(single_cell_intensity)
 				cell_intensity_z.append(single_cell_intensity_z)
-		if i == 0:
-			feature_matrix = np.array(cell_intensity)
-			feature_matrix_z = np.array(cell_intensity_z)
-		else:
-			feature_matrix = np.vstack((feature_matrix, cell_intensity))
-			feature_matrix_z = np.vstack((feature_matrix_z, cell_intensity_z))
-	feature_matrix = feature_matrix.T
-	feature_matrix_z = feature_matrix_z.T
+		feature_matrix_pieces.append(cell_intensity)
+		feature_matrix_z_pieces.append(cell_intensity_z)
+		
+	feature_matrix = np.vstack(feature_matrix_pieces).T
+	feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
 	CV = []
 	fraction = []
 	silhouette = []
-	if len(label_list) == 0:
-		for c in range(1, 11):
-			model = KMeans(n_clusters=c).fit(feature_matrix_z)
-			label_list.append(model.labels_.astype(int))
-		return label_list
 	
 	for c in range(1, 11):
 		labels = label_list[c-1]
@@ -235,6 +252,7 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
 		return m.group(1)
 	raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
+
 def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
 	"""
 	Returns total pixel size in square micrometers.
@@ -276,6 +294,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
 	img_binary = foreground_separation(img_thresholded)
 	img_binary = np.sign(img_binary)
 	background_pixel_num = np.argwhere(img_binary == 0).shape[0]
+	fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
 	np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
 	fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
 	fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
@@ -353,12 +372,11 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
 			] = foreground_PCA
 			
 			# get cell type labels
-			cell_type_labels = cell_uniformity(current_mask, img_channels)
+			cell_type_labels = cell_type(current_mask, img_channels)
 		else:
 			img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
-
 			# get cell uniformity
-			cell_CV, cell_fraction, cell_silhouette = cell_uniformity(current_mask, img_channels, label_list=cell_type_labels)
+			cell_CV, cell_fraction, cell_silhouette = cell_uniformity(current_mask, img_channels, cell_type_labels)
 			avg_cell_CV = np.average(cell_CV)
 			avg_cell_fraction = np.average(cell_fraction)
 			avg_cell_silhouette = np.average(cell_silhouette)
@@ -381,4 +399,5 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
 	pca_score = pca.transform(metrics_flat_scaled)[0, 0]
 	metrics["QualityScore"] = pca_score
 	
-	return [metrics, background_pixel_num, 1 / background_CV, background_PCA]
+	return metrics, fraction_background, 1 / background_CV, background_PCA
+	
