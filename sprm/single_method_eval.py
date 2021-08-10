@@ -235,7 +235,6 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
 		return m.group(1)
 	raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
-
 def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
 	"""
 	Returns total pixel size in square micrometers.
