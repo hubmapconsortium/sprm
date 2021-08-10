@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM continuumio/anaconda3:2021.05
 
 WORKDIR /opt
 COPY . /opt/sprm

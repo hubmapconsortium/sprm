@@ -1,16 +1,18 @@
-import numpy as np
-from skimage import measure
-from matplotlib import pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from typing import List, Dict
-from scipy import interpolate, stats
+import math
 from collections import defaultdict
-from sklearn.metrics import silhouette_score
+from typing import Dict, List, Tuple
+
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy import interpolate, stats
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
+from skimage import measure
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
+
 from .constants import figure_save_params
-import math
 
 """
 
@@ -27,10 +29,10 @@ Version: 1.00
 def shape_cluster(cell_matrix, typelist, all_clusters, options):
     cluster_method, min_clusters, max_clusters = options.get("num_shapeclusters")
     if max_clusters > cell_matrix.shape[0]:
-        print('reducing shape clusters to ', cell_matrix.shape[0])
+        print("reducing shape clusters to ", cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
-    if cluster_method == 'silhouette':
+    if cluster_method == "silhouette":
         cluster_list = []
         cluster_score = []
         for i in range(min_clusters, max_clusters + 1):
@@ -48,8 +50,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, options):
         cellbycluster = cellbycluster.fit(cell_matrix)
 
     else:
-        cellbycluster = KMeans(n_clusters=num_shapeclusters, \
-                           random_state=0).fit(cell_matrix)
+        cellbycluster = KMeans(n_clusters=num_shapeclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
     cellbycluster_labels = cellbycluster.labels_
@@ -59,21 +60,21 @@ def shape_cluster(cell_matrix, typelist, all_clusters, options):
     clustercenters = cellbycluster.cluster_centers_
     # print(clustercenters.shape)
 
-    #save cluster info
-    typelist.append('cellshapes')
+    # save cluster info
+    typelist.append("cellshapes")
     all_clusters.append(cluster_score)
 
     return cellbycluster_labels, clustercenters
 
 
-def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
-    print('Getting cell shape features...')
+def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, PCA]:
+    print("Getting cell shape features...")
     numpoints = options.get("num_outlinepoints")
     # check to make sure n_components is the min of (num_outlinepoints, outls[0], outls[1])
     if options.get("num_outlinepoints") > min(outls.shape[0], outls.shape[1]):
         numpoints = min(options.get("num_outlinepoints"), outls.shape[0], outls.shape[1])
 
-    pca_shapes = PCA(n_components=numpoints, svd_solver='full')
+    pca_shapes = PCA(n_components=numpoints, svd_solver="full")
     # print(pca_shapes)
 
     #    outlinesall = outls.reshape(outls.shape[0]*outls.shape[1],outls.shape[2])
@@ -81,30 +82,29 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> np.ndarray:
     features = pca_shapes.fit_transform(outls)
     # print(features.shape)
     if features.shape[1] != numpoints:
-        print('error: dimensions do not match.')
-        exit()
+        raise ValueError("dimensions do not match.")
     #    shape_features = features.reshape(outls.shape[0],outls.shape[1],check)
 
     return features, pca_shapes
 
-def bin_pca(features, npca, cell_coord, output_dir):
+
+def bin_pca(features, npca, cell_coord, filename, output_dir):
     sort_idx = np.argsort(features[:, npca - 1])  # from min to max
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
     nfeatures = features[sort_idx, 0]
     cbin = []
 
     for i in range(10):
-        fbin = nfeatures[idx[i]:idx[i+1]]
+        fbin = nfeatures[idx[i] : idx[i + 1]]
 
-        #find median not mode
+        # find median not mode
         median = np.median(fbin)
         # mode = stats.mode(fbin)
 
         nidx = np.searchsorted(fbin, median, side="left")
-        r = range(idx[i], idx[i+1])
+        r = range(idx[i], idx[i + 1])
         celln = sort_idx[r[nidx]]
         cbin.append(celln)
-
 
     f, axs = plt.subplots(1, 10)
 
@@ -113,28 +113,29 @@ def bin_pca(features, npca, cell_coord, output_dir):
         axs[i].scatter(cscell_coords[0], cscell_coords[1])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_bin_pca.pdf', **figure_save_params)
+    plt.savefig(output_dir / (filename + "-outlinePCA_bin_pca.pdf"), **figure_save_params)
     plt.close()
 
-def pca_recon(features, npca, pca, output_dir):
+
+def pca_recon(features, npca, pca, filename, output_dir):
 
     # d = defaultdict(list)
-    sort_idx = np.argsort(features[:,0]) #from min to max
+    sort_idx = np.argsort(features[:, 0])  # from min to max
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 10)).astype(int))
     idx = sort_idx[idx]
 
-    #keep pca # same and set mode for otherse
+    # keep pca # same and set mode for otherse
     rfeatures = features
     samples = list(range(features.shape[1]))
     del samples[npca - 1]
 
     for i in samples:
-        #fin median not mode
+        # fin median not mode
         median = np.median(rfeatures[:, i])
         # mode = stats.mode(rfeatures[:, i])
         rfeatures[:, i] = median
 
-    #x is even y is odd
+    # x is even y is odd
     rfeatures = pca.inverse_transform(rfeatures)
 
     f, axs = plt.subplots(1, 10)
@@ -143,9 +144,8 @@ def pca_recon(features, npca, pca, output_dir):
         axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_pca_recon.pdf', **figure_save_params)
+    plt.savefig(output_dir / (filename + "-outlinePCA_pca_recon.pdf"), **figure_save_params)
     plt.close()
-
 
 
 def pca_cluster_shape(features, polyg, output_dir, options):
@@ -164,17 +164,18 @@ def pca_cluster_shape(features, polyg, output_dir, options):
     f, axs = plt.subplots(3, 5)
 
     for j in range(3):
-        axs[j, 0].set_title('Cluster' + str(j))
+        axs[j, 0].set_title("Cluster" + str(j))
 
         for i in range(len(select[0])):
             # if i == 0:
             axs[j, i].scatter(d[j][select[j][i]][:, 0], d[j][select[j][i]][:, 1])
         # else:
         #     ax1.scatter(d[0][select[0][i]][:, 0] + 300, d[0][select[0][i]][:, 1])
-    plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
+    plt.subplots_adjust(wspace=0.4, hspace=0.5)
     # plt.show()
-    plt.savefig(output_dir / 'outlinePCA_cluster_pca.pdf', **figure_save_params)
+    plt.savefig(output_dir / "outlinePCA_cluster_pca.pdf", **figure_save_params)
     plt.close()
+
 
 def create_polygons(mask, bestz: int) -> List[str]:
     """
@@ -213,7 +214,9 @@ def cell_coord_debug(mask, nseg, npoints):
         cmask[coor[1], coor[0]] = 1
 
         # remove this when finished
-        polyg = measure.find_contours(cmask, 0.5, fully_connected='low', positive_orientation='low')
+        polyg = measure.find_contours(
+            cmask, 0.5, fully_connected="low", positive_orientation="low"
+        )
         temp = interpalong(polyg[0], npoints)
 
         temp_list.append(temp)
@@ -223,23 +226,23 @@ def cell_coord_debug(mask, nseg, npoints):
 
     for i in range(0, len(listofrois)):
         fig, axs = plt.subplots(1, 3)
-        axs[0].set_title('Cell boundary')
+        axs[0].set_title("Cell boundary")
         axs[0].scatter(listofrois[i][0], listofrois[i][1])
 
-        axs[1].set_title('Sklearn')
+        axs[1].set_title("Sklearn")
         axs[1].scatter(polyg_list[i][:, 0], polyg_list[i][:, 1])
 
-        axs[2].set_title('Resampling')
+        axs[2].set_title("Resampling")
         axs[2].scatter(temp_list[i][:, 0], temp_list[i][:, 1])
 
         plt.savefig(
-            f'./debug/coordinates_comparison_cell_{i + 1}',
+            f"./debug/coordinates_comparison_cell_{i + 1}",
             **figure_save_params,
         )
 
 
 def getparametricoutline(mask, nseg, ROI_by_CH, options):
-    print('Getting parametric outlines...')
+    print("Getting parametric outlines...")
 
     polygon_outlines = []
     # polygon_outlines1 = []
@@ -260,7 +263,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
     cell_boundary = ROI_by_CH[2]
 
     # for i in range(1, np.amax(cellmask)+1):
-    for i in range(0, len(interiorCells)):
+    for i in range(len(interiorCells)):
         # if i not in cellmask:
         #    continue
         # coor = np.where(cellmask == i)
@@ -307,14 +310,14 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # print(ptscov)
 
         if np.isnan(ptscov).any():
-            if options.get('debug'):
+            if options.get("debug"):
                 print(interiorCells[i])
                 print(ptscov)
                 print(ptscentered)
                 cw = np.where(cellmask == interiorCells[i])
                 print(cw)
 
-                print('---')
+                print("---")
                 print(ROI_coords)
             continue
 
@@ -331,8 +334,9 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # tmat = rotationmatrix * ptscentered
         # xrotated, yrotated = tmat.A
 
-        rotationmatrix = np.array([[np.cos(theta), -np.sin(theta)],
-                                   [np.sin(theta), np.cos(theta)]])
+        rotationmatrix = np.array(
+            [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+        )
         tmat = rotationmatrix @ ptscentered
         xrotated, yrotated = np.asarray(tmat)
         # plt.plot(xrotated,yrotated,'b+')
@@ -350,7 +354,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         yrotated = yrotated - tminy
         tmaty = yrotated.round().astype(int)
 
-        #check skew
+        # check skew
         x = stats.skew(tmatx)
         y = stats.skew(tmaty)
 
@@ -372,11 +376,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # plt.imshow(cmask)
         # plt.show()
 
-        aligned_outline = measure.find_contours(cmask, 0.5, fully_connected='high', positive_orientation='low')
+        aligned_outline = measure.find_contours(
+            cmask, 0.5, fully_connected="high", positive_orientation="low"
+        )
 
         x = aligned_outline[0][:, 0]
         y = aligned_outline[0][:, 1]
-
 
         x, y = linear_interpolation(x, y, npoints)
         yb, xb = cell_boundary[interiorCells[i]]
@@ -390,9 +395,9 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         bxy = np.array(bxy).T
         bxy = bxy.tolist()
 
-        #find centroid
-        cent = (np.sum(xb)/len(xb), np.sum(yb)/len(yb))
-        bxy.sort(key=lambda p: math.atan2(p[1]-cent[1], p[0]-cent[0]))
+        # find centroid
+        cent = (np.sum(xb) / len(xb), np.sum(yb) / len(yb))
+        bxy.sort(key=lambda p: math.atan2(p[1] - cent[1], p[0] - cent[0]))
         bxy = np.array(bxy)
 
         polygon_outlines.append(bxy)
@@ -414,7 +419,7 @@ def linear_interpolation(x, y, npoints):
     distance = np.insert(distance, 0, 0)
 
     alpha = np.linspace(distance.min(), int(distance.max()), npoints)
-    interpolator = interpolate.interp1d(distance, points, kind='slinear', axis=0)
+    interpolator = interpolate.interp1d(distance, points, kind="slinear", axis=0)
     interpolated_points = interpolator(alpha)
 
     out_x = interpolated_points.T[0]
@@ -430,8 +435,12 @@ def fillimage(cmask):
         for j in range(2, cmask.shape[0] - 1):
             for k in range(2, cmask.shape[1] - 1):
                 if cmask[j, k] == 0:
-                    m = cmask[j - 1, k - 1] + cmask[j - 1, k + 1] + \
-                        cmask[j + 1, k - 1] + cmask[j + 1, k + 1]
+                    m = (
+                        cmask[j - 1, k - 1]
+                        + cmask[j - 1, k + 1]
+                        + cmask[j + 1, k - 1]
+                        + cmask[j + 1, k + 1]
+                    )
                     if m == 4:
                         cmask[j, k] = 1
                         changedsome = True
@@ -481,8 +490,9 @@ def interpalong(poly, npoints):
         j = i + 1
         if i == len(poly) - 1:
             j = 0
-        polylen = polylen + np.sqrt((poly[j, 0] - poly[i, 0]) ** 2 + \
-                                    (poly[j, 1] - poly[i, 1]) ** 2)
+        polylen = polylen + np.sqrt(
+            (poly[j, 0] - poly[i, 0]) ** 2 + (poly[j, 1] - poly[i, 1]) ** 2
+        )
     # print(polylen)
     # polylen = poly.geometry().length()
     #    minlen = minneidist(poly)
@@ -544,6 +554,7 @@ def interpalong(poly, npoints):
 #        ndist = dist(poly[i,:]-poly[i+1,:])
 #    return min(ndist)
 
+
 def showshapesbycluster(mask, nseg, cellbycluster, filename):
     cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
     # print(cellmask.shape)
@@ -569,10 +580,9 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
             plt.figure(k + 1)
             plt.subplot(4, 4, nk[k])
             plt.imshow(thisshape)
-            plt.axis('off')
+            plt.axis("off")
         if min(nk) >= 16:
             break
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
-        plt.savefig(f'{filename}-cellshapescluster{k}.pdf', **figure_save_params)
-
+        plt.savefig(f"{filename}-cellshapescluster{k}.pdf", **figure_save_params)

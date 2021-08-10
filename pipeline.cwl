@@ -16,6 +16,12 @@ inputs:
   enable_manhole:
     label: "Whether to enable remote debugging via 'manhole'"
     type: boolean?
+  enable_faulthandler:
+    label: "Whether to enable the Python 'faulthandler' module"
+    type: boolean?
+  verbose:
+    label: "Whether to enable verbose/debug mode"
+    type: boolean?
 
 outputs:
   sprm_output:
@@ -34,6 +40,10 @@ steps:
         source: options_file
       enable_manhole:
         source: enable_manhole
+      enable_faulthandler:
+        source: enable_faulthandler
+      verbose:
+        source: verbose
     out: [output_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
