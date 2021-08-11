@@ -299,7 +299,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
         thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
         for c in range(img.data.shape[2])
     )
-    # img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.9)] = 0
+    img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.5)] = 0
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
