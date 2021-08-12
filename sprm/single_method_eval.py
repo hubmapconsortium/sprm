@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 from PIL import Image
@@ -82,7 +82,7 @@ def uniformity_CV(loc, channels):
     return np.average(CV)
 
 
-def uniformity_fraction(loc, channels):
+def uniformity_fraction(loc, channels) -> float:
     n = len(channels)
     feature_matrix_pieces = []
     for i in range(n):
@@ -279,7 +279,7 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     return size.to("micrometer ** 2").magnitude
 
 
-def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
+def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
