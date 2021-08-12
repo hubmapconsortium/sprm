@@ -24,7 +24,7 @@ Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.1
-08/10/2021
+08/11/2021
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
@@ -356,7 +356,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
             )
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
-                "NumberOfCellPer100SquareMicrons"
+                "NumberOfCellsPer100SquareMicrons"
             ] = cell_num_normalized
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
@@ -387,13 +387,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
             avg_cell_silhouette = np.average(cell_silhouette)
 
             metrics[channel_names[channel]][
-                "1/AvgOfWeightedAvgCVMeanCellIntensitiesOver2~10NumberOfCluster"
+                "1/AvgOfWeightedAvgCVMeanCellIntensitiesOver1~10NumberOfClusters"
             ] = (1 / avg_cell_CV)
             metrics[channel_names[channel]][
-                "AvgOfWeightedAvgFractionOfFirstPCMeanCellIntensitiesOver2~10NumberOfCluster"
+                "AvgOfWeightedAvgFractionOfFirstPCMeanCellIntensitiesOver1~10NumberOfClusters"
             ] = avg_cell_fraction
             metrics[channel_names[channel]][
-                "AvgSilhouetteOver2~10NumberOfCluster"
+                "AvgSilhouetteOver1~10NumberOfClusters"
             ] = avg_cell_silhouette
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
