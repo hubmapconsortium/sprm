@@ -2235,14 +2235,10 @@ def quality_measures(
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"] = dict()
         if options.get("sprm_segeval_both") == 1:
-            struct["Image Quality Metrics that require cell segmentation"][
-                "Segmentation Evaluation Metrics"
-            ] = seg_metric_list[i][0]
+            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
             continue
         if options.get("sprm_segeval_both") == 2:
-            struct["Image Quality Metrics that require cell segmentation"][
-                "Segmentation Evaluation Metrics"
-            ] = seg_metric_list[i][0]
+            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
 
         channels = im.get_channel_labels()
         # get cytoplasm coords
