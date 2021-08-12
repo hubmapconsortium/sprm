@@ -1563,20 +1563,22 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
+
     plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
 
-    if not options.get("skip_outlinePCA"):
-        plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
+    if i == 0:
+        if not options.get("skip_outlinePCA"):
+            plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
 
-        plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
-    else:
-        plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+            plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
+            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
+            plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+        else:
+            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
+            plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
+            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
 
 
 def make_legends(
@@ -1849,6 +1851,37 @@ def cell_analysis(
         )
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
+    if options.get("skip_outlinePCA"):
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+            all_clusters,
+            types_list,
+            filename,
+            cellidx,
+            output_dir,
+            options,
+            mean_vector,
+            covar_matrix,
+            total_vector,
+            meanAll_vector_f,
+            texture_matrix,
+        )
+    else:
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+            all_clusters,
+            types_list,
+            filename,
+            cellidx,
+            output_dir,
+            options,
+            mean_vector,
+            covar_matrix,
+            total_vector,
+            meanAll_vector_f,
+            shape_vectors,
+            texture_matrix,
+        )
+    cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+
     # for each channel in the mask
     for i in range(len(maskchs)):
         # for i in range(1):
@@ -1871,42 +1904,42 @@ def cell_analysis(
             total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
         )
 
-        if options.get("skip_outlinePCA"):
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                texture_matrix,
-            )
-        else:
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                shape_vectors,
-                texture_matrix,
-            )
+        # if options.get("skip_outlinePCA"):
+        #     clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        #         all_clusters,
+        #         types_list,
+        #         filename,
+        #         cellidx,
+        #         output_dir,
+        #         options,
+        #         mean_vector_f,
+        #         covar_matrix_f,
+        #         total_vector_f,
+        #         meanAll_vector_f,
+        #         texture_matrix,
+        #     )
+        # else:
+        #     clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        #         all_clusters,
+        #         types_list,
+        #         filename,
+        #         cellidx,
+        #         output_dir,
+        #         options,
+        #         mean_vector_f,
+        #         covar_matrix_f,
+        #         total_vector_f,
+        #         meanAll_vector_f,
+        #         shape_vectors,
+        #         texture_matrix,
+        #     )
 
         # map back to the mask segmentation of indexed cell region
         print("Mapping cell index in segmented mask to cluster IDs...")
         cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
         cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
         cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
-        cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+        # cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
         print("Getting markers that separate clusters to make legend...")
         if not options.get("skip_outlinePCA"):
             # get markers for each respective cluster & then save the legend/markers
@@ -2199,11 +2232,17 @@ def quality_measures(
         cells = ROI_coords[0][1:]
         nuclei = ROI_coords[1][1:]
 
+        # Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"] = dict()
         if options.get("sprm_segeval_both") == 1:
-            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i]
+            struct["Image Quality Metrics that require cell segmentation"][
+                "Segmentation Evaluation Metrics"
+            ] = seg_metric_list[i][0]
             continue
         if options.get("sprm_segeval_both") == 2:
-            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i]
+            struct["Image Quality Metrics that require cell segmentation"][
+                "Segmentation Evaluation Metrics"
+            ] = seg_metric_list[i][0]
 
         channels = im.get_channel_labels()
         # get cytoplasm coords
@@ -2266,36 +2305,93 @@ def quality_measures(
         zscore = SNR[0, 1:]
         otsu = SNR[1, 1:]
 
-        struct["Number of Channels"] = len(channels)
-        struct["Number of Cells"] = cell_total[i]
-        struct["Number of Background Pixels"] = bgpixels.shape[1]
-        struct["Fraction of Image Occupied by Cells"] = (pixels - bgpixels.shape[1]) / pixels
+        # Image Information
+        struct["Image Information"] = dict()
+        # Image Quality Metrics not requiring image segmentation
+        struct["Image Quality Metrics not requiring image segmentation"] = dict()
+        # Image Quality Metrics requiring background segmentation
+        struct["Image Quality Metrics requiring background segmentation"] = dict()
+        struct["Image Quality Metrics requiring background segmentation"][
+            "Fraction of Pixels in Image Background"
+        ] = seg_metric_list[i][1]
+        struct["Image Quality Metrics requiring background segmentation"][
+            "1/AvgCVBackground"
+        ] = seg_metric_list[i][2]
+        struct["Image Quality Metrics requiring background segmentation"][
+            "FractionOfFirstPCBackground"
+        ] = seg_metric_list[i][3]
+        # Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Channel Statistics"
+        ] = dict()
+        struct["Image Information"]["Number of Channels"] = len(channels)
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Number of Cells"
+        ] = cell_total[i]
+        # struct["Number of Background Pixels"] = bgpixels.shape[1]
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Fraction of Image Occupied by Cells"
+        ] = (pixels - bgpixels.shape[1]) / pixels
 
-        struct["Total Intensity"] = dict()
-        struct["Average per Cell Ratios"] = dict()
-        struct["Silhouette Scores From Clustering"] = dict()
-        struct["Silhouette Scores From Clustering"]["Mean-All"] = dict()
-        struct["Silhouette Scores From Clustering"]["Max Silhouette Score"] = maxscore
-        struct["Silhouette Scores From Clustering"]["Cluster with Max Score"] = maxidx
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Total Intensity"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+            "Average per Cell Ratios"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Mean-All"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Max Silhouette Score"] = maxscore
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Cluster with Max Score"] = maxidx
 
-        struct["Signal To Noise Otsu"] = dict()
-        struct["Signal To Noise Z-Score"] = dict()
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Signal To Noise Otsu"
+        ] = dict()
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Signal To Noise Z-Score"
+        ] = dict()
 
         for j in range(len(mean_all)):
-            struct["Silhouette Scores From Clustering"]["Mean-All"][j + 2] = mean_all[j]
+            struct["Image Quality Metrics that require cell segmentation"][
+                "Silhouette Scores From Clustering"
+            ]["Mean-All"][j + 2] = mean_all[j]
 
         for j in range(len(channels)):
-            struct["Total Intensity"][channels[j]] = dict()
-            struct["Average per Cell Ratios"][channels[j]] = dict()
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+                channels[j]
+            ] = dict()
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]] = dict()
 
-            struct["Total Intensity"][channels[j]]["Cells"] = int(total_intensity_per_chancell[j])
-            struct["Total Intensity"][channels[j]]["Background"] = total_intensity_per_chanbg[j]
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+                channels[j]
+            ]["Cells"] = int(total_intensity_per_chancell[j])
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+                channels[j]
+            ]["Background"] = total_intensity_per_chanbg[j]
 
-            struct["Average per Cell Ratios"][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
-            struct["Average per Cell Ratios"][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
 
-            struct["Signal To Noise Otsu"][channels[j]] = otsu[j]
-            struct["Signal To Noise Z-Score"][channels[j]] = zscore[j]
+            struct["Image Quality Metrics not requiring image segmentation"][
+                "Signal To Noise Otsu"
+            ][channels[j]] = otsu[j]
+            struct["Image Quality Metrics not requiring image segmentation"][
+                "Signal To Noise Z-Score"
+            ][channels[j]] = zscore[j]
 
         with open(output_dir / (img_name + "-SPRM_Image_Quality_Measures.json"), "w") as json_file:
             json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
@@ -2659,6 +2755,9 @@ def glcm(
 
             for j in range(len(im.channel_labels)):  # For each channel
 
+                # filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
+                # continue
+
                 # convert to uint
                 imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
                 index = np.arange(imgroi.shape[0])
@@ -2730,6 +2829,24 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     matrix_total = argv[2]
     matrix_meanAll = argv[3]
 
+    # get features into correct shapes - mean, cov, total
+    matrix_mean = matrix_mean[0]
+    matrix_cov = matrix_cov[0]
+    matrix_total = matrix_total[0]
+
+    matrix_mean = matrix_mean.reshape(
+        (matrix_mean.shape[1], matrix_mean.shape[0] * matrix_mean.shape[2] * matrix_mean.shape[3])
+    )
+    matrix_cov = matrix_cov.reshape(
+        (matrix_cov.shape[1], matrix_cov.shape[0] * matrix_cov.shape[2] * matrix_cov.shape[3])
+    )
+    matrix_total = matrix_total.reshape(
+        (
+            matrix_total.shape[1],
+            matrix_total.shape[0] * matrix_total.shape[2] * matrix_total.shape[3],
+        )
+    )
+
     if options.get("skip_outlinePCA"):
         matrix_texture = argv[4]
         matrix_shape = np.zeros((matrix_mean.shape[0], 100))
@@ -2748,10 +2865,18 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     n_iter = 1000
     learning_rate = 1
     matrix_texture = matrix_texture[:, : int(len(matrix_texture[0]) / 2)]
-    matrix_all_OnlyCell_original = np.concatenate(
-        (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
-        axis=1,
-    )
+
+    if options.get("tSNE_texture_calculation_skip"):
+        matrix_all_OnlyCell_original = np.concatenate(
+            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
+            axis=1,
+        )
+    else:
+        matrix_all_OnlyCell_original = np.concatenate(
+            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
+            axis=1,
+        )
+
     early_exaggeration = len(matrix_all_OnlyCell_original) / 10
 
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()

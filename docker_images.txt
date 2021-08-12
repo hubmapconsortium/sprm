@@ -1,1 +1,1 @@
-hubmap/sprm	docker/Dockerfile	base_directory_build
+hubmap/sprm	docker/Dockerfile	base_directory_build,write_git_json=git-revision.json
