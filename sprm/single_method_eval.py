@@ -227,7 +227,7 @@ def cell_uniformity(mask, channels, label_list):
             fraction_current.append(cell_uniformity_fraction(cluster_feature_matrix_z))
         CV.append(weighted_by_cluster(CV_current, labels))
         fraction.append(weighted_by_cluster(fraction_current, labels))
-    return CV, fraction, silhouette
+    return CV, fraction, silhouette[1:]
 
 
 def compute_M(data):
@@ -393,7 +393,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
                 "AvgOfWeightedAvgFractionOfFirstPCMeanCellIntensitiesOver1~10NumberOfClusters"
             ] = avg_cell_fraction
             metrics[channel_names[channel]][
-                "AvgSilhouetteOver1~10NumberOfClusters"
+                "AvgSilhouetteOver2~10NumberOfClusters"
             ] = avg_cell_silhouette
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
