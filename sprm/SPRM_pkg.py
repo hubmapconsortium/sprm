@@ -2241,7 +2241,15 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        total_intensity_per_chan = np.sum(im_channels[:, :, :], axis=0)
+        total_intensity_per_chan = im_channels[0, :, :, :]
+        total_intensity_per_chan = np.reshape(
+            total_intensity_per_chan,
+            (
+                total_intensity_per_chan.shape[0],
+                total_intensity_per_chan.shape[1] * total_intensity_per_chan.shape[2],
+            ),
+        )
+        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -2840,7 +2848,8 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     matrix_total = matrix_total.reshape(
         (
             matrix_total.shape[0],
-            matrix_total.shape[1], matrix_total.shape[2] * matrix_total.shape[3],
+            matrix_total.shape[1],
+            matrix_total.shape[2] * matrix_total.shape[3],
         )
     )
     matrix_total = np.concatenate(matrix_total, axis=1)
