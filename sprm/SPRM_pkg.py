@@ -2241,6 +2241,7 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
+        total_intensity_per_chan = np.sum(im_channels[:, :, :], axis=0)
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -2305,15 +2306,18 @@ def quality_measures(
         struct["Image Quality Metrics not requiring image segmentation"] = dict()
         # Image Quality Metrics requiring background segmentation
         struct["Image Quality Metrics requiring background segmentation"] = dict()
-        struct["Image Quality Metrics requiring background segmentation"][
-            "Fraction of Pixels in Image Background"
-        ] = seg_metric_list[i][1]
-        struct["Image Quality Metrics requiring background segmentation"][
-            "1/AvgCVBackground"
-        ] = seg_metric_list[i][2]
-        struct["Image Quality Metrics requiring background segmentation"][
-            "FractionOfFirstPCBackground"
-        ] = seg_metric_list[i][3]
+
+        if not options.get("sprm_segeval_both") == 0:
+            struct["Image Quality Metrics requiring background segmentation"][
+                "Fraction of Pixels in Image Background"
+            ] = seg_metric_list[i][1]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "1/AvgCVBackground"
+            ] = seg_metric_list[i][2]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "FractionOfFirstPCBackground"
+            ] = seg_metric_list[i][3]
+
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"][
             "Channel Statistics"
@@ -2361,17 +2365,17 @@ def quality_measures(
         for j in range(len(channels)):
             struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
                 channels[j]
-            ] = dict()
+            ] = total_intensity_per_chan[j]
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
             ][channels[j]] = dict()
 
-            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
-                channels[j]
-            ]["Cells"] = int(total_intensity_per_chancell[j])
-            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
-                channels[j]
-            ]["Background"] = total_intensity_per_chanbg[j]
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Cells"] = int(total_intensity_per_chancell[j])
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Background"] = total_intensity_per_chanbg[j]
 
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
