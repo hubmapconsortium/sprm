@@ -107,8 +107,10 @@ def foreground_uniformity(img_bi, mask, channels):
 
 def background_uniformity(img_bi, channels):
     background_loc = np.argwhere(img_bi == 0)
+    background_pixel_num = background_loc.shape[0]
+	background_loc_sampled = background_loc[np.random.randint(background_pixel_num, size=round(background_pixel_num / 10)), :]
     CV = uniformity_CV(background_loc, channels)
-    fraction = uniformity_fraction(background_loc, channels)
+    fraction = uniformity_fraction(background_loc_sampled, channels)
     return CV, fraction
 
 
