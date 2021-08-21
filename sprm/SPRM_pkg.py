@@ -1859,7 +1859,6 @@ def cell_analysis(
             cellidx,
             output_dir,
             options,
-            mean_vector,
             covar_matrix,
             total_vector,
             meanAll_vector_f,
@@ -1873,7 +1872,6 @@ def cell_analysis(
             cellidx,
             output_dir,
             options,
-            mean_vector,
             covar_matrix,
             total_vector,
             meanAll_vector_f,
@@ -2243,6 +2241,15 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
+        total_intensity_per_chan = im_channels[0, :, :, :]
+        total_intensity_per_chan = np.reshape(
+            total_intensity_per_chan,
+            (
+                total_intensity_per_chan.shape[0],
+                total_intensity_per_chan.shape[1] * total_intensity_per_chan.shape[2],
+            ),
+        )
+        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -2307,15 +2314,18 @@ def quality_measures(
         struct["Image Quality Metrics not requiring image segmentation"] = dict()
         # Image Quality Metrics requiring background segmentation
         struct["Image Quality Metrics requiring background segmentation"] = dict()
-        struct["Image Quality Metrics requiring background segmentation"][
-            "Fraction of Pixels in Image Background"
-        ] = seg_metric_list[i][1]
-        struct["Image Quality Metrics requiring background segmentation"][
-            "1/AvgCVBackground"
-        ] = seg_metric_list[i][2]
-        struct["Image Quality Metrics requiring background segmentation"][
-            "FractionOfFirstPCBackground"
-        ] = seg_metric_list[i][3]
+
+        if not options.get("sprm_segeval_both") == 0:
+            struct["Image Quality Metrics requiring background segmentation"][
+                "Fraction of Pixels in Image Background"
+            ] = seg_metric_list[i][1]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "1/AvgCVBackground"
+            ] = seg_metric_list[i][2]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "FractionOfFirstPCBackground"
+            ] = seg_metric_list[i][3]
+
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"][
             "Channel Statistics"
@@ -2363,17 +2373,17 @@ def quality_measures(
         for j in range(len(channels)):
             struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
                 channels[j]
-            ] = dict()
+            ] = total_intensity_per_chan[j]
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
             ][channels[j]] = dict()
 
-            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
-                channels[j]
-            ]["Cells"] = int(total_intensity_per_chancell[j])
-            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
-                channels[j]
-            ]["Background"] = total_intensity_per_chanbg[j]
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Cells"] = int(total_intensity_per_chancell[j])
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Background"] = total_intensity_per_chanbg[j]
 
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
@@ -2820,35 +2830,36 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     """
 
-    matrix_mean = argv[0]
-    matrix_cov = argv[1]
-    matrix_total = argv[2]
-    matrix_meanAll = argv[3]
+    # matrix_mean = argv[0]
+    matrix_cov = argv[0]
+    matrix_total = argv[1]
+    matrix_meanAll = argv[2]
 
-    # get features into correct shapes - mean, cov, total
-    matrix_mean = matrix_mean[0]
+    # get features into correct shapes - cov, total
+    # matrix_mean = matrix_mean[0]
     matrix_cov = matrix_cov[0]
     matrix_total = matrix_total[0]
 
-    matrix_mean = matrix_mean.reshape(
-        (matrix_mean.shape[1], matrix_mean.shape[0] * matrix_mean.shape[2] * matrix_mean.shape[3])
-    )
     matrix_cov = matrix_cov.reshape(
-        (matrix_cov.shape[1], matrix_cov.shape[0] * matrix_cov.shape[2] * matrix_cov.shape[3])
+        (matrix_cov.shape[0], matrix_cov.shape[1], matrix_cov.shape[2] * matrix_cov.shape[3])
     )
+    matrix_cov = np.concatenate(matrix_cov, axis=1)
+
     matrix_total = matrix_total.reshape(
         (
+            matrix_total.shape[0],
             matrix_total.shape[1],
-            matrix_total.shape[0] * matrix_total.shape[2] * matrix_total.shape[3],
+            matrix_total.shape[2] * matrix_total.shape[3],
         )
     )
+    matrix_total = np.concatenate(matrix_total, axis=1)
 
     if options.get("skip_outlinePCA"):
-        matrix_texture = argv[4]
-        matrix_shape = np.zeros((matrix_mean.shape[0], 100))
+        matrix_texture = argv[3]
+        matrix_shape = np.zeros((matrix_cov.shape[0], 100))
     else:
-        matrix_shape = argv[4]
-        matrix_texture = argv[5]
+        matrix_shape = argv[3]
+        matrix_texture = argv[4]
 
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
@@ -2864,12 +2875,12 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     if options.get("tSNE_texture_calculation_skip"):
         matrix_all_OnlyCell_original = np.concatenate(
-            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
+            (matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
             axis=1,
         )
     else:
         matrix_all_OnlyCell_original = np.concatenate(
-            (matrix_mean, matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
+            (matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
             axis=1,
         )
 
