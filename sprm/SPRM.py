@@ -1,5 +1,6 @@
 import faulthandler
 from argparse import ArgumentParser
+from subprocess import CalledProcessError, check_output
 from typing import Optional
 
 from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
@@ -23,6 +24,46 @@ Version:   1.03
 DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
 DEFAULT_TEMP_DIRECTORY = Path("temp")
+DOCKER_GIT_VERSION_PATH = Path("/opt/sprm-git-revision.json")
+
+
+def get_sprm_version() -> str:
+    """
+    Returns the SPRM version. Tries three possibilities to find this
+    information, in order:
+
+    1) From a JSON file written into the Docker image
+    2) Running 'git describe'
+    3) reading from version.txt
+
+    If all of these fail, returns 'unknown'.
+    """
+    if DOCKER_GIT_VERSION_PATH.is_file():
+        with open(DOCKER_GIT_VERSION_PATH) as f:
+            version_data = json.load(f)
+            return version_data["version"]
+
+    # maybe run from the repo directory
+    directory = Path(__file__).parent
+    try:
+        return (
+            check_output(
+                ["git", "describe", "--dirty", "--always", "--abbrev=12"],
+                cwd=directory,
+            )
+            .decode()
+            .strip()
+        )
+    except CalledProcessError:
+        pass
+
+    try:
+        with importlib.resources.open_text("sprm", "version.txt") as f:
+            return f.read().strip()
+    except Exception:
+        pass
+
+    return "unknown"
 
 
 def main(
@@ -32,15 +73,24 @@ def main(
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
 ):
+    sprm_version = get_sprm_version()
+    print("SPRM", sprm_version)
+
+    # read in options.txt
+    options = read_options(options_path)
+
+    # store results in a dir
+    check_output_dir(output_dir, options)
+
+    with open(output_dir / "sprm_version.txt", "w") as f:
+        print(sprm_version, file=f)
+
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
 
     if optional_img_dir:
         opt_img_files = get_paths(optional_img_dir)
-
-    # read in options.txt
-    options = read_options(options_path)
 
     # init cell features
     covar_matrix = []
@@ -52,9 +102,6 @@ def main(
     im_list = []
     mask_list = []
     seg_metric_list = []
-
-    # store results in a dir
-    check_output_dir(output_dir, options)
 
     # start time of processing a single img
     stime = time.monotonic() if options.get("debug") else None
