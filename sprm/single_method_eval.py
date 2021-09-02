@@ -110,13 +110,13 @@ def background_uniformity(img_bi, channels):
 	CV = uniformity_CV(background_loc, channels)
 	background_pixel_num = background_loc.shape[0]
 	background_loc_fraction = 1
-	while background_loc_fraction >= 0.2:
+	while background_loc_fraction > 0:
 		try:
 			background_loc_sampled = background_loc[np.random.randint(background_pixel_num, size=round(background_pixel_num * background_loc_fraction)), :]
 			fraction = uniformity_fraction(background_loc_sampled, channels)
 			break
 		except:
-			background_loc_fraction = background_loc_fraction - 0.2
+			background_loc_fraction = background_loc_fraction / 2
 	return CV, fraction
 
 def cell_uniformity_CV(feature_matrix):
