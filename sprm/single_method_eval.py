@@ -23,8 +23,8 @@ from sklearn.preprocessing import StandardScaler
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
-Version: 1.1
-08/11/2021
+Version: 1.4
+09/02/2021
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
@@ -108,7 +108,21 @@ def foreground_uniformity(img_bi, mask, channels):
 def background_uniformity(img_bi, channels):
     background_loc = np.argwhere(img_bi == 0)
     CV = uniformity_CV(background_loc, channels)
-    fraction = uniformity_fraction(background_loc, channels)
+    background_pixel_num = background_loc.shape[0]
+    background_loc_fraction = 1
+    while background_loc_fraction > 0:
+        try:
+            background_loc_sampled = background_loc[
+                np.random.randint(
+                    background_pixel_num,
+                    size=round(background_pixel_num * background_loc_fraction),
+                ),
+                :,
+            ]
+            fraction = uniformity_fraction(background_loc_sampled, channels)
+            break
+        except:
+            background_loc_fraction = background_loc_fraction / 2
     return CV, fraction
 
 
@@ -279,8 +293,19 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     return size.to("micrometer ** 2").magnitude
 
 
+def get_quality_score(features, model):
+    ss = model[0]
+    pca = model[1]
+    features_scaled = ss.transform(features)
+    score = (
+        pca.transform(features_scaled)[0, 0] * pca.explained_variance_ratio_[0]
+        + pca.transform(features_scaled)[0, 1] * pca.explained_variance_ratio_[1]
+    )
+    return score
+
+
 def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
-    print("Calculating single-method metrics for", img.path)
+    print("Calculating single-method metrics v1.4 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
 
@@ -367,9 +392,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             metrics[channel_names[channel]][
                 "FractionOfCellMaskInForeground"
             ] = mask_foreground_fraction
-            metrics[channel_names[channel]]["1/StandardDeviationOfCellSize"] = 1 / cell_size_std
+            metrics[channel_names[channel]]["1/(ln(StandardDeviationOfCellSize)+1)"] = 1 / (
+                np.log(cell_size_std) + 1
+            )
             metrics[channel_names[channel]]["FractionOfMatchedCellsAndNuclei"] = matched_fraction
-            metrics[channel_names[channel]]["1/AvgCVForegroundOutsideCells"] = 1 / foreground_CV
+            metrics[channel_names[channel]]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (
+                foreground_CV + 1
+            )
             metrics[channel_names[channel]][
                 "FractionOfFirstPCForegroundOutsideCells"
             ] = foreground_PCA
@@ -387,8 +416,8 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             avg_cell_silhouette = np.average(cell_silhouette)
 
             metrics[channel_names[channel]][
-                "1/AvgOfWeightedAvgCVMeanCellIntensitiesOver1~10NumberOfClusters"
-            ] = (1 / avg_cell_CV)
+                "1/(AvgOfWeightedAvgCVMeanCellIntensitiesOver1~10NumberOfClusters+1)"
+            ] = 1 / (avg_cell_CV + 1)
             metrics[channel_names[channel]][
                 "AvgOfWeightedAvgFractionOfFirstPCMeanCellIntensitiesOver1~10NumberOfClusters"
             ] = avg_cell_fraction
@@ -398,10 +427,9 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
     with importlib.resources.open_binary("sprm", "pca.pickle") as f:
-        ss, pca = pickle.load(f)
+        PCA_model = pickle.load(f)
 
-    metrics_flat_scaled = ss.transform(metrics_flat)
-    pca_score = pca.transform(metrics_flat_scaled)[0, 0]
-    metrics["QualityScore"] = pca_score
+    quality_score = get_quality_score(metrics_flat, PCA_model)
+    metrics["QualityScore"] = quality_score
 
-    return metrics, fraction_background, 1 / background_CV, background_PCA
+    return metrics, fraction_background, 1 / (background_CV + 1), background_PCA
