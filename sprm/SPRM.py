@@ -166,7 +166,7 @@ def main(
         if eval_pathway == 1:
             # evaluation on single segmentation method
             seg_metrics = single_method_eval(im, mask, output_dir)
-            struct = {"Segmentation Evaluation Metrics": seg_metrics}
+            struct = {"Segmentation Evaluation Metrics v1.5": seg_metrics}
 
             with open(
                 output_dir / (im.name + "-SPRM_Image_Quality_Measures.json"), "w"
