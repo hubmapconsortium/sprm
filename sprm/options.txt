@@ -20,7 +20,7 @@ skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
 zscore_norm 0
-skip_texture 0
+skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore
 tSNE_all_perplexity 35
