@@ -23,8 +23,8 @@ from sklearn.preprocessing import StandardScaler
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
-Version: 1.4
-09/02/2021
+Version: 1.5
+09/08/2021
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
