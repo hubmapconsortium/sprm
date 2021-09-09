@@ -2866,7 +2866,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     perplexity = options.get("tSNE_all_perplexity")
     pcaMethod = options.get("tsne_all_svdsolver4pca")[0]
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")[0]
-    numComp = 3
+    numComp = options.get("tSNE_num_components")
     for i in range(numComp):
         tSNE_allfeatures_headers.append(str(i) + "th PC")
     n_iter = 1000
