@@ -1169,7 +1169,17 @@ def clusterchannels(
     channvals = channvals.transpose()
     if options.get("debug"):
         print(channvals.shape)
-    reducedim = pca_channels.fit_transform(channvals)
+
+    try:
+        reducedim = pca_channels.fit_transform(channvals)
+    except ValueError:
+        print('Array size is too large. Reducing sample space...')
+        n_samples = int(channvals.shape[0] / 2)
+        idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
+        reduced_channvals = channvals[idx, :]
+        pca_channels.fit(reduced_channvals)
+        reducedim = pca_channels.transform(channvals)
+
     if options.get("debug"):
         print("PCA Channels:", pca_channels, sep="\n")
         print("Explained variance ratio: ", pca_channels.explained_variance_ratio_)
@@ -1239,6 +1249,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
 
     print("Calculating Signal to Noise Ratio in image...")
     channvals = im.get_data()[0, 0, :, :, :, :]
+    zlist = []
     channelist = []
 
     channvals_z = channvals.reshape(
@@ -1248,7 +1259,8 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
 
     m = channvals_z.mean(0)
     sd = channvals_z.std(axis=0, ddof=0)
-    snr_channels = np.where(sd == 0, 0, m / sd)
+    # snr_channels = np.where(sd == 0, 0, m / sd)
+    snr_channels = m / sd
     # snr_channels = snr_channels[np.newaxis, :]
     # snr_channels = snr_channels.tolist()
 
@@ -1257,19 +1269,29 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         img_2D = channvals[i, :, :, :]
         img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
 
-        try:
-            thresh = threshold_otsu(img_2D)
-            above_th = img_2D >= thresh
-            below_th = img_2D < thresh
-            if thresh == 0:
-                fbr = 1
-            else:
-                mean_a = np.mean(img_2D[above_th])
-                mean_b = np.mean(img_2D[below_th])
-                # take ratio above thresh / below thresh
-                fbr = mean_a / mean_b
-        except ValueError:
-            fbr = 1
+        # try:
+        #nbins implement
+        max_img = np.max(img_2D)
+        max_img_dtype = np.iinfo(img_2D.dtype).max
+        factor = np.floor(max_img_dtype / max_img)
+        img_2D_factor = img_2D * factor
+
+        thresh = threshold_otsu(img_2D_factor)
+        thresh = max(thresh, factor)
+
+        above_th = img_2D_factor > thresh
+        below_th = img_2D_factor <= thresh
+        # if thresh == 0:
+        #     print('Otsu threshold returned 0')
+        #     fbr = 'N/A'
+        # else:
+        mean_a = np.mean(img_2D_factor[above_th])
+        mean_b = np.mean(img_2D_factor[below_th])
+        # take ratio above thresh / below thresh
+        fbr = mean_a / mean_b
+        # except ValueError:
+        #     print('Value Error encountered')
+        #     fbr = 0
 
         channelist.append(fbr)
 
