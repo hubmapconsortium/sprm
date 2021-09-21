@@ -1173,7 +1173,7 @@ def clusterchannels(
     try:
         reducedim = pca_channels.fit_transform(channvals)
     except ValueError:
-        print('Array size is too large. Reducing sample space...')
+        print("Array size is too large. Reducing sample space...")
         n_samples = int(channvals.shape[0] / 2)
         idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
         reduced_channvals = channvals[idx, :]
@@ -1270,7 +1270,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
 
         # try:
-        #nbins implement
+        # nbins implement
         max_img = np.max(img_2D)
         max_img_dtype = np.iinfo(img_2D.dtype).max
         factor = np.floor(max_img_dtype / max_img)
