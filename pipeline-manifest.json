@@ -16,27 +16,27 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_1_texture.csv",
-		"description": "cell texture calculation of the image.",
+		"description": "texture features for each cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_boundaries_channel_covar.csv",
-		"description": "covariance of segmented cell boundaries for each channel in image.",
+		"description": "covariance of cell boundary pixel intensities for all channels for each cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_boundaries_channel_mean.csv",
-		"description": "mean intensity of segmented cell boundaries for each channel in image.",
+		"description": "mean intensity of cell boundary pixels for each cell for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_boundaries_channel_total.csv",
-		"description": "total intensity of segmented cell boundaries for each channel in image.",
+		"description": "total intensity of cell boundary pixels for each cell for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_boundaries_cluster.csv",
-		"description": "cluster identification for each segmented cell boundary.",
+		"description": "cluster identification for clustering cells by total intensity in cell boundary pixels.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
@@ -46,32 +46,32 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_channel_covar.csv",
-		"description": "covariance of segmented cells for each channel in image.",
+		"description": "covariance of cytoplasm pixel intensities for all channels of each cell (not including cell boundary, nucleus or nuclear bounday).",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_channel_meanAll.csv",
-		"description": "mean intensity of all segemented parts of the mask (cell, nucleus, cell boundary, nucleus boundary) for each channel in image.",
+		"description": "mean intensity of pixel intensities for all parts of each cell for all channels.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_channel_mean.csv",
-		"description": "mean intensity of segmented cells for each channel in image.",
+		"description": "mean intensity of cytoplasm pixels in each cell (not including cell boundary, nucleus or nuclear bounday) for all channels.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_channel_total.csv",
-		"description": "total intensity of segmented cells for each channel in image.",
+		"description": "total intensity of cytoplasm pixels in each cell (not including cell boundary, nucleus or nuclear bounday) for all channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_cluster.csv",
-		"description": "cluster identification for each segmented cell",
+		"description": "cluster identification for clustering by total intensity in cytoplasm of each cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_polygons_spatial.csv",
-		"description": "spatial polyogn coordinates for outline of each segmeneted cell.",
+		"description": "image coordinates for outline of each segmented cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
@@ -81,12 +81,12 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-channel_pca.ome.tiff",
-		"description": "contrinbution of top 3 pca components in an image output as an ometiff.",
+		"description": "Content of the top 3 principal components in each pixel (Red=PC1,Green=PC2,Blue=PC3) output as an ometiff.",
 		"edam_ontology_term": "EDAM_1.24.format_3727"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-channelPCA_summary.csv",
-		"description": "top 3 pca componenents and their explained variance in each channel in the image.",
+		"description": "top 3 PCA components and their explained variance in each channel in the image.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
@@ -96,7 +96,7 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusterbyCovarpercell.png",
-		"description": "covariance clusters for cells mapped back into the spatial location of each respective cell.",
+		"description": "covariance clusters for cells (cytoplasm) mapped back into the spatial location of each respective cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
 	},
 	{
@@ -146,7 +146,7 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusterbyTotalpercell.png",
-		"description": "total intensity clusters for cells mapped back into the spatial location of each respective cell.",
+		"description": "total intensity clusters for cells (cytoplasm) mapped back into the spatial location of each respective cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
 	},
 	{
@@ -166,178 +166,173 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_covariance_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell boundary covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_covariance_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell boundary covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_mean_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell boundary mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_mean_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell boundary mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_total_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell boundary total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_boundaries_total_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell boundary total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell boundary total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_cellshape_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell shape cluster.",
+		"description": "largest 3 channel contributions in the image to each cell shape cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_covariance_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each cell covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_covariance_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each cell covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_mean_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_mean_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercells_cellshape_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell shape cluster.",
+		"description": "largest 3 channel contributions in the image to each cell shape cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercells_texture_legend.pdf",
-		"description": "top 3 channel contributions in the image to each texture cluster.",
+		"description": "largest 3 channel contributions in the image to each texture cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_texture_legend.csv",
-		"description": "top 3 channel contributions in the image to each texture cluster.",
+		"description": "largest 3 channel contributions in the image to each texture cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_total_legend.csv",
-		"description": "top 3 channel contributions in the image to each cell total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_total_legend.pdf",
-		"description": "top 3 channel contributions in the image to each cell total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each cell total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clustercell_tSNE_legend.csv",
-		"description": "top 3 channel contributions in the image to each tSNE cluster.",
+		"description": "largest 3 channel contributions in the image to each tSNE cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiffclusteringsilhouetteScores.csv",
-		"description": "silhouette scores of each type of clustering.",
+		"description": "silhouette scores for clustering using different subsets of features.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cluster_meanALLCH_legend.csv",
-		"description": "top 3 channel contributions in the image to each mean intensity of all parts of the segmentation mask (cell, nucleus, cell boundary, nucleus boundary) cluster.",
+		"description": "largest 3 channel contributions in the image to each mean intensity of all parts of the segmentation mask (cell, nucleus, cell boundary, nucleus boundary) cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cluster_meanALLCH_legend.pdf",
-		"description": "top 3 channel contributions in the image to each mean intensity of all parts of the segmentation mask (cell, nucleus, cell boundary, nucleus boundary) cluster.",
+		"description": "largest 3 channel contributions in the image to each mean intensity of all parts of the segmentation mask (cell, nucleus, cell boundary, nucleus boundary) cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_covariance_legend.csv",
-		"description": "top 3 channel contributions in the image to each nuclei covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_covariance_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nuclei covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_mean_legend.csv",
-		"description": "top 3 channel contributions in the image to each nuclei mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_mean_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nuclei mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_total_legend.csv",
-		"description": "top 3 channel contributions in the image to each nuclei total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternuclei_total_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nuclei total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nuclei total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_covariance_legend.csv",
-		"description": "top 3 channel contributions in the image to each nucleus boundary covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_covariance_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nucleus boundary covariance cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary covariance cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_mean_legend.csv",
-		"description": "top 3 channel contributions in the image to each nucleus boundary mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_mean_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nucleus boundary mean intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary mean intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_total_legend.csv",
-		"description": "top 3 channel contributions in the image to each nucleus boundary total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-clusternucleus_boundaries_total_legend.pdf",
-		"description": "top 3 channel contributions in the image to each nucleus boundary total intensity cluster.",
+		"description": "largest 3 channel contributions in the image to each nucleus boundary total intensity cluster.",
 		"edam_ontology_term": "EDAM_1.24.format_3508"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-Cluster_Shape.png",
-		"description": "shape clusters mapped back onto the spatial locations of cells in the image.",
+		"description": "clustering by cell shape mapped back onto the spatial locations of cells in the image.",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_img_binary.png",
-		"description": "foreground and background binarization of the image through evaluation of the segmentation.",
+		"description": "foreground and background binarization of the image (used for evaluation of the segmentation).",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
-	},
-	{
-		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_img_binary.txt.gz",
-		"description": "zipped for",
-		"edam_ontology_term": "EDAM_1.24.data_3671"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nuclei_1_texture.csv",
@@ -346,42 +341,42 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nuclei_channel_covar.csv",
-		"description": "covariance of segmented nuclei for each channel in image.",
+		"description": "covariance of nuclear pixels for all channels for each cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nuclei_channel_mean.csv",
-		"description": "mean intensity of segmented nuclei for each channel in image.",
+		"description": "mean intensity of nuclei for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nuclei_channel_total.csv",
-		"description": "total intensity of segmented nuclei for each channel in image.",
+		"description": "total intensity of nuclei for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nuclei_cluster.csv",
-		"description": "cluster identification for each segmented nucleus.",
+		"description": "cluster identification for each nucleus.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nucleus_boundaries_channel_covar.csv",
-		"description": "covariance of segmented nucleus boundaries for each channel in image.",
+		"description": "covariance of nuclear boundaries pixels for all channels for each cell.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nucleus_boundaries_channel_mean.csv",
-		"description": "mean intensity of segmented nucleus boundaries for each channel in image.",
+		"description": "mean intensity of nuclear boundary pixels for each cell for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nucleus_boundaries_channel_total.csv",
-		"description": "total intensity of segmented nucleus boundaries for each channel in image.",
+		"description": "total intensity of nuclear boundary pixels for each cell for each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-nucleus_boundaries_cluster.csv",
-		"description": "cluster identification of each segmented nucelus boundaries. ",
+		"description": "cluster identification for clustering by nuclear boundaries total intensity.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
@@ -391,27 +386,28 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-SPRM_Image_Quality_Measures.json",
-		"description": "Quality Measures ",
-		"edam_ontology_term": "EDAM_1.24.format_3464"
+		"description": "Image Quality Measures.",
+		"edam_ontology_term": "EDAM_1.24.format_3464",
+		"is_qa_qc": "true"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-superpixel.ome.tiff",
-		"description": "Superpixel data written out as an ome.tiff.",
+		"description": "Clustering of pixels by intensities in each channel written out as an ome.tiff.",
 		"edam_ontology_term": "EDAM_1.24.format_3727"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-Superpixels.png",
-		"description": "Voxel clustering of image pixels to identify classes of pixels.",
+		"description": "Clustering of pixels by intensities of each channel.",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-Top3ChannelPCA.png",
-		"description": "The top 3 PCA contributions to the image.",
+		"description": "Content of the top 3 principal components in each pixel (Red=PC1,Green=PC2,Blue=PC3).",
 		"edam_ontology_term": "EDAM_1.24.format_3603"
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-tSNE_allfeatures.csv",
-		"description": "tSNE 2-Dimesnional projection of high dimensional data of SPRM calculated features.",
+		"description": "tSNE 2-Dimensional projection of all SPRM calculated features.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	}
 ]
