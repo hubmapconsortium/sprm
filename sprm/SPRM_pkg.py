@@ -2886,7 +2886,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
     perplexity = options.get("tSNE_all_perplexity")
-    pcaMethod = options.get("tsne_all_svdsolver4pca")[0]
+    pcaMethod = options.get("tsne_all_svdsolver4pca")[1]
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")[0]
     numComp = options.get("tSNE_num_components")
     for i in range(numComp):
@@ -2953,14 +2953,17 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             init="random",
             random_state=0,
         )
-    elif tSNEInitialization == "pca" and pcaMethod == "randomized":
+    elif tSNEInitialization == "pca" and pcaMethod == "random":
+        matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized", random_state=0).fit_transform(
+            matrix_all_OnlyCell
+        )
         tsne = TSNE(
             n_components=numComp,
             perplexity=perplexity,
             early_exaggeration=early_exaggeration,
             learning_rate=learning_rate,
             n_iter=n_iter,
-            init=pcaMethod,
+            init="random",
             random_state=0,
         )
     else:
