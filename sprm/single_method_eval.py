@@ -329,7 +329,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
-    np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
+    # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
