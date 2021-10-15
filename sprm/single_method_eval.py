@@ -359,7 +359,6 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
             try:
                 matched_fraction = mask_xmldict['OME']['StructuredAnnotations']['XMLAnnotation']['Value']['OriginalMetadata']['Value']
-                print(('matched_fraction ', matched_fraction))
             except:
                 matched_fraction = 1.0
 
