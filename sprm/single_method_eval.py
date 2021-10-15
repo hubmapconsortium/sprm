@@ -1,11 +1,10 @@
 import importlib.resources
 import pickle
 import re
-import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-
+import xmltodict
 import numpy as np
 from PIL import Image
 from pint import Quantity, UnitRegistry
@@ -51,16 +50,16 @@ def foreground_separation(img_thre):
     img_thre = closing(img_thre, disk(1))
 
     img_thre = -img_thre + 1
-    img_thre = closing(img_thre, disk(1))
+    img_thre = closing(img_thre, disk(2))
     img_thre = -img_thre + 1
 
+    img_thre = closing(img_thre, disk(20))
+
+    img_thre = -img_thre + 1
     img_thre = closing(img_thre, disk(10))
-
-    img_thre = -img_thre + 1
-    img_thre = closing(img_thre, disk(10))
     img_thre = -img_thre + 1
 
-    img_thre = area_closing(img_thre, 5000, connectivity=2)
+    img_thre = area_closing(img_thre, 20000, connectivity=2)
     contour_ref = contour_ref.astype(float)
     img_thre = img_thre.astype(float)
     img_binary = MorphGAC(
@@ -305,7 +304,7 @@ def get_quality_score(features, model):
 
 
 def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
-    print("Calculating single-method metrics v1.4 for", img.path)
+    print("Calculating single-method metrics v1.5 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
 
@@ -320,11 +319,23 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
 
     # separate image foreground background
+    try:
+        img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
+        seg_channel_names = img_xmldict['OME']['StructuredAnnotations']['XMLAnnotation']['Value']['OriginalMetadata']['Value']
+        all_channel_names = img.img.get_channel_names()
+        nuclear_channel_index = all_channel_names.index(seg_channel_names['Nucleus'])
+        cell_channel_index = all_channel_names.index(seg_channel_names['Cell'])
+        thresholding_channels = [nuclear_channel_index, cell_channel_index]
+        seg_channel_provided = True
+    except:
+        thresholding_channels = range(img.data.shape[2])
+        seg_channel_provided = False
     img_thresholded = sum(
         thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
-        for c in range(img.data.shape[2])
+        for c in thresholding_channels
     )
-    img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.5)] = 0
+    if not seg_channel_provided:
+        img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
@@ -345,13 +356,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
-            mask_metadata = mask.img.metadata.to_xml()
-            tag = mask_metadata.find("FractionOfMatchedCellsAndNuclei")
-            if tag == -1:
+            mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
+            try:
+                matched_fraction = mask_xmldict['OME']['StructuredAnnotations']['XMLAnnotation']['Value']['OriginalMetadata']['Value']
+                print(('matched_fraction ', matched_fraction))
+            except:
                 matched_fraction = 1.0
-            else:
-                root = ET.fromstring(mask.img.metadata.to_xml())
-                matched_fraction = float(root[1][0][0][0][1].text)
 
             schema_url = get_schema_url(img.img.metadata.root_node)
             pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
