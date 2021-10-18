@@ -4,8 +4,9 @@ import re
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-import xmltodict
+
 import numpy as np
+import xmltodict
 from PIL import Image
 from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
@@ -321,10 +322,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     # separate image foreground background
     try:
         img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
-        seg_channel_names = img_xmldict['OME']['StructuredAnnotations']['XMLAnnotation']['Value']['OriginalMetadata']['Value']
+        seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
+            "OriginalMetadata"
+        ]["Value"]
         all_channel_names = img.img.get_channel_names()
-        nuclear_channel_index = all_channel_names.index(seg_channel_names['Nucleus'])
-        cell_channel_index = all_channel_names.index(seg_channel_names['Cell'])
+        nuclear_channel_index = all_channel_names.index(seg_channel_names["Nucleus"])
+        cell_channel_index = all_channel_names.index(seg_channel_names["Cell"])
         thresholding_channels = [nuclear_channel_index, cell_channel_index]
         seg_channel_provided = True
     except:
@@ -358,7 +361,9 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         if channel_names[channel] == "Matched Cell":
             mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
             try:
-                matched_fraction = mask_xmldict['OME']['StructuredAnnotations']['XMLAnnotation']['Value']['OriginalMetadata']['Value']
+                matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
+                    "Value"
+                ]["OriginalMetadata"]["Value"]
             except:
                 matched_fraction = 1.0
 
