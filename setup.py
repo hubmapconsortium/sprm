@@ -43,6 +43,7 @@ setup(
         "shapely",
         "tables",
         "tifffile==2020.2.16",
+        "xmltodict",
     ],
     python_requires=">=3.8",
     entry_points={
