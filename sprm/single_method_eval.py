@@ -1,8 +1,8 @@
 import importlib.resources
 import pickle
 import re
-from math import prod
 import xml.etree.ElementTree as ET
+from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
