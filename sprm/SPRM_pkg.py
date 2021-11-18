@@ -213,20 +213,20 @@ class NumpyEncoder(json.JSONEncoder):
 
     def default(self, obj):
         if isinstance(
-            obj,
-            (
-                np.int_,
-                np.intc,
-                np.intp,
-                np.int8,
-                np.int16,
-                np.int32,
-                np.int64,
-                np.uint8,
-                np.uint16,
-                np.uint32,
-                np.uint64,
-            ),
+                obj,
+                (
+                        np.int_,
+                        np.intc,
+                        np.intp,
+                        np.int8,
+                        np.int16,
+                        np.int32,
+                        np.int64,
+                        np.uint8,
+                        np.uint16,
+                        np.uint32,
+                        np.uint64,
+                ),
         ):
 
             return int(obj)
@@ -305,11 +305,10 @@ def choose_colormap(a: np.ndarray) -> np.ndarray:
 
 
 def adjust_matplotlib_categorical_cmap(
-    cmap: np.ndarray,
-    zero_color: float = 0.125,
-    zero_alpha: float = 1.0,
+        cmap: np.ndarray,
+        zero_color: float = 0.125,
+        zero_alpha: float = 1.0,
 ) -> np.ndarray:
-
     colors = np.vstack([np.repeat(zero_color, 3), cmap])
     colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
     colors[0, 3] = zero_alpha
@@ -317,8 +316,8 @@ def adjust_matplotlib_categorical_cmap(
 
 
 def save_image(
-    a: np.ndarray,
-    file_path: Union[str, Path],
+        a: np.ndarray,
+        file_path: Union[str, Path],
 ):
     """
     :param a: 2-dimensional NumPy array
@@ -411,7 +410,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
+        cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
@@ -597,12 +596,12 @@ def get_coordinates(mask, options):
 
 
 def cell_graphs(
-    mask: MaskStruct,
-    ROI_coords: List[List[np.ndarray]],
-    inCells: List,
-    fname: str,
-    outputdir: Path,
-    options: Dict,
+        mask: MaskStruct,
+        ROI_coords: List[List[np.ndarray]],
+        inCells: List,
+        fname: str,
+        outputdir: Path,
+        options: Dict,
 ):
     """
     Get cell centers as well as adj list of cells
@@ -629,13 +628,13 @@ def cell_graphs(
 
 
 def adj_cell_list(
-    mask,
-    ROI_coords: List[np.ndarray],
-    cell_center: np.ndarray,
-    inCells: list,
-    fname: str,
-    outputdir: Path,
-    options: Dict,
+        mask,
+        ROI_coords: List[np.ndarray],
+        cell_center: np.ndarray,
+        inCells: list,
+        fname: str,
+        outputdir: Path,
+        options: Dict,
 ):
     """
     Construct adj list of neighboring cells
@@ -713,14 +712,14 @@ def CheckAdjacency(cellCoords_control, cellCoords_cur, cell_centers, thr):
 
 
 def AdjacencyMatrix(
-    mask,
-    cellEdgeList,
-    cell_center: pd.DataFrame,
-    inCells: list,
-    baseoutputfilename,
-    output_dir,
-    options: Dict,
-    window=None,
+        mask,
+        cellEdgeList,
+        cell_center: pd.DataFrame,
+        inCells: list,
+        baseoutputfilename,
+        output_dir,
+        options: Dict,
+        window=None,
 ):
     """
     By: Young Je Lee, Ted Zhang and Matt Ruffalo
@@ -747,15 +746,6 @@ def AdjacencyMatrix(
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
 
-    # cell_center = np.zeros((numCells, 2))
-
-    # for i in range(numCells):
-    #     m = (np.sum(cellEdgeList[i], axis=1) / cellEdgeList[i].shape[1]).astype(int)
-    #     cell_center[i, 0] = m[0]
-    #     cell_center[i, 1] = m[1]
-
-    # for i in range(1, numCells):
-    #     cellGraph[i] = set()
     if window == None:
         delta = 3
     else:
@@ -772,44 +762,19 @@ def AdjacencyMatrix(
             numCells, cellEdgeList, inCells, delta, a, b
         )
 
-    # for i in range(1, numCells):
-    #     # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-    #     xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
-    #         cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
-    #
-    #     xmin = xmin - delta if xmin - delta > 0 else 0
-    #     xmax = xmax + delta + 1 if xmax + delta + 1 < maskImg.shape[0] else maskImg.shape[0]
-    #     ymin = ymin - delta if ymin - delta > 0 else 0
-    #     ymax = ymax + delta + 1 if ymax + delta + 1 < maskImg.shape[1] else maskImg.shape[1]
-    #     tempImg = np.zeros((xmax - xmin, ymax - ymin))
-    #
-    #     tempImg[cellEdgeList[i][0] - xmin, cellEdgeList[i][1] - ymin] = 1
-
     templist = []
     for i in range(len(windowCoords)):
         tempImg = np.zeros((windowSize[i][0], windowSize[i][1]))
         tempImg[windowCoords[i][0, :], windowCoords[i][1, :]] = 1
         templist.append(tempImg)
 
-    # dimglist = list(map(lambda x: binary_dilation(x, selem=window), templist))
-    # dimglist = [binary_dilation(x, selem=window) for x in templist]
     dimglist = [binary_dilation(x, iterations=thr) for x in templist]
-    # maskcrop = list(map(lambda x: maskImg[x[0]:x[1], x[2]:x[3]], windowXY))
-    maskcrop = [maskImg[x[0] : x[1], x[2] : x[3]] for x in windowXY]
-    # nimglist = list(map(lambda x, y: x * y, maskcrop, dimglist))
+    maskcrop = [maskImg[x[0]: x[1], x[2]: x[3]] for x in windowXY]
     nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
-    # cellids = list(map(lambda x: np.unique(x), nimglist))
     cellids = [np.unique(x) for x in nimglist]
     idx = np.arange(1, len(cellids) + 1)
     cellids = [np.delete(x, x <= y) for x, y in zip(cellids, idx)]
-    # cellids = list(map(lambda x, y: np.delete(x, x <= y), cellids, idx))
-    # cellids = list(map(lambda x: x.astype(int), cellids))
-    # dilatedImg = binary_dilation(tempImg, selem=window)
-    # mask_cropped = maskImg[xmin:xmax, ymin:ymax]
-    # print('tempimg:',np.shape(tempImg),'cropped:',np.shape(mask_cropped))
-    # multipliedImg = mask_cropped * dilatedImg
-    # cellids = np.unique(multipliedImg)
-    # cellids = np.delete(cellids, cellids <= i)
+
     for i in range(len(cellids)):
         if cellids[i].size == 0:
             continue
@@ -846,6 +811,7 @@ def AdjacencyMatrix(
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
         for i in range(numCells):
             print(i, file=f)
+
     # return adjacencyMatrix
 
 
@@ -965,8 +931,8 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
             for j, neighbor_coord in neighbors.iterrows():
                 lines.append([cell_coord, neighbor_coord])
 
-                dist = adjacencyMatrix[i, j]
-                gap = (neighbor_coord - cell_coord) / 2
+                # dist = adjacencyMatrix[i, j]
+                # gap = (neighbor_coord - cell_coord) / 2
                 # ax.text(
                 #     cell_coord[0] + gap[0],
                 #     cell_coord[1] + gap[1],
@@ -1047,7 +1013,7 @@ def get_df_format(sub_matrix, s: str, img: IMGstruct, options: Dict) -> (List[st
 
 
 def write_2_file(
-    sub_matrix, s: str, img: IMGstruct, output_dir: Path, cellidx: list, options: Dict
+        sub_matrix, s: str, img: IMGstruct, output_dir: Path, cellidx: list, options: Dict
 ):
     header, sub_matrix = get_df_format(sub_matrix, s, img, options)
     write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
@@ -1092,7 +1058,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
 
 def write_cell_polygs(
-    polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict
+        polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict
 ):
     coord_pairs = []
     for i in range(0, len(polyg_list)):
@@ -1110,11 +1076,11 @@ def write_cell_polygs(
 
 
 def build_matrix(
-    im: IMGstruct,
-    mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
-    j: int,
-    omatrix: np.ndarray,
+        im: IMGstruct,
+        mask: MaskStruct,
+        masked_imgs_coord: List[np.ndarray],
+        j: int,
+        omatrix: np.ndarray,
 ) -> np.ndarray:
     if j == 0:
         return np.zeros(
@@ -1131,11 +1097,11 @@ def build_matrix(
 
 
 def build_vector(
-    im: IMGstruct,
-    mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
-    j: int,
-    omatrix: np.ndarray,
+        im: IMGstruct,
+        mask: MaskStruct,
+        masked_imgs_coord: List[np.ndarray],
+        j: int,
+        omatrix: np.ndarray,
 ) -> np.ndarray:
     if j == 0:
         return np.zeros(
@@ -1152,7 +1118,7 @@ def build_vector(
 
 
 def clusterchannels(
-    im: IMGstruct, fname: str, output_dir: Path, inCells: list, options: Dict
+        im: IMGstruct, fname: str, output_dir: Path, inCells: list, options: Dict
 ) -> np.ndarray:
     """
     cluster all channels using PCA
@@ -1160,7 +1126,7 @@ def clusterchannels(
     print("Dimensionality Reduction of image channels...")
     if options.get("debug"):
         print("Image dimensions before reduction: ", im.get_data().shape)
-    pca_channels = PCA(n_components=options.get("num_channelPCA_components"), svd_solver="full")
+    pca_channels = PCA(n_components=options.get("num_channelPCA_components"))
     channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
@@ -1170,15 +1136,17 @@ def clusterchannels(
     if options.get("debug"):
         print(channvals.shape)
 
-    try:
-        reducedim = pca_channels.fit_transform(channvals)
-    except ValueError:
-        print("Array size is too large. Reducing sample space...")
-        n_samples = int(channvals.shape[0] / 2)
-        idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
-        reduced_channvals = channvals[idx, :]
-        pca_channels.fit(reduced_channvals)
-        reducedim = pca_channels.transform(channvals)
+    while True:
+        try:
+            reducedim = pca_channels.fit_transform(channvals)
+            break
+        except ValueError:
+            print("Array size is too large. Reducing sample space...")
+            n_samples = int(channvals.shape[0] / 2)
+            idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
+            channvals = channvals[idx, :]
+            # pca_channels.fit(reduced_channvals)
+            # reducedim = pca_channels.transform(channvals)
 
     if options.get("debug"):
         print("PCA Channels:", pca_channels, sep="\n")
@@ -1201,7 +1169,7 @@ def clusterchannels(
 
 
 def plotprincomp(
-    reducedim: np.ndarray, bestz: int, filename: str, output_dir: Path, options: Dict
+        reducedim: np.ndarray, bestz: int, filename: str, output_dir: Path, options: Dict
 ) -> np.ndarray:
     print("Plotting PCA image...")
     reducedim = reducedim[:, bestz, :, :]
@@ -1484,7 +1452,7 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
 
 
 def matchNShow_markers(
-    clustercenters: np.ndarray, markerlist: List, features: List[str], options: Dict
+        clustercenters: np.ndarray, markerlist: List, features: List[str], options: Dict
 ) -> (Any, List[str]):
     """
     get the markers to indicate what the respective clusters represent
@@ -1529,7 +1497,7 @@ def check_file_exist(paths: Path):
 
 
 def cell_cluster_IDs(
-    filename: str, output_dir: Path, i: int, maskchs: list, inCells: list, options: Dict, *argv
+        filename: str, output_dir: Path, i: int, maskchs: list, inCells: list, options: Dict, *argv
 ):
     allClusters = argv[0]
     for idx in range(1, len(argv)):
@@ -1585,7 +1553,6 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-
     plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
@@ -1604,16 +1571,16 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
 
 
 def make_legends(
-    feature_names,
-    feature_covar,
-    feature_meanall,
-    filename: str,
-    output_dir: Path,
-    i: int,
-    maskchn: List,
-    inCells: list,
-    options: Dict,
-    *argv
+        feature_names,
+        feature_covar,
+        feature_meanall,
+        filename: str,
+        output_dir: Path,
+        i: int,
+        maskchn: List,
+        inCells: list,
+        options: Dict,
+        *argv
 ):
     # make legend once
     if i == 0:
@@ -1753,13 +1720,13 @@ def make_legends(
 
 
 def save_all(
-    filename: str,
-    im: IMGstruct,
-    mask: MaskStruct,
-    output_dir: Path,
-    cellidx: list,
-    options: Dict,
-    *argv
+        filename: str,
+        im: IMGstruct,
+        mask: MaskStruct,
+        output_dir: Path,
+        cellidx: list,
+        options: Dict,
+        *argv
 ):
     # hard coded for now
     print("Writing to csv all matrices...")
@@ -1809,15 +1776,15 @@ def save_all(
 
 
 def cell_analysis(
-    im: IMGstruct,
-    mask: MaskStruct,
-    filename: str,
-    bestz: int,
-    output_dir: Path,
-    seg_n: int,
-    cellidx: list,
-    options: Dict,
-    *argv
+        im: IMGstruct,
+        mask: MaskStruct,
+        filename: str,
+        bestz: int,
+        output_dir: Path,
+        seg_n: int,
+        cellidx: list,
+        options: Dict,
+        *argv
 ):
     """
     cluster and statisical analysis done on cell:
@@ -2219,13 +2186,13 @@ def find_cytoplasm(ROI_coords):
 
 
 def quality_measures(
-    im_list: List[IMGstruct],
-    mask_list: List[MaskStruct],
-    seg_metric_list: List[Dict[str, Any]],
-    cell_total: List[int],
-    img_files: List[Path],
-    output_dir: Path,
-    options: Dict[str, Any],
+        im_list: List[IMGstruct],
+        mask_list: List[MaskStruct],
+        seg_metric_list: List[Dict[str, Any]],
+        cell_total: List[int],
+        img_files: List[Path],
+        output_dir: Path,
+        options: Dict[str, Any],
 ):
     """
     Quality Measurements for SPRM analysis
@@ -2310,9 +2277,9 @@ def quality_measures(
         # nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
         nuc_cell_avgR = total_intensity_nuclei_per_chan / total_intensity_per_chancell
         cell_bg_avgR = (
-            total_intensity_per_chancell
-            / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total[i]
+                total_intensity_per_chancell
+                / (total_intensity_per_chanbg / bgpixels.shape[1])
+                / cell_total[i]
         )
 
         # read in silhouette scores
@@ -2429,8 +2396,8 @@ def check_shape(im, mask):
     # put in check here for matching dims
 
     return (
-        im.get_data().shape[4] != mask.get_data().shape[4]
-        or im.get_data().shape[5] != mask.get_data().shape[5]
+            im.get_data().shape[4] != mask.get_data().shape[4]
+            or im.get_data().shape[5] != mask.get_data().shape[5]
     )
 
 
@@ -2695,14 +2662,14 @@ def find_edge_cells(mask):
 
 
 def glcm(
-    im,
-    mask,
-    output_dir,
-    filename,
-    options,
-    angle,
-    distances,
-    ROI_coords,
+        im,
+        mask,
+        output_dir,
+        filename,
+        options,
+        angle,
+        distances,
+        ROI_coords,
 ):
     """
     By: Young Je Lee and Ted Zhang
@@ -2721,7 +2688,7 @@ def glcm(
     # get headers
     channel_labels = im.get_channel_labels().copy() * len(distances) * len(colIndex) * 2
     maskn = (
-        mask.get_channel_labels()[0:2] * im.get_data().shape[2] * len(distances) * len(colIndex)
+            mask.get_channel_labels()[0:2] * im.get_data().shape[2] * len(distances) * len(colIndex)
     )
     maskn.sort()
     cols = colIndex * im.get_data().shape[2] * len(distances) * 2
@@ -2803,8 +2770,8 @@ def glcm(
                         img, [distances[d]], [angle], levels=256
                     )  # Calculate GLCM
                     result = result[
-                        1:, 1:
-                    ]  # Remove background influence by delete first row & column
+                             1:, 1:
+                             ]  # Remove background influence by delete first row & column
 
                     for ls in range(len(colIndex)):  # Get properties
                         texture_all[i, idx, j, d + ls] = greycoprops(
@@ -2886,7 +2853,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
     perplexity = options.get("tSNE_all_perplexity")
-    pcaMethod = options.get("tsne_all_svdsolver4pca")[1]
+    pcaMethod = options.get("tsne_all_svdsolver4pca")[0]
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")[0]
     numComp = options.get("tSNE_num_components")
     for i in range(numComp):
@@ -2914,8 +2881,8 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
         matrix_all_OnlyCell = stats.zscore(matrix_all_OnlyCell, axis=0)
         matrix_all_OnlyCell = np.array(matrix_all_OnlyCell)
         matrix_all_OnlyCell = matrix_all_OnlyCell[
-            :, ~np.isnan(matrix_all_OnlyCell).any(axis=0)
-        ]  # Remove NAN
+                              :, ~np.isnan(matrix_all_OnlyCell).any(axis=0)
+                              ]  # Remove NAN
 
     elif cmd == "blockwise_zscore":
         matrix_mean = BlockwiseZscore(matrix_mean)
@@ -2941,9 +2908,15 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             random_state=0,
         )
     elif tSNEInitialization == "pca" and pcaMethod == "full":
-        matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
-            matrix_all_OnlyCell
-        )
+        try:
+            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
+                matrix_all_OnlyCell
+            )
+        except ValueError:
+            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
+                matrix_all_OnlyCell
+            )
+
         tsne = TSNE(
             n_components=numComp,
             perplexity=perplexity,
