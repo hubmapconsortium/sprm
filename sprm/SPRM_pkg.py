@@ -2928,9 +2928,9 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             random_state=0,
         )
     elif tSNEInitialization == "pca" and pcaMethod == "random":
-        matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized", random_state=0).fit_transform(
-            matrix_all_OnlyCell
-        )
+        matrix_all_OnlyCell = PCA(
+            n_components=numComp, svd_solver="randomized", random_state=0
+        ).fit_transform(matrix_all_OnlyCell)
         tsne = TSNE(
             n_components=numComp,
             perplexity=perplexity,
