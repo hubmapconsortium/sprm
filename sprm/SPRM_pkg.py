@@ -1136,6 +1136,7 @@ def clusterchannels(
     if options.get("debug"):
         print(channvals.shape)
 
+    channvals_full = channvals
     while True:
         try:
             reducedim = pca_channels.fit_transform(channvals)
@@ -1143,8 +1144,8 @@ def clusterchannels(
         except ValueError:
             print("Array size is too large. Reducing sample space...")
             n_samples = int(channvals.shape[0] / 2)
-            idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
-            channvals = channvals[idx, :]
+            idx = np.random.choice(channvals_full.shape[0], n_samples, replace=False)
+            channvals = channvals_full[idx, :]
             # pca_channels.fit(reduced_channvals)
             # reducedim = pca_channels.transform(channvals)
 
