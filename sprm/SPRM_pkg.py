@@ -764,16 +764,16 @@ def AdjacencyMatrix(
 
     templist = []
     for i in range(len(windowCoords)):
-        tempImg = np.zeros((windowSize[i][0], windowSize[i][1]))
-        tempImg[windowCoords[i][0, :], windowCoords[i][1, :]] = 1
+        tempImg = np.zeros((windowSize[i][1], windowSize[i][0]))
+        tempImg[windowCoords[i][1, :], windowCoords[i][0, :]] = 1
         templist.append(tempImg)
 
     dimglist = [binary_dilation(x, iterations=thr) for x in templist]
-    maskcrop = [maskImg[x[0]: x[1], x[2]: x[3]] for x in windowXY]
+    maskcrop = [maskImg[x[2]: x[3], x[0]: x[1]] for x in windowXY]
     nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
-    cellids = [np.unique(x) for x in nimglist]
+    cellids = [np.unique(x)[1:] for x in nimglist]
     idx = np.arange(1, len(cellids) + 1)
-    cellids = [np.delete(x, x <= y) for x, y in zip(cellids, idx)]
+    cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
 
     for i in range(len(cellids)):
         if cellids[i].size == 0:
@@ -826,10 +826,10 @@ def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
         #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
 
         xmin, xmax, ymin, ymax = (
-            np.min(cellEdgeList[i][0]),
-            np.max(cellEdgeList[i][0]),
             np.min(cellEdgeList[i][1]),
             np.max(cellEdgeList[i][1]),
+            np.min(cellEdgeList[i][0]),
+            np.max(cellEdgeList[i][0]),
         )
 
         xmin = xmin - delta if xmin - delta > 0 else 0
@@ -844,8 +844,8 @@ def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
         y = ymax - ymin
         c = np.array([x, y])
 
-        temp1 = cellEdgeList[i][0] - xmin
-        temp2 = cellEdgeList[i][1] - ymin
+        temp1 = cellEdgeList[i][1] - xmin
+        temp2 = cellEdgeList[i][0] - ymin
 
         temp = np.stack((temp1, temp2))
         windowCoords.append(temp)
