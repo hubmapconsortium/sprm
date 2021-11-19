@@ -747,12 +747,12 @@ def AdjacencyMatrix(
     cellGraph = defaultdict(set)
 
     if window == None:
-        delta = 3
+        delta = options.get('adj_matrix_delta')
     else:
-        delta = len(window) + 3
+        delta = len(window) + options.get('adj_matrix_delta')
     maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-    a = maskImg.shape[0]
-    b = maskImg.shape[1]
+    a = maskImg.shape[1]
+    b = maskImg.shape[0]
 
     if paraopt == 1:
         cel = nbList(cellEdgeList)
