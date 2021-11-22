@@ -921,7 +921,7 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
     cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
-    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], "o")
+    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], ',')
     plt.title("Cell Adjacency Graph, distance <" + str(thr))
     for i, cell_coord in cell_center.iterrows():
         idx = list(cellGraph[i])
