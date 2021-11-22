@@ -32,4 +32,4 @@ cell_adj_dilation_itr 3
 sprm_segeval_both 2
 tSNE_texture_calculation_skip 1
 tSNE_num_components 2
-adj_matrix_delta 50
+adj_matrix_delta 250
