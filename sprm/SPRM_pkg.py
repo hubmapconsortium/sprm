@@ -309,7 +309,6 @@ def adjust_matplotlib_categorical_cmap(
     zero_color: float = 0.125,
     zero_alpha: float = 1.0,
 ) -> np.ndarray:
-
     colors = np.vstack([np.repeat(zero_color, 3), cmap])
     colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
     colors[0, 3] = zero_alpha
@@ -747,22 +746,13 @@ def AdjacencyMatrix(
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
 
-    # cell_center = np.zeros((numCells, 2))
-
-    # for i in range(numCells):
-    #     m = (np.sum(cellEdgeList[i], axis=1) / cellEdgeList[i].shape[1]).astype(int)
-    #     cell_center[i, 0] = m[0]
-    #     cell_center[i, 1] = m[1]
-
-    # for i in range(1, numCells):
-    #     cellGraph[i] = set()
     if window == None:
-        delta = 3
+        delta = options.get("adj_matrix_delta")
     else:
-        delta = len(window) + 3
+        delta = len(window) + options.get("adj_matrix_delta")
     maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-    a = maskImg.shape[0]
-    b = maskImg.shape[1]
+    a = maskImg.shape[1]
+    b = maskImg.shape[0]
 
     if paraopt == 1:
         cel = nbList(cellEdgeList)
@@ -772,44 +762,19 @@ def AdjacencyMatrix(
             numCells, cellEdgeList, inCells, delta, a, b
         )
 
-    # for i in range(1, numCells):
-    #     # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-    #     xmin, xmax, ymin, ymax = np.min(cellEdgeList[i][0]), np.max(cellEdgeList[i][0]), np.min(
-    #         cellEdgeList[i][1]), np.max(cellEdgeList[i][1])
-    #
-    #     xmin = xmin - delta if xmin - delta > 0 else 0
-    #     xmax = xmax + delta + 1 if xmax + delta + 1 < maskImg.shape[0] else maskImg.shape[0]
-    #     ymin = ymin - delta if ymin - delta > 0 else 0
-    #     ymax = ymax + delta + 1 if ymax + delta + 1 < maskImg.shape[1] else maskImg.shape[1]
-    #     tempImg = np.zeros((xmax - xmin, ymax - ymin))
-    #
-    #     tempImg[cellEdgeList[i][0] - xmin, cellEdgeList[i][1] - ymin] = 1
-
     templist = []
     for i in range(len(windowCoords)):
-        tempImg = np.zeros((windowSize[i][0], windowSize[i][1]))
-        tempImg[windowCoords[i][0, :], windowCoords[i][1, :]] = 1
+        tempImg = np.zeros((windowSize[i][1], windowSize[i][0]))
+        tempImg[windowCoords[i][1, :], windowCoords[i][0, :]] = 1
         templist.append(tempImg)
 
-    # dimglist = list(map(lambda x: binary_dilation(x, selem=window), templist))
-    # dimglist = [binary_dilation(x, selem=window) for x in templist]
     dimglist = [binary_dilation(x, iterations=thr) for x in templist]
-    # maskcrop = list(map(lambda x: maskImg[x[0]:x[1], x[2]:x[3]], windowXY))
-    maskcrop = [maskImg[x[0] : x[1], x[2] : x[3]] for x in windowXY]
-    # nimglist = list(map(lambda x, y: x * y, maskcrop, dimglist))
+    maskcrop = [maskImg[x[2] : x[3], x[0] : x[1]] for x in windowXY]
     nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
-    # cellids = list(map(lambda x: np.unique(x), nimglist))
-    cellids = [np.unique(x) for x in nimglist]
+    cellids = [np.unique(x)[1:] for x in nimglist]
     idx = np.arange(1, len(cellids) + 1)
-    cellids = [np.delete(x, x <= y) for x, y in zip(cellids, idx)]
-    # cellids = list(map(lambda x, y: np.delete(x, x <= y), cellids, idx))
-    # cellids = list(map(lambda x: x.astype(int), cellids))
-    # dilatedImg = binary_dilation(tempImg, selem=window)
-    # mask_cropped = maskImg[xmin:xmax, ymin:ymax]
-    # print('tempimg:',np.shape(tempImg),'cropped:',np.shape(mask_cropped))
-    # multipliedImg = mask_cropped * dilatedImg
-    # cellids = np.unique(multipliedImg)
-    # cellids = np.delete(cellids, cellids <= i)
+    cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
+
     for i in range(len(cellids)):
         if cellids[i].size == 0:
             continue
@@ -846,6 +811,7 @@ def AdjacencyMatrix(
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
         for i in range(numCells):
             print(i, file=f)
+
     # return adjacencyMatrix
 
 
@@ -860,10 +826,10 @@ def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
         #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
 
         xmin, xmax, ymin, ymax = (
-            np.min(cellEdgeList[i][0]),
-            np.max(cellEdgeList[i][0]),
             np.min(cellEdgeList[i][1]),
             np.max(cellEdgeList[i][1]),
+            np.min(cellEdgeList[i][0]),
+            np.max(cellEdgeList[i][0]),
         )
 
         xmin = xmin - delta if xmin - delta > 0 else 0
@@ -878,8 +844,8 @@ def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
         y = ymax - ymin
         c = np.array([x, y])
 
-        temp1 = cellEdgeList[i][0] - xmin
-        temp2 = cellEdgeList[i][1] - ymin
+        temp1 = cellEdgeList[i][1] - xmin
+        temp2 = cellEdgeList[i][0] - ymin
 
         temp = np.stack((temp1, temp2))
         windowCoords.append(temp)
@@ -955,7 +921,7 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
     cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
-    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], "o")
+    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], ",")
     plt.title("Cell Adjacency Graph, distance <" + str(thr))
     for i, cell_coord in cell_center.iterrows():
         idx = list(cellGraph[i])
@@ -965,8 +931,8 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
             for j, neighbor_coord in neighbors.iterrows():
                 lines.append([cell_coord, neighbor_coord])
 
-                dist = adjacencyMatrix[i, j]
-                gap = (neighbor_coord - cell_coord) / 2
+                # dist = adjacencyMatrix[i, j]
+                # gap = (neighbor_coord - cell_coord) / 2
                 # ax.text(
                 #     cell_coord[0] + gap[0],
                 #     cell_coord[1] + gap[1],
@@ -1160,7 +1126,7 @@ def clusterchannels(
     print("Dimensionality Reduction of image channels...")
     if options.get("debug"):
         print("Image dimensions before reduction: ", im.get_data().shape)
-    pca_channels = PCA(n_components=options.get("num_channelPCA_components"), svd_solver="full")
+    pca_channels = PCA(n_components=options.get("num_channelPCA_components"))
     channvals = im.get_data()[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
@@ -1170,15 +1136,18 @@ def clusterchannels(
     if options.get("debug"):
         print(channvals.shape)
 
-    try:
-        reducedim = pca_channels.fit_transform(channvals)
-    except ValueError:
-        print("Array size is too large. Reducing sample space...")
-        n_samples = int(channvals.shape[0] / 2)
-        idx = np.random.choice(channvals.shape[0], n_samples, replace=False)
-        reduced_channvals = channvals[idx, :]
-        pca_channels.fit(reduced_channvals)
-        reducedim = pca_channels.transform(channvals)
+    channvals_full = channvals
+    while True:
+        try:
+            reducedim = pca_channels.fit_transform(channvals)
+            break
+        except ValueError:
+            print("Array size is too large. Reducing sample space...")
+            n_samples = int(channvals.shape[0] / 2)
+            idx = np.random.choice(channvals_full.shape[0], n_samples, replace=False)
+            channvals = channvals_full[idx, :]
+            # pca_channels.fit(reduced_channvals)
+            # reducedim = pca_channels.transform(channvals)
 
     if options.get("debug"):
         print("PCA Channels:", pca_channels, sep="\n")
@@ -1585,7 +1554,6 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-
     plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
     plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
@@ -2886,7 +2854,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
     perplexity = options.get("tSNE_all_perplexity")
-    pcaMethod = options.get("tsne_all_svdsolver4pca")[1]
+    pcaMethod = options.get("tsne_all_svdsolver4pca")[0]
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")[0]
     numComp = options.get("tSNE_num_components")
     for i in range(numComp):
@@ -2941,9 +2909,15 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             random_state=0,
         )
     elif tSNEInitialization == "pca" and pcaMethod == "full":
-        matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
-            matrix_all_OnlyCell
-        )
+        try:
+            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
+                matrix_all_OnlyCell
+            )
+        except ValueError:
+            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
+                matrix_all_OnlyCell
+            )
+
         tsne = TSNE(
             n_components=numComp,
             perplexity=perplexity,
