@@ -1153,6 +1153,7 @@ def clusterchannels(
                 n_samples = int(channvals.shape[0] / 2)
                 idx = np.random.choice(channvals_full.shape[0],  n_samples, replace=False)
                 channvals = channvals_full[idx, :]
+                keepshape = channvals.shape
                 # pca_channels.fit(reduced_channvals)
                 # reducedim = pca_channels.transform(channvals)
 
