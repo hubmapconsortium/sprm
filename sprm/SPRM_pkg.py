@@ -921,7 +921,7 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
     cell_center = pd.DataFrame(cell_center)
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
-    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], "o")
+    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], ",")
     plt.title("Cell Adjacency Graph, distance <" + str(thr))
     for i, cell_coord in cell_center.iterrows():
         idx = list(cellGraph[i])
@@ -1137,17 +1137,24 @@ def clusterchannels(
         print(channvals.shape)
 
     channvals_full = channvals
+    tries = 0
     while True:
         try:
             reducedim = pca_channels.fit_transform(channvals)
             break
-        except ValueError:
-            print("Array size is too large. Reducing sample space...")
-            n_samples = int(channvals.shape[0] / 2)
-            idx = np.random.choice(channvals_full.shape[0], n_samples, replace=False)
-            channvals = channvals_full[idx, :]
-            # pca_channels.fit(reduced_channvals)
-            # reducedim = pca_channels.transform(channvals)
+        except Exception as e:
+            print(e)
+            print('Error times: ', tries)
+            if tries == 0:
+                pca_channels = PCA(n_components=options.get("num_channelPCA_components"), svd_solver='randomized')
+                tries += 1
+            else:
+                print('halving the dataset...')
+                n_samples = int(channvals.shape[0] / 2)
+                idx = np.random.choice(channvals_full.shape[0],  n_samples, replace=False)
+                channvals = channvals_full[idx, :]
+                # pca_channels.fit(reduced_channvals)
+                # reducedim = pca_channels.transform(channvals)
 
     if options.get("debug"):
         print("PCA Channels:", pca_channels, sep="\n")
