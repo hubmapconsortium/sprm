@@ -1140,7 +1140,7 @@ def clusterchannels(
     tries = 0
     while True:
         try:
-            reducedim = pca_channels.fit_transform(channvals)
+            m = pca_channels.fit(channvals)
             break
         except Exception as e:
             print(e)
@@ -1153,10 +1153,13 @@ def clusterchannels(
                 n_samples = int(channvals.shape[0] / 2)
                 idx = np.random.choice(channvals_full.shape[0],  n_samples, replace=False)
                 channvals = channvals_full[idx, :]
-                keepshape = channvals.shape
+                # keepshape[1] = int(keepshape[1]/2) + 1
+                # keepshape[2] = keepshape[2]/2
+                # keepshape[3] = keepshape[3]/2
                 # pca_channels.fit(reduced_channvals)
                 # reducedim = pca_channels.transform(channvals)
 
+    reducedim = m.transform(channvals_full)
     if options.get("debug"):
         print("PCA Channels:", pca_channels, sep="\n")
         print("Explained variance ratio: ", pca_channels.explained_variance_ratio_)
