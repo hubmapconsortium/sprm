@@ -24,8 +24,8 @@ skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore
 tSNE_all_perplexity 35
-tSNE_all_tSNEInitialization pca random
-tsne_all_svdsolver4pca full random
+tSNE_all_tSNEInitialization pca
+tsne_all_svdsolver4pca full
 cell_adj_parallel 0
 cell_graph 1
 cell_adj_dilation_itr 3

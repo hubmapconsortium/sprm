@@ -1136,7 +1136,7 @@ def clusterchannels(
     if options.get("debug"):
         print(channvals.shape)
 
-    channvals_full = channvals
+    channvals_full = channvals.copy()
     tries = 0
     while True:
         try:
@@ -1144,7 +1144,7 @@ def clusterchannels(
             break
         except Exception as e:
             print(e)
-            print('Error times: ', tries)
+            print('Exceptions caught: ', tries)
             if tries == 0:
                 pca_channels = PCA(n_components=options.get("num_channelPCA_components"), svd_solver='randomized')
                 tries += 1
@@ -2865,8 +2865,8 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
     perplexity = options.get("tSNE_all_perplexity")
-    pcaMethod = options.get("tsne_all_svdsolver4pca")[0]
-    tSNEInitialization = options.get("tSNE_all_tSNEInitialization")[0]
+    pcaMethod = options.get("tsne_all_svdsolver4pca")
+    tSNEInitialization = options.get("tSNE_all_tSNEInitialization")
     numComp = options.get("tSNE_num_components")
     for i in range(numComp):
         tSNE_allfeatures_headers.append(str(i) + "th PC")
@@ -2908,52 +2908,100 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             axis=1,
         )
 
+    matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # tol
-    if tSNEInitialization == "random":
-        tsne = TSNE(
-            n_components=numComp,
-            perplexity=perplexity,
-            early_exaggeration=early_exaggeration,
-            learning_rate=learning_rate,
-            n_iter=n_iter,
-            init=tSNEInitialization,
-            random_state=0,
-        )
-    elif tSNEInitialization == "pca" and pcaMethod == "full":
-        try:
-            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
-                matrix_all_OnlyCell
-            )
-        except ValueError:
-            matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
-                matrix_all_OnlyCell
-            )
+    if tSNEInitialization == 'pca':
+        #try to solve full svd
+        tries = 0
+        while True:
+            try:
+                m = PCA(n_components=numComp, svd_solver=pcaMethod).fit(matrix_all_OnlyCell)
+                break
+            except Exception as e:
+                print(e)
+                print('Exceptions caught: ', tries)
+                if tries == 0:
+                    m = PCA(n_components=numComp, svd_solver='randomized').fit(matrix_all_OnlyCell)
+                    tries += 1
+                else:
+                    print('halving the features in tSNE for PCA fit...')
+                    n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
+                    idx = np.random.choice(matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
+                    matrix_all_OnlyCell = matrix_all_OnlyCell_full[idx, :]
 
-        tsne = TSNE(
-            n_components=numComp,
-            perplexity=perplexity,
-            early_exaggeration=early_exaggeration,
-            learning_rate=learning_rate,
-            n_iter=n_iter,
-            init="random",
-            random_state=0,
-        )
-    elif tSNEInitialization == "pca" and pcaMethod == "random":
-        matrix_all_OnlyCell = PCA(
-            n_components=numComp, svd_solver="randomized", random_state=0
-        ).fit_transform(matrix_all_OnlyCell)
-        tsne = TSNE(
-            n_components=numComp,
-            perplexity=perplexity,
-            early_exaggeration=early_exaggeration,
-            learning_rate=learning_rate,
-            n_iter=n_iter,
-            init="random",
-            random_state=0,
-        )
-    else:
-        print("Error in arguments for tSNE_all")
-    tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
+        matrix_all_OnlyCell = m.transform(matrix_all_OnlyCell_full)
+
+    t_matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
+    #init tSNE
+    tsne = TSNE(
+        n_components=numComp,
+        perplexity=perplexity,
+        early_exaggeration=early_exaggeration,
+        learning_rate=learning_rate,
+        n_iter=n_iter,
+        init=tSNEInitialization,
+        random_state=0,
+    )
+
+
+    while True:
+        try:
+            t = tsne.fit(matrix_all_OnlyCell)
+            break
+        except Exception as e:
+            print(e)
+            print('halving dataset in tSNE for tSNE fit...')
+            n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
+            idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
+            matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
+
+    tsne_all_OnlyCell = t.transform(matrix_all_OnlyCell)
+
+    # if tSNEInitialization == "random":
+    #     tsne = TSNE(
+    #         n_components=numComp,
+    #         perplexity=perplexity,
+    #         early_exaggeration=early_exaggeration,
+    #         learning_rate=learning_rate,
+    #         n_iter=n_iter,
+    #         init=tSNEInitialization,
+    #         random_state=0,
+    #     )
+    # elif tSNEInitialization == "pca" and pcaMethod == "full":
+    #     try:
+    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
+    #             matrix_all_OnlyCell
+    #         )
+    #     except ValueError:
+    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
+    #             matrix_all_OnlyCell
+    #         )
+    #
+    #     tsne = TSNE(
+    #         n_components=numComp,
+    #         perplexity=perplexity,
+    #         early_exaggeration=early_exaggeration,
+    #         learning_rate=learning_rate,
+    #         n_iter=n_iter,
+    #         init="random",
+    #         random_state=0,
+    #     )
+    # elif tSNEInitialization == "pca" and pcaMethod == "random":
+    #     matrix_all_OnlyCell = PCA(
+    #         n_components=numComp, svd_solver="randomized", random_state=0
+    #     ).fit_transform(matrix_all_OnlyCell)
+    #     tsne = TSNE(
+    #         n_components=numComp,
+    #         perplexity=perplexity,
+    #         early_exaggeration=early_exaggeration,
+    #         learning_rate=learning_rate,
+    #         n_iter=n_iter,
+    #         init="random",
+    #         random_state=0,
+    #     )
+    # else:
+    #     print("Error in arguments for tSNE_all")
+    # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
     # 2D - Scatterplot
     # tsne2D = tsne_all_OnlyCell[:, 0:2]
