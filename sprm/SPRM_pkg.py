@@ -2946,7 +2946,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     while True:
         try:
-            t = tsne.fit(matrix_all_OnlyCell)
+            tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
             break
         except Exception as e:
             print(e)
@@ -2954,8 +2954,6 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
             idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
             matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
-
-    tsne_all_OnlyCell = t.transform(matrix_all_OnlyCell)
 
     # if tSNEInitialization == "random":
     #     tsne = TSNE(
