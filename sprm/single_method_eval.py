@@ -108,7 +108,7 @@ def foreground_uniformity(img_bi, mask, channels):
         try:
             foreground_loc_sampled = foreground_loc[
                 np.random.randint(
-	                foreground_pixel_num,
+                    foreground_pixel_num,
                     size=round(foreground_pixel_num * foreground_loc_fraction),
                 ),
                 :,
