@@ -102,7 +102,21 @@ def uniformity_fraction(loc, channels) -> float:
 def foreground_uniformity(img_bi, mask, channels):
     foreground_loc = np.argwhere((img_bi - mask) == 1)
     CV = uniformity_CV(foreground_loc, channels)
-    fraction = uniformity_fraction(foreground_loc, channels)
+    foreground_pixel_num = foreground_loc.shape[0]
+    foreground_loc_fraction = 1
+    while foreground_loc_fraction > 0:
+        try:
+            foreground_loc_sampled = foreground_loc[
+                np.random.randint(
+	                foreground_pixel_num,
+                    size=round(foreground_pixel_num * foreground_loc_fraction),
+                ),
+                :,
+            ]
+            fraction = uniformity_fraction(foreground_loc_sampled, channels)
+            break
+        except:
+            foreground_loc_fraction = foreground_loc_fraction / 2
     return CV, fraction
 
 
