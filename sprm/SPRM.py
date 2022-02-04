@@ -262,7 +262,7 @@ def main(
             # get normalized shape representation of each cell
             if not options.get("skip_outlinePCA"):
                 outline_vectors, cell_polygons = getparametricoutline(
-                    mask, seg_n, ROI_coords, options
+                    mask, seg_n, ROI_coords, baseoutputfilename, options
                 )
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get("debug"):
@@ -270,7 +270,14 @@ def main(
                     bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
                     pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
-                write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
+                write_cell_polygs(
+                    cell_polygons,
+                    outline_vectors,
+                    cellidx,
+                    baseoutputfilename,
+                    output_dir,
+                    options,
+                )
             else:
                 print("Skipping outlinePCA...")
             # loop of types of segmentation (channels in the mask img)
