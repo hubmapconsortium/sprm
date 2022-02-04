@@ -88,17 +88,27 @@ class IMGstruct:
         return img
 
     def read_data(self, options):
-        data = self.img.data[:, :, :, :, :, :]
+        data = self.img.data
         dims = data.shape
-        s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
-        if t > 1:
-            data = data.reshape((s, 1, t * c, z, y, x))
+
+        if dims == 6:
+            s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
+            if t > 1:
+                data = data.reshape((s, 1, t * c, z, y, x))
+
+        elif dims == 5:
+            t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+            if t > 1:
+                data = data.reshape((1, t * c, z, y, x))
+
+            data = data[np.newaxis, ...]
 
         return data
 
     def read_channel_names(self):
         img = self.img
         cn = img.get_channel_names(scene=0)
+        # cn = img.channel_names
         if cn[0] == "cells":
             cn[0] = "cell"
         return cn
@@ -1058,7 +1068,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
 
 def write_cell_polygs(
-    polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict
+    polyg_list: List[np.ndarray], pts: np.ndarray, cellidx: list, filename: str, output_dir: Path, options: Dict
 ):
     coord_pairs = []
     for i in range(0, len(polyg_list)):
@@ -1067,12 +1077,19 @@ def write_cell_polygs(
         )
         coord_pairs.append(tlist)
 
-    df = pd.DataFrame({0: coord_pairs}, index=cellidx)
-    if options.get("debug"):
-        print(df)
-    f = output_dir / (filename + "-cell_polygons_spatial.csv")
-    df.index.name = "ID"
-    df.to_csv(f, header=["Shape"])
+    coord_pairs = np.asarray(coord_pairs)
+
+    write_2_csv(['Shape'], coord_pairs, filename + "-cell_polygons_spatial.csv", output_dir, cellidx, options)
+    # df = pd.DataFrame({0: coord_pairs}, index=cellidx)
+    # if options.get("debug"):
+    #     print(df)
+    # f = output_dir / (filename + "-cell_polygons_spatial.csv")
+    # df.index.name = "ID"
+    # df.to_csv(f, header=["Shape"])
+
+    #write out pts - 100 outlines
+    header = list(range(1, 201))
+    write_2_csv(header, pts, filename + '-normalized_cell_outlines', output_dir, cellidx, options)
 
 
 def build_matrix(

@@ -241,7 +241,7 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def getparametricoutline(mask, nseg, ROI_by_CH, options):
+def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
     print("Getting parametric outlines...")
 
     polygon_outlines = []
@@ -272,8 +272,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
         # tmask[ROI_coords[0], ROI_coords[1]] = 1
-        #
-        # polyg = measure.find_contours(tmask, 0.5, fully_connected='low', positive_orientation='low')
+        #ly_connected='low', positive_orientation='low')
         # # if find contours returns back an empty array
         # if polyg[0].size == 0:
         #     polygon_outlines.append(np.zeros((npoints, 2)))
@@ -386,6 +385,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         x, y = linear_interpolation(x, y, npoints)
         yb, xb = cell_boundary[interiorCells[i]]
         xy = np.column_stack((x, y))
+
+        #save the 100
         bxy = np.column_stack((xb, yb))
 
         # get polygons
@@ -402,11 +403,13 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
         polygon_outlines.append(bxy)
 
+        #reshaped to be x1, y1, x2, y2, etc.
         flatxy = xy.reshape(-1)
 
         pts[i - 1, :] = flatxy
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
+
 
     return pts, polygon_outlines
 
