@@ -270,7 +270,14 @@ def main(
                     bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
                     pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
-                write_cell_polygs(cell_polygons, outline_vectors, cellidx, baseoutputfilename, output_dir, options)
+                write_cell_polygs(
+                    cell_polygons,
+                    outline_vectors,
+                    cellidx,
+                    baseoutputfilename,
+                    output_dir,
+                    options,
+                )
             else:
                 print("Skipping outlinePCA...")
             # loop of types of segmentation (channels in the mask img)
