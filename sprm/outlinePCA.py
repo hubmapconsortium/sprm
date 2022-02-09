@@ -11,6 +11,7 @@ from skimage import measure
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from scipy.ndimage as ndimage
 
 from .constants import figure_save_params
 
@@ -371,6 +372,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
         cmask[tmatx + 1, tmaty + 1] = 1
         # fill the image to handle artifacts from rotation
         # cmask = fillimage(cmask)
+        cmask = ndimage.binary_fill_holes(cmask).astype(int)
 
         # plt.imshow(cmask)
         # plt.show()
@@ -379,8 +381,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
             cmask, 0.5, fully_connected="high", positive_orientation="low"
         )
 
-        x = aligned_outline[0][:, 0]
-        y = aligned_outline[0][:, 1]
+        x = aligned_outline[0][:, 0] + tminx
+        y = aligned_outline[0][:, 1] + tminy
 
         x, y = linear_interpolation(x, y, npoints)
         yb, xb = cell_boundary[interiorCells[i]]
