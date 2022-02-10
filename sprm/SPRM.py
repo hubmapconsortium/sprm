@@ -3,7 +3,13 @@ from argparse import ArgumentParser
 from subprocess import CalledProcessError, check_output
 from typing import Optional
 
-from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
+from .outlinePCA import (
+    bin_pca,
+    getcellshapefeatures,
+    getparametricoutline,
+    kmeans_cluster_shape,
+    pca_recon,
+)
 from .single_method_eval import *
 from .SPRM_pkg import *
 
@@ -148,15 +154,15 @@ def main(
         # switch channels and z dims
         ##############################
         ##############################
-        data = im.get_data()
-        s, t, c, z, y, x = data.shape
-        data = data.reshape(s, t, z, c, y, x)
-        im.set_data(data)
-
-        data = mask.get_data()
-        s, t, c, z, y, x = data.shape
-        data = data.reshape(s, t, z, c, y, x)
-        mask.set_data(data)
+        # data = im.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # im.set_data(data)
+        #
+        # data = mask.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # mask.set_data(data)
         ##############################
         ##############################
 
@@ -267,6 +273,7 @@ def main(
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get("debug"):
                     # just for testing
+                    kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
                     bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
                     pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing

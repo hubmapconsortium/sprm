@@ -11,7 +11,7 @@ from shapely.geometry.polygon import orient
 from skimage import measure
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
 
 from .constants import figure_save_params
 
@@ -176,6 +176,37 @@ def pca_cluster_shape(features, polyg, output_dir, options):
     # plt.show()
     plt.savefig(output_dir / "outlinePCA_cluster_pca.pdf", **figure_save_params)
     plt.close()
+
+
+def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
+
+    fig = plt.figure()
+    num_cluster, kmeans_labels, cluster_centers = get_silhouette_score(
+        shape_vector, "PCs-outlines-cluster-silhouette-scores", output_dir
+    )
+    plt.scatter(shape_vector[:, 0], shape_vector[:, 1], c=kmeans_labels)
+    f = output_dir / "PCs-clusters-KMEANS.png"
+    plt.savefig(f, format="png")
+    plt.close(fig)
+
+    # find the cell outline that are closest to each respective center
+    # returns a list of idx of closest points in relation to each centroid
+    closest, _ = pairwise_distances_argmin_min(cluster_centers, shape_vector)
+
+    fig = plt.figure()
+    cent = 0
+    for k in closest:
+        plt.subplot(2, 5, cent + 1)
+        plt.scatter(outline_vectors[k, 0::2], outline_vectors[k, 1::2])
+        plt.xlim(-25, 25)
+        plt.ylim(-25, 25)
+        cent += 1
+
+    fig.suptitle("K-Mediods Cluster Outlines", fontsize=16)
+    fig.tight_layout()
+    f2 = output_dir / (str(cent) + "-cluster-centroid-outline.png")
+    plt.savefig(f2, format="png")
+    plt.close(fig)
 
 
 def create_polygons(mask, bestz: int) -> List[str]:
@@ -418,6 +449,20 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
 def linear_interpolation(x, y, npoints):
     points = np.array([x, y]).T  # a (nbre_points x nbre_dim) array
 
+    # find points that are closer to x=0 use that as start
+    newpoints = np.multiply(points[:, 0], points[:, 1])
+    newpoints = np.abs(newpoints)
+    idx_sort = np.argsort(newpoints)
+    # potentially could miss a point if the intial mask is very clustered
+    filtered_points = points[idx_sort[:10]]
+    # another filter for greatest y and smallest x
+    idx_maxy = np.argsort(filtered_points[:, 1])[-2:]
+    idx_minx = np.abs(filtered_points[idx_maxy, 0])
+    idx = idx_sort[idx_maxy[idx_minx.argmin()]]
+
+    # idx_min = xnew.argmin()
+    points = np.concatenate((points[idx:], points[:idx]))
+
     # Linear length along the line:
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
     distance = np.insert(distance, 0, 0)
@@ -590,3 +635,31 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
         plt.savefig(f"{filename}-cellshapescluster{k}.pdf", **figure_save_params)
+
+
+def get_silhouette_score(d, s, o):
+    n = np.arange(2, 11)
+    silhouette_avg = []
+    for num_clusters in n:
+        # initialise kmeans
+        kmeans = KMeans(n_clusters=num_clusters)
+        kmeans.fit(d)
+        cluster_labels = kmeans.labels_
+
+        # silhouette score
+        silhouette_avg.append(silhouette_score(d, cluster_labels))
+
+    plt.plot(n, silhouette_avg, "bx-")
+    plt.xlabel("Number of Clusters")
+    plt.ylabel("Silhouette Score")
+    plt.title("Silhouette analysis to find optimal clusters for ")
+    plt.tight_layout()
+    plt.savefig(o / (s + ".png"), bbox_inches="tight")
+    plt.clf()
+
+    idx = np.argmin(silhouette_avg)
+    # idx = 8
+    kmeans = KMeans(n_clusters=idx + 2)
+    kmeans.fit(d)
+
+    return idx + 2, kmeans.labels_, kmeans.cluster_centers_
