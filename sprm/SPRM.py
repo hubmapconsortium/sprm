@@ -148,15 +148,15 @@ def main(
         # switch channels and z dims
         ##############################
         ##############################
-        # data = im.get_data()
-        # s, t, c, z, y, x = data.shape
-        # data = data.reshape(s, t, z, c, y, x)
-        # im.set_data(data)
-        #
-        # data = mask.get_data()
-        # s, t, c, z, y, x = data.shape
-        # data = data.reshape(s, t, z, c, y, x)
-        # mask.set_data(data)
+        data = im.get_data()
+        s, t, c, z, y, x = data.shape
+        data = data.reshape(s, t, z, c, y, x)
+        im.set_data(data)
+
+        data = mask.get_data()
+        s, t, c, z, y, x = data.shape
+        data = data.reshape(s, t, z, c, y, x)
+        mask.set_data(data)
         ##############################
         ##############################
 
