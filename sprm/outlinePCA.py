@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 
 import numpy as np
+import scipy.ndimage as ndimage
 from matplotlib import pyplot as plt
 from scipy import interpolate, stats
 from shapely.geometry import Polygon
@@ -11,7 +12,6 @@ from skimage import measure
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
-from scipy.ndimage as ndimage
 
 from .constants import figure_save_params
 
@@ -273,7 +273,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
         # tmask[ROI_coords[0], ROI_coords[1]] = 1
-        #ly_connected='low', positive_orientation='low')
+        # ly_connected='low', positive_orientation='low')
         # # if find contours returns back an empty array
         # if polyg[0].size == 0:
         #     polygon_outlines.append(np.zeros((npoints, 2)))
@@ -388,7 +388,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
         yb, xb = cell_boundary[interiorCells[i]]
         xy = np.column_stack((x, y))
 
-        #save the 100
+        # save the 100
         bxy = np.column_stack((xb, yb))
 
         # get polygons
@@ -405,13 +405,12 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
 
         polygon_outlines.append(bxy)
 
-        #reshaped to be x1, y1, x2, y2, etc.
+        # reshaped to be x1, y1, x2, y2, etc.
         flatxy = xy.reshape(-1)
 
         pts[i - 1, :] = flatxy
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
-
 
     return pts, polygon_outlines
 
