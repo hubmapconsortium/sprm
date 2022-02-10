@@ -196,10 +196,11 @@ def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
     fig = plt.figure()
     cent = 0
     for k in closest:
-        plt.subplot(2, 5, cent + 1)
+        plt.subplot(1, len(closest), cent + 1)
         plt.scatter(outline_vectors[k, 0::2], outline_vectors[k, 1::2])
-        plt.xlim(-25, 25)
-        plt.ylim(-25, 25)
+        # plt.xlim(-25, 25)
+        # plt.ylim(-25, 25)
+        # plt.xticks(np.arange(-25, 25, 5.0))
         cent += 1
 
     fig.suptitle("K-Mediods Cluster Outlines", fontsize=16)
@@ -657,8 +658,8 @@ def get_silhouette_score(d, s, o):
     plt.savefig(o / (s + ".png"), bbox_inches="tight")
     plt.clf()
 
-    idx = np.argmin(silhouette_avg)
-    # idx = 8
+    idx = np.argmax(silhouette_avg)
+    # idx = 2
     kmeans = KMeans(n_clusters=idx + 2)
     kmeans.fit(d)
 
