@@ -268,9 +268,11 @@ def main(
             # get normalized shape representation of each cell
             if not options.get("skip_outlinePCA"):
                 outline_vectors, cell_polygons = getparametricoutline(
-                    mask, seg_n, ROI_coords, baseoutputfilename, options
+                    mask, seg_n, ROI_coords, options
                 )
-                shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+                shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(
+                    outline_vectors, options
+                )
                 if options.get("debug"):
                     # just for testing
                     kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
@@ -326,6 +328,7 @@ def main(
                     covar_matrix,
                     total_vector,
                     shape_vectors,
+                    norm_shape_vectors,
                 )
 
                 # do cell analyze
@@ -343,6 +346,7 @@ def main(
                     total_vector,
                     shape_vectors,
                     textures,
+                    norm_shape_vectors,
                 )
             else:
                 # same functions as above just without shape outlines
