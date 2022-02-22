@@ -77,37 +77,38 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, 
         numpoints = min(options.get("num_outlinepoints"), outls.shape[0], outls.shape[1])
 
     # normalize for cell size
-    norm_flag = options.get("normalize_cell")
-    if norm_flag:
-        outls = outls[:, 1:]
-    else:
-        outls = (outls[:, 1:].T * outls[:, 0]).T
+    # norm_flag = options.get("normalize_cell")
+    # if norm_flag:
+    #     outls = outls[:, 1:]
+    # else:
+    # outls = (outls[:, 1:].T * outls[:, 0]).T
 
     outls_og = outls.copy()
+    outls1 = outls.copy()
     while True:
         try:
-            pca_shapes = PCA(n_components=numpoints, svd_solver="randomized").fit(outls)
+            pca_shapes = PCA(n_components=numpoints, svd_solver="randomized").fit(outls1)
             break
         except Exception as e:
             print(e)
             n_samples = int(outls_og.shape[0] / 2)
             idx = np.random.choice(outls_og.shape[0], n_samples, replace=False)
-            outls = outls_og[idx, :]
+            outls1 = outls_og[idx, :]
 
     features_shape = pca_shapes.transform(outls_og)  # num cells x pcs
 
     # normalize for shape
-    outls = outls[1:]
-    outls_og = outls.copy()
+    outls2 = outls_og[:, 1:]
+    outls_og = outls2.copy()
     while True:
         try:
-            pca_shapes_norm = PCA(n_components=numpoints, svd_solver="randomized").fit(outls)
+            pca_shapes_norm = PCA(n_components=numpoints, svd_solver="randomized").fit(outls2)
             break
         except Exception as e:
             print(e)
             n_samples = int(outls_og.shape[0] / 2)
             idx = np.random.choice(outls_og.shape[0], n_samples, replace=False)
-            outls = outls_og[idx, :]
+            outls2 = outls_og[idx, :]
 
     features_shape_norm = pca_shapes_norm.transform(outls_og)
 

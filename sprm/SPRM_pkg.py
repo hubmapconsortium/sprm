@@ -1041,6 +1041,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
     if options.get("debug"):
         print(df)
+        print(header)
     f = output_dir / (s + ".csv")
 
     # column header for indices
@@ -1903,7 +1904,14 @@ def cell_analysis(
     maskchs = mask.get_channel_labels()
     feature_names = im.get_channel_labels()
     feature_covar = options.get("channel_label_combo")
-    feature_meanall = feature_names + feature_names + feature_names + feature_names
+
+    # make unique channel names
+    d = int(len(feature_names) * 4 / len(maskchs))
+    new_list = [entry for entry in maskchs for _ in range(d)]
+    add_list = ["-"] * len(new_list)
+    feature_meanall = [a + b for a, b in zip(new_list, add_list)]
+    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * d)]
+    # feature_meanall = feature_names + feature_names + feature_names + feature_names
 
     # all clusters List with scores
     all_clusters = []
@@ -1937,7 +1945,7 @@ def cell_analysis(
         clustercells_norm_shapevectors, normshapeclcenters = shape_cluster(
             norm_shape_vectors, types_list, all_clusters, options
         )
-        clustercells_norm_shape = cell_map(map, clustercells_norm_shapevectors, seg_n, options)
+        clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
     if options.get("skip_outlinePCA"):
         clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
