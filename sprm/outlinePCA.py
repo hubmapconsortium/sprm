@@ -2,7 +2,9 @@ import math
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
+import cv2
 import numpy as np
+import scipy.ndimage as ndimage
 from matplotlib import pyplot as plt
 from scipy import interpolate, stats
 from shapely.geometry import Polygon
@@ -10,7 +12,7 @@ from shapely.geometry.polygon import orient
 from skimage import measure
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
 
 from .constants import figure_save_params
 
@@ -74,18 +76,55 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, 
     if options.get("num_outlinepoints") > min(outls.shape[0], outls.shape[1]):
         numpoints = min(options.get("num_outlinepoints"), outls.shape[0], outls.shape[1])
 
-    pca_shapes = PCA(n_components=numpoints, svd_solver="full")
+    # normalize for cell size
+    # norm_flag = options.get("normalize_cell")
+    # if norm_flag:
+    #     outls = outls[:, 1:]
+    # else:
+    # outls = (outls[:, 1:].T * outls[:, 0]).T
+
+    outls_og = outls.copy()
+    outls1 = outls.copy()
+    while True:
+        try:
+            pca_shapes = PCA(n_components=numpoints, svd_solver="randomized").fit(outls1)
+            break
+        except Exception as e:
+            print(e)
+            n_samples = int(outls_og.shape[0] / 2)
+            idx = np.random.choice(outls_og.shape[0], n_samples, replace=False)
+            outls1 = outls_og[idx, :]
+
+    features_shape = pca_shapes.transform(outls_og)  # num cells x pcs
+
+    # normalize for shape
+    outls2 = outls_og[:, 1:]
+    outls_og = outls2.copy()
+    while True:
+        try:
+            pca_shapes_norm = PCA(n_components=numpoints, svd_solver="randomized").fit(outls2)
+            break
+        except Exception as e:
+            print(e)
+            n_samples = int(outls_og.shape[0] / 2)
+            idx = np.random.choice(outls_og.shape[0], n_samples, replace=False)
+            outls2 = outls_og[idx, :]
+
+    features_shape_norm = pca_shapes_norm.transform(outls_og)
+
+    # pca_shapes = PCA(n_components=numpoints, svd_solver="full")
     # print(pca_shapes)
 
     #    outlinesall = outls.reshape(outls.shape[0]*outls.shape[1],outls.shape[2])
     #    print(outlinesall.shape)
-    features = pca_shapes.fit_transform(outls)
+
+    # features = pca_shapes.fit_transform(outls)
     # print(features.shape)
-    if features.shape[1] != numpoints:
+    if features_shape.shape[1] != numpoints:
         raise ValueError("dimensions do not match.")
     #    shape_features = features.reshape(outls.shape[0],outls.shape[1],check)
 
-    return features, pca_shapes
+    return features_shape, features_shape_norm, pca_shapes
 
 
 def bin_pca(features, npca, cell_coord, filename, output_dir):
@@ -118,7 +157,6 @@ def bin_pca(features, npca, cell_coord, filename, output_dir):
 
 
 def pca_recon(features, npca, pca, filename, output_dir):
-
     # d = defaultdict(list)
     sort_idx = np.argsort(features[:, 0])  # from min to max
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 10)).astype(int))
@@ -175,6 +213,53 @@ def pca_cluster_shape(features, polyg, output_dir, options):
     # plt.show()
     plt.savefig(output_dir / "outlinePCA_cluster_pca.pdf", **figure_save_params)
     plt.close()
+
+
+def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
+    fig = plt.figure()
+    num_cluster, kmeans_labels, cluster_centers = get_silhouette_score(
+        shape_vector, "PCs-outlines-cluster-silhouette-scores", output_dir
+    )
+    # rgb
+    phi = np.linspace(0, 2 * np.pi, num_cluster + 1)
+    rgb_cycle = np.vstack(
+        (  # Three sinusoids
+            0.5 * (1.0 + np.cos(phi)),  # scaled to [0,1]
+            0.5 * (1.0 + np.cos(phi + 2 * np.pi / 3)),  # 120° phase shifted.
+            0.5 * (1.0 + np.cos(phi - 2 * np.pi / 3)),
+        )
+    ).T  # Shape = (60,3)
+    for i in np.unique(kmeans_labels):
+        ix = np.where(kmeans_labels == i)
+        plt.scatter(shape_vector[ix, 0], shape_vector[ix, 1], c=rgb_cycle[i], label=i)
+    plt.legend()
+    f = output_dir / "PCs-clusters-KMEANS.png"
+    plt.savefig(f, format="png")
+    plt.close(fig)
+
+    # find the cell outline that are closest to each respective center
+    # returns a list of idx of closest points in relation to each centroid
+    closest, _ = pairwise_distances_argmin_min(cluster_centers, shape_vector)
+
+    # normalize or not
+    if not options.get("normalize_cell"):
+        outline_vectors[:, 1:] = (outline_vectors[:, 1:].T * outline_vectors[:, 0]).T
+
+    # w, h = figaspect(1)
+    # fig = plt.figure()
+    fig, ax = plt.subplots(1, len(closest), sharex=True, sharey=True)
+    cent = 0
+    for k in closest:
+        ax[cent].scatter(outline_vectors[k, 1::2], outline_vectors[k, 2::2])
+        ax[cent].set(adjustable="box", aspect="equal")
+        ax[cent].set_title("Cluster-ID: " + str(kmeans_labels[k]))
+        cent += 1
+
+    fig.suptitle("K-Medoids Cluster Outlines", fontsize=16)
+    # fig.tight_layout()
+    f2 = output_dir / (str(cent) + "-cluster-centroid-outline.png")
+    plt.savefig(f2, format="png")
+    plt.close(fig)
 
 
 def create_polygons(mask, bestz: int) -> List[str]:
@@ -241,7 +326,7 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
+def getparametricoutline(mask, nseg, ROI_by_CH, options):
     print("Getting parametric outlines...")
 
     polygon_outlines = []
@@ -256,7 +341,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
     npoints = options.get("num_outlinepoints")
     # the second dimension accounts for x & y coordinates for each point
     # pts = np.zeros((np.amax(cellmask), npoints * 2))
-    pts = np.zeros((len(interiorCells), npoints * 2))
+    pts = np.zeros((len(interiorCells), npoints * 2 + 1))
 
     cell_coords = ROI_by_CH[0]
 
@@ -357,7 +442,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
         x = stats.skew(tmatx)
         y = stats.skew(tmaty)
 
-        #'heavy' end is on the left side flip to right - flipping over y axis
+        # 'heavy' end is on the left side flip to right - flipping over y axis
         if x > 0:
             tmatx = max(tmatx) - tmatx
         elif y > 0:
@@ -371,6 +456,10 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
         cmask[tmatx + 1, tmaty + 1] = 1
         # fill the image to handle artifacts from rotation
         # cmask = fillimage(cmask)
+        cmask = ndimage.binary_fill_holes(cmask).astype(int)
+
+        # remove isolated pixels
+        cmask = remove_island_pixels(cmask)
 
         # plt.imshow(cmask)
         # plt.show()
@@ -379,12 +468,11 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
             cmask, 0.5, fully_connected="high", positive_orientation="low"
         )
 
-        x = aligned_outline[0][:, 0]
-        y = aligned_outline[0][:, 1]
+        x = aligned_outline[0][:, 0] + tminx
+        y = aligned_outline[0][:, 1] + tminy
 
         x, y = linear_interpolation(x, y, npoints)
         yb, xb = cell_boundary[interiorCells[i]]
-        xy = np.column_stack((x, y))
 
         # save the 100
         bxy = np.column_stack((xb, yb))
@@ -403,18 +491,71 @@ def getparametricoutline(mask, nseg, ROI_by_CH, filename, options):
 
         polygon_outlines.append(bxy)
 
+        # normalize the area to 1
+        # find area
+        area = polyarea(x, y)
+        sf = np.sqrt(area)
+        x = x / sf
+        y = y / sf
+        xy = np.column_stack((x, y))
+
         # reshaped to be x1, y1, x2, y2, etc.
         flatxy = xy.reshape(-1)
 
-        pts[i - 1, :] = flatxy
+        pts[i, 0] = sf
+        pts[i, 1:] = flatxy
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
 
     return pts, polygon_outlines
 
 
+def remove_island_pixels(img):
+    # convert to unint8 for cv2
+    img = img.astype(np.uint8)
+    # find all your connected components (white blobs in your image)
+    nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity=8)
+    # connectedComponentswithStats yields every seperated component with information on each of them, such as size
+    # the following part is just taking out the background which is also considered a component, but most of the time we don't want that.
+    sizes = stats[1:, -1]
+    nb_components = nb_components - 1
+
+    # if components is 1 just return
+    if nb_components != 1:
+        # minimum size of particles we want to keep (number of pixels)
+        # here, it's a fixed value, but you can set it as you want, eg the mean of the sizes or whatever
+        # 5 for now
+        min_size = 5
+
+        img = np.zeros((output.shape))
+        # for every component in the image, you keep it only if it's above min_size
+        for i in range(0, nb_components):
+            if sizes[i] >= min_size:
+                img[output == i + 1] = 1
+
+    return img
+
+
+def polyarea(x, y):
+    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+
+
 def linear_interpolation(x, y, npoints):
     points = np.array([x, y]).T  # a (nbre_points x nbre_dim) array
+
+    # find points that are closer to x=0 use that as start
+    newpoints = np.multiply(points[:, 0], points[:, 1])
+    newpoints = np.abs(newpoints)
+    idx_sort = np.argsort(newpoints)
+    # potentially could miss a point if the intial mask is very clustered
+    filtered_points = points[idx_sort[:10]]
+    # another filter for greatest y and smallest x
+    idx_maxy = np.argsort(filtered_points[:, 1])[-2:]
+    idx_minx = np.abs(filtered_points[idx_maxy, 0])
+    idx = idx_sort[idx_maxy[idx_minx.argmin()]]
+
+    # idx_min = xnew.argmin()
+    points = np.concatenate((points[idx:], points[:idx]))
 
     # Linear length along the line:
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
@@ -588,3 +729,31 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
     for k in range(0, max(cellbycluster) + 1):
         plt.figure(k + 1)
         plt.savefig(f"{filename}-cellshapescluster{k}.pdf", **figure_save_params)
+
+
+def get_silhouette_score(d, s, o):
+    n = np.arange(2, 11)
+    silhouette_avg = []
+    for num_clusters in n:
+        # initialise kmeans
+        kmeans = KMeans(n_clusters=num_clusters)
+        kmeans.fit(d)
+        cluster_labels = kmeans.labels_
+
+        # silhouette score
+        silhouette_avg.append(silhouette_score(d, cluster_labels))
+
+    plt.plot(n, silhouette_avg, "bx-")
+    plt.xlabel("Number of Clusters")
+    plt.ylabel("Silhouette Score")
+    plt.title("Silhouette analysis to find optimal clusters for ")
+    plt.tight_layout()
+    plt.savefig(o / (s + ".png"), bbox_inches="tight")
+    plt.clf()
+
+    idx = np.argmax(silhouette_avg)
+    # idx = 8
+    kmeans = KMeans(n_clusters=idx + 2)
+    kmeans.fit(d)
+
+    return idx + 2, kmeans.labels_, kmeans.cluster_centers_
