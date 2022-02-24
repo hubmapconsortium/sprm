@@ -3,7 +3,13 @@ from argparse import ArgumentParser
 from subprocess import CalledProcessError, check_output
 from typing import Optional
 
-from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
+from .outlinePCA import (
+    bin_pca,
+    getcellshapefeatures,
+    getparametricoutline,
+    kmeans_cluster_shape,
+    pca_recon,
+)
 from .single_method_eval import *
 from .SPRM_pkg import *
 
@@ -148,15 +154,15 @@ def main(
         # switch channels and z dims
         ##############################
         ##############################
-        data = im.get_data()
-        s, t, c, z, y, x = data.shape
-        data = data.reshape(s, t, z, c, y, x)
-        im.set_data(data)
-
-        data = mask.get_data()
-        s, t, c, z, y, x = data.shape
-        data = data.reshape(s, t, z, c, y, x)
-        mask.set_data(data)
+        # data = im.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # im.set_data(data)
+        #
+        # data = mask.get_data()
+        # s, t, c, z, y, x = data.shape
+        # data = data.reshape(s, t, z, c, y, x)
+        # mask.set_data(data)
         ##############################
         ##############################
 
@@ -194,6 +200,7 @@ def main(
         cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
         # signal to noise ratio of the image
+
         SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
         bestz = mask.get_bestz()
@@ -262,11 +269,14 @@ def main(
             # get normalized shape representation of each cell
             if not options.get("skip_outlinePCA"):
                 outline_vectors, cell_polygons = getparametricoutline(
-                    mask, seg_n, ROI_coords, baseoutputfilename, options
+                    mask, seg_n, ROI_coords, options
                 )
-                shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+                shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(
+                    outline_vectors, options
+                )
                 if options.get("debug"):
                     # just for testing
+                    kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
                     bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
                     pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
@@ -319,6 +329,7 @@ def main(
                     covar_matrix,
                     total_vector,
                     shape_vectors,
+                    norm_shape_vectors,
                 )
 
                 # do cell analyze
@@ -336,6 +347,7 @@ def main(
                     total_vector,
                     shape_vectors,
                     textures,
+                    norm_shape_vectors,
                 )
             else:
                 # same functions as above just without shape outlines
