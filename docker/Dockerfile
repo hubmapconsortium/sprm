@@ -1,5 +1,11 @@
 FROM continuumio/anaconda3:2021.05
 
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get -y install libgl1-mesa-glx \
+ && rm -rf /var/cache/apt/*
+
 WORKDIR /opt
 COPY . /opt/sprm
 RUN cd sprm \
