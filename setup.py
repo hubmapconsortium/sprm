@@ -36,6 +36,7 @@ setup(
         "matplotlib",
         "numba",
         "numpy",
+        "opencv-python",
         "pandas",
         "pint",
         "scikit-image",
