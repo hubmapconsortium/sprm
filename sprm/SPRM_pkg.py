@@ -1089,7 +1089,7 @@ def write_cell_polygs(
     write_2_csv(
         ["Shape"],
         coord_pairs,
-        filename + "-cell_polygons_spatial.csv",
+        filename + "-cell_polygons_spatial",
         output_dir,
         cellidx,
         options,
