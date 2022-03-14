@@ -3101,9 +3101,8 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
     # 2D - Scatterplot
-    if options.get("debug"):
-        plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
-        plt.savefig(output_dir / (filename + "-tSNE_allfeatures.png"))
+    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
+    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.png"))
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
