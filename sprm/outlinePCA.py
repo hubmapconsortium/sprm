@@ -200,7 +200,7 @@ def pca_recon(features, npca, pca, filename, output_dir):
     f, axs = plt.subplots(1, 10)
 
     for i in range(10):
-        axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
+        axs[i].scatter(rfeatures[idx[i], 1::2], rfeatures[idx[i], 2::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
     plt.savefig(output_dir / (filename + "-outlinePCA_pca_recon.pdf"), **figure_save_params)

@@ -1672,7 +1672,7 @@ def make_legends(
             showlegend(
                 markers,
                 table,
-                filename + "-clustercells_cellshapenomralized_legend.pdf",
+                filename + "-clustercells_cellshapenormalized_legend.pdf",
                 output_dir,
             )
 
@@ -1971,7 +1971,7 @@ def cell_analysis(
             covar_matrix,
             total_vector,
             meanAll_vector_f,
-            shape_vectors,
+            norm_shape_vectors,
             texture_matrix,
         )
     cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
@@ -2961,7 +2961,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
         matrix_texture = argv[4]
 
     tSNE_allfeatures_headers = []
-    cmd = options.get("tSNE_all_preprocess")[0]
+    cmd = options.get("tSNE_all_preprocess")[1]
     perplexity = options.get("tSNE_all_perplexity")
     pcaMethod = options.get("tsne_all_svdsolver4pca")
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")
@@ -3039,7 +3039,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
         early_exaggeration=early_exaggeration,
         learning_rate=learning_rate,
         n_iter=n_iter,
-        init=tSNEInitialization,
+        init="random",
         random_state=0,
     )
 
@@ -3101,7 +3101,9 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
     # 2D - Scatterplot
-    # tsne2D = tsne_all_OnlyCell[:, 0:2]
+    if options.get("debug"):
+        plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
+        plt.savefig((filename + "-tSNE_allfeatures.png"))
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
