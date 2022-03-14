@@ -3102,7 +3102,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
 
     # 2D - Scatterplot
     plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
-    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.png"))
+    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.pdf"), **figure_save_params)
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
