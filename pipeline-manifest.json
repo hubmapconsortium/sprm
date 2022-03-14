@@ -81,7 +81,12 @@
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_shape.csv",
-		"description": "normalized cell shape coordinates.",
+		"description": "size + shape cell shape coordinates.",
+		"edam_ontology_term": "EDAM_1.24.format_3752"
+	},
+	{
+		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_shape_normalized.csv",
+		"description": "normalized (only shape) cell shape coordinates.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
@@ -414,5 +419,26 @@
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-tSNE_allfeatures.csv",
 		"description": "tSNE 2-Dimensional projection of all SPRM calculated features.",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
+	},
+	{
+		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-tSNE_allfeatures.png",
+		"description": "tSNE 2-Dimensional projection of all SPRM calculated features.",
+		"edam_ontology_term": "EDAM_1.24.format_3752"
+	},
+	{
+		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-Cluster_ShapeNormalized.png",
+		"description": "clustering by normalized cell shape mapped back onto the spatial locations of cells in the image.",
+		"edam_ontology_term": "EDAM_1.24.format_3603"
+	},
+	{
+		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cellshapenormalized_legend.pdf",
+		"description": "largest 3 channel contributions in the image to each normalized cell shape cluster.",
+		"edam_ontology_term": "EDAM_1.24.format_3508"
+	},
+	{
+		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cellshapenormalized_legend.csv",
+		"description": "largest 3 channel contributions in the image to each normalized cell shape cluster.",
+		"edam_ontology_term": "EDAM_1.24.format_3752"
 	}
 ]
+
