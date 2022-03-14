@@ -129,31 +129,52 @@ def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, 
 
 def bin_pca(features, npca, cell_coord, filename, output_dir):
     sort_idx = np.argsort(features[:, npca - 1])  # from min to max
+    pc2 = np.median(features[:, 1])
+
+    p0 = np.array([features[sort_idx[0], 0], pc2])
+    p1 = np.array([features[sort_idx[-1], 0], pc2])
+    pcs = features[:, 0:2]
+
     idx = list(np.round(np.linspace(0, len(sort_idx) - 1, 11)).astype(int))
-    nfeatures = features[sort_idx, 0]
+    # nfeatures = features[sort_idx, 0]
     cbin = []
 
     for i in range(10):
-        fbin = nfeatures[idx[i] : idx[i + 1]]
+        # fbin = nfeatures[idx[i]:idx[i + 1]]
+        new_idx = sort_idx[idx[i] : idx[i + 1]]
+        fbin = pcs[new_idx, :]
+
+        x = np.cross(p1 - p0, fbin - p1)
+        d = x / np.linalg.norm(p1 - p0)
+        closest_pts = np.argsort(d)[0]
+
+        cbin.append(new_idx[closest_pts])
 
         # find median not mode
-        median = np.median(fbin)
+        # median = np.median(fbin)
         # mode = stats.mode(fbin)
 
-        nidx = np.searchsorted(fbin, median, side="left")
-        r = range(idx[i], idx[i + 1])
-        celln = sort_idx[r[nidx]]
-        cbin.append(celln)
+        # nidx = np.searchsorted(fbin, median, side="left")
+        # r = range(idx[i], idx[i + 1])
+        # celln = sort_idx[r[nidx]]
+        # cbin.append(celln)
 
-    f, axs = plt.subplots(1, 10)
+    # closest_point = pc[np.argmin(np.linalg.norm(np.cross(p1 - p0, p0 - pc, axisb=1), axis=1) / np.linalg.norm(p1 - p0))]
 
-    for i in range(10):
-        cscell_coords = np.column_stack(cell_coord[cbin[i]])
-        axs[i].scatter(cscell_coords[0], cscell_coords[1])
+    f, axs = plt.subplots(1, 9, sharex=True, sharey=True)
+
+    for i in range(9):
+        # cscell_coords = np.column_stack(cell_coord[cbin[i+1]])
+        axs[i].scatter(cell_coord[cbin[i], 1::2], cell_coord[cbin[i], 2::2], marker=".")
+        axs[i].set_aspect("equal", adjustable="box")
+
+    plt.xlim(-1, 1)
+    plt.ylim(-1, 1)
+
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
-    plt.savefig(output_dir / (filename + "-outlinePCA_bin_pca.pdf"), **figure_save_params)
-    plt.close()
+    plt.savefig(output_dir / (filename + "-outlinePCA_bin_pca.png"), **figure_save_params)
+    plt.close(f)
 
 
 def pca_recon(features, npca, pca, filename, output_dir):
@@ -179,7 +200,7 @@ def pca_recon(features, npca, pca, filename, output_dir):
     f, axs = plt.subplots(1, 10)
 
     for i in range(10):
-        axs[i].scatter(rfeatures[idx[i], ::2], rfeatures[idx[i], 1::2])
+        axs[i].scatter(rfeatures[idx[i], 1::2], rfeatures[idx[i], 2::2])
     plt.subplots_adjust(wspace=0.4)
     # plt.show()
     plt.savefig(output_dir / (filename + "-outlinePCA_pca_recon.pdf"), **figure_save_params)
@@ -242,8 +263,8 @@ def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
     closest, _ = pairwise_distances_argmin_min(cluster_centers, shape_vector)
 
     # normalize or not
-    if not options.get("normalize_cell"):
-        outline_vectors[:, 1:] = (outline_vectors[:, 1:].T * outline_vectors[:, 0]).T
+    # if not options.get("normalize_cell"):
+    #     outline_vectors[:, 1:] = (outline_vectors[:, 1:].T * outline_vectors[:, 0]).T
 
     # w, h = figaspect(1)
     # fig = plt.figure()
