@@ -954,6 +954,8 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
     plt.savefig(name, **figure_save_params)
+    plt.clf()
+    plt.close()
 
 
 def try_parse_int(value: str) -> Union[int, str]:
@@ -2240,6 +2242,7 @@ def showlegend(markernames: List[str], markertable: np.ndarray, outputfile: str,
     frame1.axes.get_xaxis().set_ticks([])
     # plt.show(block=False)
     plt.savefig(output_dir / outputfile, **figure_save_params)
+    plt.clf()
     plt.close()
 
 
@@ -3103,6 +3106,8 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # 2D - Scatterplot
     plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
     plt.savefig(output_dir / (filename + "-tSNE_allfeatures.pdf"), **figure_save_params)
+    plt.clf()
+    plt.close()
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
