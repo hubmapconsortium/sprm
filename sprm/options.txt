@@ -16,7 +16,7 @@ zslices 0
 recluster 0
 glcm_angles [0]
 glcm_distances [1]
-skip_outlinePCA 0
+skip_outlinePCA 1
 interior_cells_only 1
 normalize_bg 1
 zscore_norm 0
@@ -27,9 +27,9 @@ tSNE_all_perplexity 35
 tSNE_all_tSNEInitialization pca
 tsne_all_svdsolver4pca full
 cell_adj_parallel 0
-cell_graph 1
+cell_graph 0
 cell_adj_dilation_itr 3
-sprm_segeval_both 2
+sprm_segeval_both 0
 tSNE_texture_calculation_skip 1
 tSNE_num_components 2
 adj_matrix_delta 3

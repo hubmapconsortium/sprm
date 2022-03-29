@@ -2722,6 +2722,8 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     if lower_bound < 0 or upper_bound > z:
         raise ValueError("zslice bound is invalid. Please reset and run SPRM")
     elif z > 1:
+        idx = np.arange(0, z).tolist()
+        mask.set_bestz(idx)
         return
     else:
         new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
