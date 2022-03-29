@@ -182,6 +182,9 @@ class MaskStruct(IMGstruct):
         # set bestz
         self.set_bestz(bestz)
 
+        # check to make sure is int64
+        data = data.astype(int)
+
         return data
 
     def add_edge_cell(self, ncell):
@@ -512,10 +515,36 @@ def append_coord(masked_imgs_coord, rlabel_mask, indices):
     return
 
 
+def append_coord_3D(masked_imgs_coord, rlabel_mask, indices):
+    for i in range(0, len(rlabel_mask)):
+        masked_imgs_coord[rlabel_mask[i]][0].append(indices[0][i])
+        masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
+        masked_imgs_coord[rlabel_mask[i]][2].append(indices[2][i])
+
+    return
+
+
 @nb.njit(parallel=True)
 def cell_num_index_map(flat_mask: np.ndarray, cell_num_dict: Dict):
     for i in nb.prange(0, len(flat_mask)):
         flat_mask[i] = cell_num_dict.get(flat_mask[i])
+
+
+def unravel_indices_3D(mask_channels, maxvalue, channel_coords):
+    for j in range(0, len(mask_channels)):
+        # might want to change this to pure numpy arrays
+        masked_imgs_coord = [[[], [], []] for i in range(maxvalue)]
+        labeled_mask = mask_channels[j]
+        rlabel_mask = labeled_mask[:, :, :].reshape(-1)
+        indices = np.arange(len(rlabel_mask))
+        indices = np.unravel_index(
+            indices, (labeled_mask.shape[0], labeled_mask.shape[1], labeled_mask.shape[2])
+        )
+
+        append_coord_3D(masked_imgs_coord, rlabel_mask, indices)
+        masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
+
+        channel_coords.append(masked_imgs_coord)
 
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
@@ -585,7 +614,7 @@ def get_coordinates(mask, options):
     assert (maxvalue - 1) == np.max(mask_data)
 
     # post-process for edge case cell coordinates - only 1 point
-    freq = np.unique(mask_data[0, 0, 0, 0, :, :], return_counts=True)
+    freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.set_bad_cells(idx)
 
@@ -594,7 +623,11 @@ def get_coordinates(mask, options):
     for i in range(0, mask_4D.shape[0]):
         mask_channels.append(mask_4D[i, :, :, :])
 
-    unravel_indices(mask_channels, maxvalue, channel_coords)  # new
+    # 3D case
+    if mask_4D.shape[1] > 1:
+        unravel_indices_3D(mask_channels, maxvalue, channel_coords)
+    else:
+        unravel_indices(mask_channels, maxvalue, channel_coords)  # new
     # npwhere(mask_channels, maxvalue, channel_coords_np) #old
 
     # remove idx from coords
@@ -2688,6 +2721,8 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     upper_bound = bestz[0] + bound + 1
     if lower_bound < 0 or upper_bound > z:
         raise ValueError("zslice bound is invalid. Please reset and run SPRM")
+    elif z > 1:
+        return
     else:
         new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
         new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
@@ -2698,16 +2733,27 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
 
 
 def find_edge_cells(mask):
-    # 3D case
+    z = mask.get_data().shape[3]
     channels = mask.get_data().shape[2]
-    bestz = mask.get_bestz()[0]
-    data = mask.get_data()[0, 0, :, bestz, :, :]
+    data = mask.get_data()[0, 0, 0, :, :, :]
     border = []
-    for i in range(0, channels):
-        border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
-        border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
-        border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
-        border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
+
+    if z > 1:  # 3D case
+        for i in range(0, z):
+            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
+            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
+            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
+            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
+
+    else:  # 2D case
+        bestz = mask.get_bestz()[0]
+        data = mask.get_data()[0, 0, :, bestz, :, :]
+
+        for i in range(0, channels):
+            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
+            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
+            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
+            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
 
     border = np.unique(border).tolist()
     mask.set_edge_cells(border)
@@ -2716,19 +2762,28 @@ def find_edge_cells(mask):
     unique = np.unique(sMask)[1:]
     og_cell_idx = mask.get_cell_index()
 
-    if (og_cell_idx == unique).all():
-        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
-        mask.set_interior_cells(interiorCells)
-        mask.set_cell_index(interiorCells)
-    else:
-        og_in_cell_idx = [
-            og
-            for og, new in zip(og_cell_idx, unique)
-            if new not in border and new not in mask.get_bad_cells()
-        ]
-        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
-        mask.set_interior_cells(interiorCells)
-        mask.set_cell_index(og_in_cell_idx)
+    # 3D case
+    if z > 1:
+        pass
+    else:  # 2D case
+
+        if (og_cell_idx == unique).all():
+            interiorCells = [
+                i for i in unique if i not in border and i not in mask.get_bad_cells()
+            ]
+            mask.set_interior_cells(interiorCells)
+            mask.set_cell_index(interiorCells)
+        else:
+            og_in_cell_idx = [
+                og
+                for og, new in zip(og_cell_idx, unique)
+                if new not in border and new not in mask.get_bad_cells()
+            ]
+            interiorCells = [
+                i for i in unique if i not in border and i not in mask.get_bad_cells()
+            ]
+            mask.set_interior_cells(interiorCells)
+            mask.set_cell_index(og_in_cell_idx)
 
 
 # @nb.njit()
