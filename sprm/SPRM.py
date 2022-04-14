@@ -262,7 +262,8 @@ def main(
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
 
-            seg_n = mask.get_labels("cell")
+            # seg_n = mask.get_labels("cell")
+            seg_n = mask.get_labels("0")
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 

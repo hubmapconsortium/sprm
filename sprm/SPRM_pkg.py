@@ -176,8 +176,11 @@ class MaskStruct(IMGstruct):
             data = np.repeat(data, dims[3], axis=3)
             # print(data.shape)
             # set bestz
-        else:
-            bestz.append(0)
+        else:  # 3D case or that slice 0 is best
+            if dims[3] > 1:
+                bestz.append(int(dims[3] / 2))
+            else:
+                bestz.append(0)
 
         # set bestz
         self.set_bestz(bestz)
@@ -356,13 +359,14 @@ def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarra
     if i == 0:
         print("Performing statistical analyses on ROIs...")
 
-    y, x = coord[1], coord[0]
+    z, y, x = coord[0], coord[1], coord[2]
     y = y.astype(int)
     x = x.astype(int)
 
     temp = im.get_data()
 
-    channel_all_mask = temp[0, t, :, 0, x, y]
+    # for 3D needs best z
+    channel_all_mask = temp[0, t, :, z, y, x]
     ROI = np.transpose(channel_all_mask)
 
     cov_m = np.cov(ROI)
@@ -2399,11 +2403,11 @@ def quality_measures(
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
         total_intensity_cell = np.concatenate(cells, axis=1)
         total_intensity_per_chancell = np.sum(
-            im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
+            im_channels[0, :, total_intensity_cell[1], total_intensity_cell[2]], axis=0
         )
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
 
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[1], bgpixels[2]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -2691,23 +2695,39 @@ def quality_control(mask: MaskStruct, img: IMGstruct, ROI_coords: List, options:
 
     # normalize bg intensities
     if options.get("normalize_bg"):
-        normalize_background(img, ROI_coords)
+        normalize_background(img, mask, ROI_coords)
 
 
-def normalize_background(im, ROI_coords):
+def normalize_background(im, mask, ROI_coords):
     # pass
     img = im.get_data()
+    dims = mask.get_data().shape
 
-    for i in range(img.shape[2]):
-        img_ch = img[0, 0, i, 0, :, :]
-        bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
+    if dims[3] > 1:  # 3D
 
-        avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+        for i in range(img.shape[2]):
+            img_ch = img[0, 0, i, :, :, :]
+            bg_img_ch = img_ch[
+                ROI_coords[0][0][0, :], ROI_coords[0][0][1, :], ROI_coords[0][0][2, :]
+            ]
 
-        if avg == 0:
-            continue
+            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
 
-        img[0, 0, i, 0, :, :] = img_ch / avg
+            if avg == 0:
+                continue
+
+            img[0, 0, i, :, :, :] = img_ch / avg
+    else:
+        for i in range(img.shape[2]):
+            img_ch = img[0, 0, i, 0, :, :]
+            bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
+
+            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+
+            if avg == 0:
+                continue
+
+            img[0, 0, i, 0, :, :] = img_ch / avg
 
     im.set_data(img)
 
@@ -2765,27 +2785,23 @@ def find_edge_cells(mask):
     og_cell_idx = mask.get_cell_index()
 
     # 3D case
-    if z > 1:
-        pass
-    else:  # 2D case
+    # if z > 1:
+    #     pass
+    # else:  # 2D case
 
-        if (og_cell_idx == unique).all():
-            interiorCells = [
-                i for i in unique if i not in border and i not in mask.get_bad_cells()
-            ]
-            mask.set_interior_cells(interiorCells)
-            mask.set_cell_index(interiorCells)
-        else:
-            og_in_cell_idx = [
-                og
-                for og, new in zip(og_cell_idx, unique)
-                if new not in border and new not in mask.get_bad_cells()
-            ]
-            interiorCells = [
-                i for i in unique if i not in border and i not in mask.get_bad_cells()
-            ]
-            mask.set_interior_cells(interiorCells)
-            mask.set_cell_index(og_in_cell_idx)
+    if (og_cell_idx == unique).all():
+        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
+        mask.set_interior_cells(interiorCells)
+        mask.set_cell_index(interiorCells)
+    else:
+        og_in_cell_idx = [
+            og
+            for og, new in zip(og_cell_idx, unique)
+            if new not in border and new not in mask.get_bad_cells()
+        ]
+        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
+        mask.set_interior_cells(interiorCells)
+        mask.set_cell_index(og_in_cell_idx)
 
 
 # @nb.njit()
