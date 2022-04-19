@@ -78,9 +78,10 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
-) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]],]]:
+) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
+    image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
-    print("Image name: ", img_file.name)
+    print("Image name:", img_file.name)
 
     im = IMGstruct(img_file, options)
     if options.get("debug"):
@@ -338,6 +339,9 @@ def analysis(
     mask.quit()
     im.quit()
 
+    if options.get("debug"):
+        print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
+
     return im, mask, cell_count, seg_metrics
 
 
@@ -379,6 +383,7 @@ def main(
     # start time of processing a single img
     stime = time.monotonic() if options.get("debug") else None
 
+    print("Using", processes, "worker process(es)")
     with ProcessPoolExecutor(max_workers=processes) as executor:
         futures = []
         for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
@@ -412,6 +417,9 @@ def main(
         output_dir,
         options,
     )
+
+    if options.get("debug"):
+        print(f"Total runtime: {time.monotonic() - stime}")
 
     # recluster features
     # recluster(output_dir, im, options)
