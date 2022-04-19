@@ -1631,7 +1631,7 @@ def make_legends(
     maskchn: List,
     inCells: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     # make legend once
     if i == 0:
@@ -1811,7 +1811,7 @@ def save_all(
     output_dir: Path,
     cellidx: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     # hard coded for now
     print("Writing to csv all matrices...")
@@ -1880,7 +1880,7 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     """
     cluster and statisical analysis done on cell:
@@ -2986,7 +2986,14 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             axis=1,
         )
 
-    early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+    tsne_ee = options.get("tSNE_all_ee")
+    try:
+        early_exaggeration = float(tsne_ee)
+    except ValueError:
+        if tsne_ee == "default":
+            early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+        else:
+            raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":

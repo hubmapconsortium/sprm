@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.0.8.1
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
@@ -37,6 +37,11 @@ inputs:
     inputBinding:
       position: 128
       prefix: "--options-file"
+  options_preset:
+    type: string?
+    inputBinding:
+      position: 129
+      prefix: "--options-preset"
 outputs:
   output_dir:
     type: Directory
