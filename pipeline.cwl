@@ -25,6 +25,9 @@ inputs:
   verbose:
     label: "Whether to enable verbose/debug mode"
     type: boolean?
+  processes:
+    label: "Number of images to process in parallel (default: 1)"
+    type: int?
 
 outputs:
   sprm_output:
@@ -49,6 +52,8 @@ steps:
         source: enable_faulthandler
       verbose:
         source: verbose
+      processes:
+        source: processes
     out: [output_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
