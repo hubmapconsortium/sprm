@@ -6,7 +6,7 @@ from collections import defaultdict
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import matplotlib
 import matplotlib.cm
@@ -2518,7 +2518,12 @@ def reallocate_parallel(im, mask, ichan, options):
     pass
 
 
-def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
+def reallocate_and_merge_intensities(
+    im: IMGstruct,
+    mask: MaskStruct,
+    optional_img_file: Optional[Path],
+    options: Dict[str, Any],
+):
     # check if image needs to be resized to match mask
     if check_shape(im, mask):
         s, t, c, z, y, x = im.get_data().shape

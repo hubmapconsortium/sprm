@@ -72,6 +72,276 @@ def get_sprm_version() -> str:
     return "unknown"
 
 
+def analysis(
+    img_file: Path,
+    mask_file: Path,
+    optional_img_file: Optional[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
+) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]],]]:
+    print("Reading in image and corresponding mask file...")
+    print("Image name: ", img_file.name)
+
+    im = IMGstruct(img_file, options)
+    if options.get("debug"):
+        print("Image dimensions: ", im.get_data().shape)
+
+    # init cell features
+    covar_matrix = []
+    mean_vector = []
+    total_vector = []
+    cell_count = 0
+
+    # hot fix for stitched images pipeline
+    # if there are scenes or time points - they should be channels
+    # if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
+    #     # data = im.get_data()[0, 0, :, :, :, :]
+    #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
+    #     data = im.get_data()
+    #     s, t, c, z, y, x = data.shape
+    #     data = data.reshape(c, t, s, z, y, x)
+    #     im.set_data(data)
+
+    # get base file name for all output files
+    baseoutputfilename = im.get_name()
+
+    mask = MaskStruct(mask_file, options)
+
+    # hot fix for stitched images pipeline
+    # if there are scenes or time points - they should be channels
+    # if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
+    #     # data = im.get_data()[0, 0, :, :, :, :]
+    #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
+    #     data = mask.get_data()
+    #     s, t, c, z, y, x = data.shape
+    #     data = data.reshape(c, t, s, z, y, x)
+    #     mask.set_data(data)
+
+    # switch channels and z dims
+    ##############################
+    ##############################
+    # data = im.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # im.set_data(data)
+    #
+    # data = mask.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # mask.set_data(data)
+    ##############################
+    ##############################
+
+    # 0 == just sprm, 1 == segeval, 2 == both
+    eval_pathway = options.get("sprm_segeval_both")
+
+    seg_metrics = None
+    if eval_pathway:
+        seg_metrics = single_method_eval(im, mask, output_dir)
+        if eval_pathway == 1:
+            # only perform evaluation on single segmentation method
+            struct = {"Segmentation Evaluation Metrics v1.5": seg_metrics}
+
+            with open(
+                output_dir / (im.name + "-SPRM_Image_Quality_Measures.json"), "w"
+            ) as json_file:
+                json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
+            print("Finished Segmentation Evaluation for", im.path)
+            # loop to next image
+            return
+
+    # combination of mask_img & get_masked_imgs
+    ROI_coords = get_coordinates(mask, options)
+    mask.set_ROI(ROI_coords)
+
+    # quality control of image and mask for edge cells and best z slices +- n options
+    quality_control(mask, im, ROI_coords, options)
+
+    # get cells to be processed
+    inCells = mask.get_interior_cells()
+    cellidx = mask.get_cell_index()
+    cell_count = len(inCells)
+
+    # save cell graphs
+    cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
+
+    # signal to noise ratio of the image
+
+    SNR(im, baseoutputfilename, output_dir, cellidx, options)
+
+    bestz = mask.get_bestz()
+    # empty mask skip tile
+    if not bestz and options.get("skip_empty_mask") == 1:
+        print("Skipping tile...(mask is empty)")
+        return
+    # if len(bestz) > 1:
+    #     zslices = mask.get_bestz()
+
+    # check for whether there are accompanying images of the same field
+    # TODO: don't require empty list if no other file
+    opt_img_file = optional_img_file or []
+
+    # do superpixel and PCA analysis before reallocating images to conserve memory
+    # these are done on the whole image, not the individual cells
+    # do clustering on the individual pixels to find 'pixel types'
+    superpixels = voxel_cluster(im, options)
+    plot_img(superpixels, bestz[0], baseoutputfilename + "-Superpixels.png", output_dir)
+
+    # do PCA on the channel values to find channel components
+    reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
+    PCA_img = plotprincomp(
+        reducedim, bestz[0], baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
+    )
+
+    # writing out as a ometiff file of visualizations by channels
+    write_ometiff(im, output_dir, bestz, PCA_img, superpixels[bestz[0]])
+
+    # check if the image and mask spatial resolutions match
+    # and reallocate intensity to the mask resolution if not
+    # also merge in optional additional image if present
+    reallocate_and_merge_intensities(im, mask, opt_img_file, options)
+    # generate_fake_stackimg(im, mask, opt_img_file, options)
+
+    if options.get("skip_texture"):
+        # make fake textures matrix - all zeros
+        textures = [
+            np.zeros((1, 2, cell_count, len(im.channel_labels) * 6, 1)),
+            im.channel_labels * 12,
+        ]
+        # save it
+        for i in range(2):
+            df = pd.DataFrame(
+                textures[0][0, i, :, :, 0],
+                columns=textures[1][: len(im.channel_labels) * 6],
+                index=list(range(1, len(inCells) + 1)),
+            )
+            df.index.name = "ID"
+            df.to_csv(
+                output_dir / (baseoutputfilename + "-" + mask.channel_labels[i] + "_1_texture.csv")
+            )
+    else:
+        textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
+
+    # time point loop (don't expect multiple time points)
+    for t in range(0, im.get_data().shape[1]):
+
+        seg_n = mask.get_labels("cell")
+        # debug of cell_coordinates
+        # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
+
+        # get normalized shape representation of each cell
+        if not options.get("skip_outlinePCA"):
+            outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
+            shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+            if options.get("debug"):
+                # just for testing
+                kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
+                bin_pca(norm_shape_vectors, 1, outline_vectors, baseoutputfilename, output_dir)
+                pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
+                # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
+            write_cell_polygs(
+                cell_polygons,
+                outline_vectors,
+                cellidx,
+                baseoutputfilename,
+                output_dir,
+                options,
+            )
+        else:
+            print("Skipping outlinePCA...")
+        # loop of types of segmentation (channels in the mask img)
+        for j in range(0, mask.get_data().shape[2]):
+            # get the mask for this particular segmentation
+            # (e.g., cells, nuclei...)
+            # labeled_mask, maskIDs = mask_img(mask, j)
+            # convert indexed image into lists of pixels
+            # in each object (ROI) of this segmentation
+            # masked_imgs_coord = get_masked_imgs(labeled_mask, maskIDs)
+            # make the matrix and vectors to hold calculations
+
+            masked_imgs_coord = ROI_coords[j]
+            # get only the ROIs that are interior
+            masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
+
+            covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
+            mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
+            total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+
+            # loop of ROIs
+            for i in range(0, len(masked_imgs_coord)):
+                (
+                    covar_matrix[t, j, i, :, :],
+                    mean_vector[t, j, i, :, :],
+                    total_vector[t, j, i, :, :],
+                ) = calculations(masked_imgs_coord[i], im, t, i)
+
+        if not options.get("skip_outlinePCA"):
+            # save the means, covars, shape and total for each cell
+            save_all(
+                baseoutputfilename,
+                im,
+                mask,
+                output_dir,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+                shape_vectors,
+                norm_shape_vectors,
+            )
+
+            # do cell analyze
+            cell_analysis(
+                im,
+                mask,
+                baseoutputfilename,
+                bestz,
+                output_dir,
+                seg_n,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+                shape_vectors,
+                textures,
+                norm_shape_vectors,
+            )
+        else:
+            # same functions as above just without shape outlines
+            save_all(
+                baseoutputfilename,
+                im,
+                mask,
+                output_dir,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+            )
+            cell_analysis(
+                im,
+                mask,
+                baseoutputfilename,
+                bestz,
+                output_dir,
+                seg_n,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+                textures,
+            )
+
+    mask.quit()
+    im.quit()
+
+    return im, mask, cell_count, seg_metrics
+
+
 def main(
     img_dir: Path,
     mask_dir: Path,
