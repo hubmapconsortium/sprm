@@ -395,11 +395,15 @@ def argparse_wrapper():
     p = ArgumentParser()
     p.add_argument("img_dir", type=Path)
     p.add_argument("mask_dir", type=Path)
-    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
-    p.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
     p.add_argument("optional_img_dir", type=Path, nargs="?")
+    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
+
+    options_file_group = p.add_mutually_exclusive_group()
+    options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
+    options_file_group.add_argument("--options-preset")
+
     argss = p.parse_args()
 
     if argss.enable_manhole:
@@ -409,6 +413,9 @@ def argparse_wrapper():
 
     if argss.enable_faulthandler:
         faulthandler.enable(all_threads=True)
+
+    if argss.options_preset is not None:
+        argss.options_file = DEFAULT_OPTIONS_FILE.with_name(f"options-{argss.options_preset}.txt")
 
     main(
         argss.img_dir,
