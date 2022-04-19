@@ -23,7 +23,8 @@ zscore_norm 0
 skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore
-tSNE_all_perplexity 35
+tSNE_all_ee 12
+tSNE_all_perplexity 100
 tSNE_all_tSNEInitialization pca
 tsne_all_svdsolver4pca full
 cell_adj_parallel 0
