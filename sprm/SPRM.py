@@ -1,6 +1,6 @@
 import faulthandler
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
 
 from .outlinePCA import (
@@ -383,8 +383,10 @@ def main(
     # start time of processing a single img
     stime = time.monotonic() if options.get("debug") else None
 
-    print("Using", processes, "worker process(es)")
-    with ProcessPoolExecutor(max_workers=processes) as executor:
+    use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
+    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
+    print("Using", processes, "worker(s)")
+    with executor(max_workers=processes) as executor:
         futures = []
         for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
             futures.append(
