@@ -344,6 +344,7 @@ def analysis(
 def main(
     img_dir: Path,
     mask_dir: Path,
+    processes: int,
     output_dir: Path = DEFAULT_OUTPUT_PATH,
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
@@ -378,7 +379,7 @@ def main(
     # start time of processing a single img
     stime = time.monotonic() if options.get("debug") else None
 
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=processes) as executor:
         futures = []
         for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
             futures.append(
@@ -421,6 +422,7 @@ def argparse_wrapper():
     p.add_argument("img_dir", type=Path)
     p.add_argument("mask_dir", type=Path)
     p.add_argument("optional_img_dir", type=Path, nargs="?")
+    p.add_argument("-p", "--processes", type=int, default=1)
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
@@ -443,9 +445,10 @@ def argparse_wrapper():
         argss.options_file = DEFAULT_OPTIONS_FILE.with_name(f"options-{argss.options_preset}.txt")
 
     main(
-        argss.img_dir,
-        argss.mask_dir,
-        argss.output_dir,
-        argss.options_file,
-        argss.optional_img_dir,
+        img_dir=argss.img_dir,
+        mask_dir=argss.mask_dir,
+        processes=argss.processes,
+        output_dir=argss.output_dir,
+        options_path=argss.options_file,
+        optional_img_dir=argss.optional_img_dir,
     )
