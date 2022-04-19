@@ -37,6 +37,11 @@ inputs:
     inputBinding:
       position: 128
       prefix: "--options-file"
+  options_preset:
+    type: string?
+    inputBinding:
+      position: 129
+      prefix: "--options-preset"
 outputs:
   output_dir:
     type: Directory
