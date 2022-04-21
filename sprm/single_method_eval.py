@@ -2,7 +2,7 @@ import importlib.resources
 import pickle
 import re
 import xml.etree.ElementTree as ET
-# from math import prod
+from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -286,10 +286,10 @@ def flatten_dict(input_dict):
     return local_list
 
 
-# def get_schema_url(ome_xml_root_node: ET.Element) -> str:
-#     if m := schema_url_pattern.match(ome_xml_root_node.tag):
-#         return m.group(1)
-#     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
+def get_schema_url(ome_xml_root_node: ET.Element) -> str:
+    if m := schema_url_pattern.match(ome_xml_root_node.tag):
+        return m.group(1)
+    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
 def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
