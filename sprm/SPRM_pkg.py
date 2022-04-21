@@ -88,16 +88,23 @@ class IMGstruct:
         return img
 
     def read_data(self, options):
-        data = self.img.data[:, :, :, :, :, :]
-        dims = data.shape
-        s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
-        if t > 1:
-            data = data.reshape((s, 1, t * c, z, y, x))
+        # Haoran: hot fix for 5 dims 3D IMC images
+        if len(self.img.data.shape) == 5:
+            data = self.img.data[:, :, :, :, :]
+            dims = data.shape
+            s, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+        else:
+            data = self.img.data[:, :, :, :, :, :]
+            dims = data.shape
+            s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
+            if t > 1:
+                data = data.reshape((s, 1, t * c, z, y, x))
 
         return data
 
     def read_channel_names(self):
         img = self.img
+        print(img)
         cn = img.get_channel_names(scene=0)
         if cn[0] == "cells":
             cn[0] = "cell"

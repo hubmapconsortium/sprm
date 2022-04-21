@@ -5,6 +5,7 @@ from typing import Optional
 
 from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
 from .single_method_eval import *
+from .single_method_eval_3D import *
 from .SPRM_pkg import *
 
 """
@@ -160,7 +161,7 @@ def main(
         ##############################
         ##############################
 
-        # 0 == just sprm, 1 == segeval, 2 == both
+        # 0 == just sprm, 1 == segeval, 2 == both, 3 == 3D segmentation
         eval_pathway = options.get("sprm_segeval_both")
 
         if eval_pathway == 1:
@@ -177,6 +178,9 @@ def main(
             continue
         elif eval_pathway == 2:
             seg_metric_list.append(single_method_eval(im, mask, output_dir))
+        elif eval_pathway == 3:
+            single_method_eval_3D(im, mask, output_dir)
+
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
