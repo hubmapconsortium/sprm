@@ -3,7 +3,13 @@ from argparse import ArgumentParser
 from subprocess import CalledProcessError, check_output
 from typing import Optional
 
-from .outlinePCA import bin_pca, getcellshapefeatures, getparametricoutline, pca_recon
+from .outlinePCA import (
+    bin_pca,
+    getcellshapefeatures,
+    getparametricoutline,
+    kmeans_cluster_shape,
+    pca_recon,
+)
 from .single_method_eval import *
 from .single_method_eval_3D import *
 from .SPRM_pkg import *
@@ -181,7 +187,6 @@ def main(
         elif eval_pathway == 3:
             single_method_eval_3D(im, mask, output_dir)
 
-
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
         mask.set_ROI(ROI_coords)
@@ -198,6 +203,7 @@ def main(
         cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
         # signal to noise ratio of the image
+
         SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
         bestz = mask.get_bestz()
@@ -268,13 +274,23 @@ def main(
                 outline_vectors, cell_polygons = getparametricoutline(
                     mask, seg_n, ROI_coords, options
                 )
-                shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+                shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(
+                    outline_vectors, options
+                )
                 if options.get("debug"):
                     # just for testing
-                    bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
-                    pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
+                    kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
+                    bin_pca(norm_shape_vectors, 1, outline_vectors, baseoutputfilename, output_dir)
+                    pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
-                write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
+                write_cell_polygs(
+                    cell_polygons,
+                    outline_vectors,
+                    cellidx,
+                    baseoutputfilename,
+                    output_dir,
+                    options,
+                )
             else:
                 print("Skipping outlinePCA...")
             # loop of types of segmentation (channels in the mask img)
@@ -316,6 +332,7 @@ def main(
                     covar_matrix,
                     total_vector,
                     shape_vectors,
+                    norm_shape_vectors,
                 )
 
                 # do cell analyze
@@ -333,6 +350,7 @@ def main(
                     total_vector,
                     shape_vectors,
                     textures,
+                    norm_shape_vectors,
                 )
             else:
                 # same functions as above just without shape outlines
@@ -380,11 +398,15 @@ def argparse_wrapper():
     p = ArgumentParser()
     p.add_argument("img_dir", type=Path)
     p.add_argument("mask_dir", type=Path)
-    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
-    p.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
     p.add_argument("optional_img_dir", type=Path, nargs="?")
+    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
+
+    options_file_group = p.add_mutually_exclusive_group()
+    options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
+    options_file_group.add_argument("--options-preset")
+
     argss = p.parse_args()
 
     if argss.enable_manhole:
@@ -394,6 +416,9 @@ def argparse_wrapper():
 
     if argss.enable_faulthandler:
         faulthandler.enable(all_threads=True)
+
+    if argss.options_preset is not None:
+        argss.options_file = DEFAULT_OPTIONS_FILE.with_name(f"options-{argss.options_preset}.txt")
 
     main(
         argss.img_dir,

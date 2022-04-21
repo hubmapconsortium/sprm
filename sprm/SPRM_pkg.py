@@ -88,6 +88,7 @@ class IMGstruct:
         return img
 
     def read_data(self, options):
+
         # Haoran: hot fix for 5 dims 3D IMC images
         if len(self.img.data.shape) == 5:
             data = self.img.data[:, :, :, :, :]
@@ -100,12 +101,28 @@ class IMGstruct:
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
 
+        # data = self.img.data
+        # dims = data.shape
+        #
+        # if dims == 6:
+        #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
+        #     if t > 1:
+        #         data = data.reshape((s, 1, t * c, z, y, x))
+        #
+        # elif dims == 5:
+        #     t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+        #     if t > 1:
+        #         data = data.reshape((1, t * c, z, y, x))
+        #
+        #     data = data[np.newaxis, ...]
+
         return data
 
     def read_channel_names(self):
         img = self.img
         print(img)
         cn = img.get_channel_names(scene=0)
+        # cn = img.channel_names
         if cn[0] == "cells":
             cn[0] = "cell"
         return cn
@@ -951,6 +968,8 @@ def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, n
             line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
             ax.add_collection(line)
     plt.savefig(name, **figure_save_params)
+    plt.clf()
+    plt.close()
 
 
 def try_parse_int(value: str) -> Union[int, str]:
@@ -1038,6 +1057,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
     if options.get("debug"):
         print(df)
+        print(header)
     f = output_dir / (s + ".csv")
 
     # column header for indices
@@ -1048,7 +1068,8 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     else:
         df.index.name = "ID"
 
-    # df.columns = header
+    # write out header
+    df.columns = header
 
     if "Score" in s:
         df.index = options.get("cluster_types")
@@ -1065,7 +1086,12 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
 
 def write_cell_polygs(
-    polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict
+    polyg_list: List[np.ndarray],
+    pts: np.ndarray,
+    cellidx: list,
+    filename: str,
+    output_dir: Path,
+    options: Dict,
 ):
     coord_pairs = []
     for i in range(0, len(polyg_list)):
@@ -1074,12 +1100,28 @@ def write_cell_polygs(
         )
         coord_pairs.append(tlist)
 
-    df = pd.DataFrame({0: coord_pairs}, index=cellidx)
-    if options.get("debug"):
-        print(df)
-    f = output_dir / (filename + "-cell_polygons_spatial.csv")
-    df.index.name = "ID"
-    df.to_csv(f, header=["Shape"])
+    coord_pairs = np.asarray(coord_pairs)
+
+    write_2_csv(
+        ["Shape"],
+        coord_pairs,
+        filename + "-cell_polygons_spatial",
+        output_dir,
+        cellidx,
+        options,
+    )
+    # df = pd.DataFrame({0: coord_pairs}, index=cellidx)
+    # if options.get("debug"):
+    #     print(df)
+    # f = output_dir / (filename + "-cell_polygons_spatial.csv")
+    # df.index.name = "ID"
+    # df.to_csv(f, header=["Shape"])
+
+    # write out pts - 100 outlines
+    header = ["Scaling Factor"]
+    for i in range(1, 201):
+        header.append(i)
+    write_2_csv(header, pts, filename + "-normalized_cell_outlines", output_dir, cellidx, options)
 
 
 def build_matrix(
@@ -1535,6 +1577,7 @@ def cell_cluster_IDs(
                     "K-Means [Shape-Vectors]",
                     "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
+                    "K-Means [Shape-Vectors Normalized]",
                 ]
             ),
             allClusters,
@@ -1580,14 +1623,15 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
 
     if i == 0:
         if not options.get("skip_outlinePCA"):
-            plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
+            plot_img(argv[6], 0, filename + "-Cluster_Shape.png", output_dir)
+            plot_img(argv[7], 0, filename + "-Cluster_ShapeNormalized.png", output_dir)
 
-            plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
+            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
             plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-            plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
         else:
             plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-            plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
+            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
             plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
 
 
@@ -1601,7 +1645,7 @@ def make_legends(
     maskchn: List,
     inCells: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     # make legend once
     if i == 0:
@@ -1614,6 +1658,40 @@ def make_legends(
         showlegend(markers, table, filename + "-cluster_meanALLCH_legend.pdf", output_dir)
 
         if not options.get("skip_outlinePCA"):
+            feature_shape = ["shapefeat " + str(ff) for ff in range(0, argv[4].shape[1])]
+            print("Finding cell shape cluster markers...")
+            retmarkers = findmarkers(argv[4], options)
+            table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
+            write_2_csv(
+                markers,
+                table,
+                filename + "-clustercell_cellshape_legend",
+                output_dir,
+                inCells,
+                options,
+            )
+            showlegend(markers, table, filename + "-clustercells_cellshape_legend.pdf", output_dir)
+
+            # normalized cell shape
+            norm_feature_shape = ["shapefeat " + str(ff) for ff in range(0, argv[4].shape[1])]
+            print("Finding cell shape normalized cluster markers")
+            retmarkers = findmarkers(argv[7], options)
+            table, markers = matchNShow_markers(argv[7], retmarkers, norm_feature_shape, options)
+            write_2_csv(
+                markers,
+                table,
+                filename + "-clustercell_cellshapenormalized_legend",
+                output_dir,
+                inCells,
+                options,
+            )
+            showlegend(
+                markers,
+                table,
+                filename + "-clustercells_cellshapenormalized_legend.pdf",
+                output_dir,
+            )
+
             feature_shape = ["shapefeat " + str(ff) for ff in range(0, argv[4].shape[1])]
             print("Finding cell shape cluster markers...")
             retmarkers = findmarkers(argv[4], options)
@@ -1747,7 +1825,7 @@ def save_all(
     output_dir: Path,
     cellidx: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     # hard coded for now
     print("Writing to csv all matrices...")
@@ -1758,6 +1836,17 @@ def save_all(
     if not options.get("skip_outlinePCA"):
         outline_vectors = argv[3]
         write_2_file(outline_vectors, filename + "-cell_shape", im, output_dir, cellidx, options)
+
+        # normalize shape vectors
+        norm_shape_vectors = argv[4]
+        write_2_file(
+            norm_shape_vectors,
+            filename + "-cell_shape_normalized",
+            im,
+            output_dir,
+            cellidx,
+            options,
+        )
 
     write_2_file(
         mean_vector[0, -1, :, :, 0],
@@ -1805,7 +1894,7 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     """
     cluster and statisical analysis done on cell:
@@ -1822,6 +1911,7 @@ def cell_analysis(
         shape_vectors = argv[3]
         texture_vectors = argv[4][0]
         texture_channels = argv[4][1]
+        norm_shape_vectors = argv[5]
     else:
         texture_vectors = argv[3][0]
         texture_channels = argv[3][1]
@@ -1830,7 +1920,14 @@ def cell_analysis(
     maskchs = mask.get_channel_labels()
     feature_names = im.get_channel_labels()
     feature_covar = options.get("channel_label_combo")
-    feature_meanall = feature_names + feature_names + feature_names + feature_names
+
+    # make unique channel names
+    d = int(len(feature_names) * 4 / len(maskchs))
+    new_list = [entry for entry in maskchs for _ in range(d)]
+    add_list = ["-"] * len(new_list)
+    feature_meanall = [a + b for a, b in zip(new_list, add_list)]
+    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * d)]
+    # feature_meanall = feature_names + feature_names + feature_names + feature_names
 
     # all clusters List with scores
     all_clusters = []
@@ -1861,6 +1958,11 @@ def cell_analysis(
         )
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
+        clustercells_norm_shapevectors, normshapeclcenters = shape_cluster(
+            norm_shape_vectors, types_list, all_clusters, options
+        )
+        clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
+
     if options.get("skip_outlinePCA"):
         clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
             all_clusters,
@@ -1885,7 +1987,7 @@ def cell_analysis(
             covar_matrix,
             total_vector,
             meanAll_vector_f,
-            shape_vectors,
+            norm_shape_vectors,
             texture_matrix,
         )
     cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
@@ -1968,6 +2070,7 @@ def cell_analysis(
                 shapeclcenters,
                 [clustercells_texturecenters, texture_channels],
                 [clustercells_tsneAllcenters, tsneAll_header],
+                normshapeclcenters,
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
@@ -1985,6 +2088,7 @@ def cell_analysis(
                 clustercells_shapevectors,
                 clustercells_texture,
                 clustercells_tsneAll,
+                clustercells_norm_shapevectors,
             )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -1998,9 +2102,10 @@ def cell_analysis(
                 cluster_cell_imgcov[bestz],
                 cluster_cell_imguall[bestz],
                 cluster_cell_imgtotal[bestz],
-                clustercells_shape[bestz],
                 cluster_cell_texture[bestz],
                 cluster_cell_imgtsneAll[bestz],
+                clustercells_shape[bestz],
+                clustercells_norm_shape[bestz],
             )
         else:
             make_legends(
@@ -2151,6 +2256,7 @@ def showlegend(markernames: List[str], markertable: np.ndarray, outputfile: str,
     frame1.axes.get_xaxis().set_ticks([])
     # plt.show(block=False)
     plt.savefig(output_dir / outputfile, **figure_save_params)
+    plt.clf()
     plt.close()
 
 
@@ -2872,7 +2978,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
         matrix_texture = argv[4]
 
     tSNE_allfeatures_headers = []
-    cmd = options.get("tSNE_all_preprocess")[0]
+    cmd = options.get("tSNE_all_preprocess")[1]
     perplexity = options.get("tSNE_all_perplexity")
     pcaMethod = options.get("tsne_all_svdsolver4pca")
     tSNEInitialization = options.get("tSNE_all_tSNEInitialization")
@@ -2894,7 +3000,14 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             axis=1,
         )
 
-    early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+    tsne_ee = options.get("tSNE_all_ee")
+    try:
+        early_exaggeration = float(tsne_ee)
+    except ValueError:
+        if tsne_ee == "default":
+            early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+        else:
+            raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":
@@ -2950,7 +3063,7 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
         early_exaggeration=early_exaggeration,
         learning_rate=learning_rate,
         n_iter=n_iter,
-        init=tSNEInitialization,
+        init="random",
         random_state=0,
     )
 
@@ -3012,7 +3125,10 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
 
     # 2D - Scatterplot
-    # tsne2D = tsne_all_OnlyCell[:, 0:2]
+    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
+    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.pdf"), **figure_save_params)
+    plt.clf()
+    plt.close()
 
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
