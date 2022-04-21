@@ -11,6 +11,7 @@ from .outlinePCA import (
     pca_recon,
 )
 from .single_method_eval import *
+from .single_method_eval_3D import *
 from .SPRM_pkg import *
 
 """
@@ -166,7 +167,7 @@ def main(
         ##############################
         ##############################
 
-        # 0 == just sprm, 1 == segeval, 2 == both
+        # 0 == just sprm, 1 == segeval, 2 == both, 3 == 3D segmentation
         eval_pathway = options.get("sprm_segeval_both")
 
         if eval_pathway == 1:
@@ -183,6 +184,8 @@ def main(
             continue
         elif eval_pathway == 2:
             seg_metric_list.append(single_method_eval(im, mask, output_dir))
+        elif eval_pathway == 3:
+            single_method_eval_3D(im, mask, output_dir)
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
@@ -396,11 +399,15 @@ def argparse_wrapper():
     p = ArgumentParser()
     p.add_argument("img_dir", type=Path)
     p.add_argument("mask_dir", type=Path)
-    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
-    p.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
     p.add_argument("optional_img_dir", type=Path, nargs="?")
+    p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
+
+    options_file_group = p.add_mutually_exclusive_group()
+    options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
+    options_file_group.add_argument("--options-preset")
+
     argss = p.parse_args()
 
     if argss.enable_manhole:
@@ -410,6 +417,9 @@ def argparse_wrapper():
 
     if argss.enable_faulthandler:
         faulthandler.enable(all_threads=True)
+
+    if argss.options_preset is not None:
+        argss.options_file = DEFAULT_OPTIONS_FILE.with_name(f"options-{argss.options_preset}.txt")
 
     main(
         argss.img_dir,

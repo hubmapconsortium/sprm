@@ -13,6 +13,9 @@ inputs:
   options_file:
     label: "SPRM options file"
     type: File?
+  options_preset:
+    label: "SPRM options preset (alternate options file bundled with the package)"
+    type: string?
   enable_manhole:
     label: "Whether to enable remote debugging via 'manhole'"
     type: boolean?
@@ -38,6 +41,8 @@ steps:
         source: mask_dir
       options_file:
         source: options_file
+      options_preset:
+        source: options_preset
       enable_manhole:
         source: enable_manhole
       enable_faulthandler:
