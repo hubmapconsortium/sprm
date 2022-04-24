@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import numpy as np
 import xmltodict
+from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
 from skimage.filters import threshold_mean
