@@ -90,17 +90,17 @@ class IMGstruct:
     def read_data(self, options):
         data = self.img.data
         dims = data.shape
-    
+
         if dims == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
-    
+
         elif dims == 5:
             t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
             if t > 1:
                 data = data.reshape((1, t * c, z, y, x))
-        
+
             data = data[np.newaxis, ...]
 
         return data
