@@ -88,39 +88,25 @@ class IMGstruct:
         return img
 
     def read_data(self, options):
-
-        # Haoran: hot fix for 5 dims 3D IMC images
-        if len(self.img.data.shape) == 5:
-            data = self.img.data[:, :, :, :, :]
-            dims = data.shape
-            s, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-        else:
-            data = self.img.data[:, :, :, :, :, :]
-            dims = data.shape
+        data = self.img.data
+        dims = data.shape
+    
+        if dims == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
-
-        # data = self.img.data
-        # dims = data.shape
-        #
-        # if dims == 6:
-        #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
-        #     if t > 1:
-        #         data = data.reshape((s, 1, t * c, z, y, x))
-        #
-        # elif dims == 5:
-        #     t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-        #     if t > 1:
-        #         data = data.reshape((1, t * c, z, y, x))
-        #
-        #     data = data[np.newaxis, ...]
+    
+        elif dims == 5:
+            t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+            if t > 1:
+                data = data.reshape((1, t * c, z, y, x))
+        
+            data = data[np.newaxis, ...]
 
         return data
 
     def read_channel_names(self):
         img = self.img
-        print(img)
         cn = img.get_channel_names(scene=0)
         # cn = img.channel_names
         if cn[0] == "cells":
