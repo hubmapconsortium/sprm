@@ -185,7 +185,15 @@ def main(
         elif eval_pathway == 2:
             seg_metric_list.append(single_method_eval(im, mask, output_dir))
         elif eval_pathway == 3:
-            single_method_eval_3D(im, mask, output_dir)
+            seg_metrics_3D = single_method_eval_3D(im, mask, output_dir)
+            struct = {"3D Segmentation Evaluation Metrics v1.5": seg_metrics_3D}
+            with open(
+                    output_dir / (im.name + "-SPRM_3D_Image_Quality_Measures.json"), "w"
+            ) as json_file:
+                json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
+            print("Finished 3D Segmentation Evaluation for", im.path)
+            # loop to next image
+            continue
 
         # combination of mask_img & get_masked_imgs
         ROI_coords = get_coordinates(mask, options)
