@@ -23,7 +23,7 @@ Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.5
-09/08/2021
+04/21/2022
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
