@@ -361,13 +361,14 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
 
+            # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
+
             # calculate number of cell per 100 squared micron
             cell_num = len(np.unique(current_mask)) - 1
 
             cell_num_normalized = cell_num / micron_num * 100
 
             # calculate the standard deviation of cell size
-
             cell_size_std = cell_size_uniformity(current_mask)
 
             # get coverage metrics
@@ -427,6 +428,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     with importlib.resources.open_binary("sprm", "pca_3D.pickle") as f:
         PCA_model = pickle.load(f)
 
+    # generate quality score
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 
