@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
+import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from matplotlib import collections as mc
@@ -26,6 +27,7 @@ from numpy import linalg as LA
 from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
+from scipy.spatial import KDTree
 from skimage.feature.texture import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
@@ -656,7 +658,7 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        AdjacencyMatrix(mask, ROI_coords[2], cell_center, inCells, fname, outputdir, options)
+        AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
         # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         print("Runtime of adj matrix: ", time.monotonic() - stime)
     else:
@@ -687,15 +689,58 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     return 0
 
 
-def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
+def cell_check(cc, cell):
+
+    d = {}
+    d[cell.tobytes()] = None
+    if cc.tobytes() in d.keys():
+        return True
+    else:
+        return False
+
+
+def CheckAdjacency_Distance(cell_center, cell, cellids, idx, adjmatrix, cellGraph, i):
     for j in cellids[i]:
         # if j >= idx[-1]:
         #     continue
 
         k = idx[i]
 
-        sub = cell_center[k] - cell_center[j]
-        distance = LA.norm(sub)
+        # check for edge cases in which cell centers lie within another cell
+        bool = cell_check(cell_center[j], cell[k])
+        boole = cell_check(cell_center[k], cell[j])
+
+        if bool or boole:
+            continue
+        else:
+
+            sub = cell_center[k] - cell_center[j]
+            distance = LA.norm(sub)
+
+            adjmatrix[k, j] = distance
+            adjmatrix[j, k] = distance
+            cellGraph[k].add(j)
+            cellGraph[j].add(k)
+
+
+def CheckAdjacency_Distance_new(celledge, cellids, idx, adjmatrix, cellGraph, i):
+    for j in cellids[i]:
+        # if j >= idx[-1]:
+        #     continue
+
+        k = idx[i]
+
+        a = np.asarray(celledge[j])
+        b = np.asarray(celledge[k])
+        tree = KDTree(a.T)
+        dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
+        # res_df = df[["X1", "Y1"]]
+        # res_df[["X2", "Y2"]] = df[["X2", "Y2"]].iloc[ind].reset_index(drop=True)
+        # res_df["distance"] = dist
+        # sub = cell_center[k] - cell_center[j]
+
+        # distance = LA.norm(sub)
+        distance = np.argmin(dist)
 
         adjmatrix[k, j] = distance
         adjmatrix[j, k] = distance
@@ -703,27 +748,9 @@ def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
         cellGraph[j].add(k)
 
 
-def CheckAdjacency(cellCoords_control, cellCoords_cur, cell_centers, thr):
-    minValue = np.inf
-
-    for k in range(len(cellCoords_cur[0])):
-
-        sub = cellCoords_control[0] - cellCoords_cur[0, k]
-        sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
-        subtracted = np.stack((sub, sub2))
-        # distance = np.array(l)
-        # subtracted = np.asarray([cellCoords_control[0] - cellCoords_cur[0, k], cellCoords_control[1] - cellCoords_cur[1, k]])
-        distance = LA.norm(subtracted, axis=0)
-        # d = LA.norm(subtracted)
-        if np.min(distance) < thr:
-            return np.min(distance)
-
-    return 0
-
-
 def AdjacencyMatrix(
     mask,
-    cellEdgeList,
+    ROI_coords,
     cell_center: pd.DataFrame,
     inCells: list,
     baseoutputfilename,
@@ -747,14 +774,21 @@ def AdjacencyMatrix(
     print("adjacency calculation begin")
     # start = time.perf_counter()
 
+    cellEdgeList = ROI_coords[2]
+
     # numCells = len(inCells)
     numCells = len(cellEdgeList)
     cellidx = mask.get_cell_index()
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
+    # min_dist
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
+
+    # avg dist
+    adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph_avg = defaultdict(set)
 
     if window == None:
         delta = options.get("adj_matrix_delta")
@@ -789,21 +823,27 @@ def AdjacencyMatrix(
         if cellids[i].size == 0:
             continue
         else:
+
+            # for avg dist
             CheckAdjacency_Distance(
                 cell_center,
+                ROI_coords[0],
+                cellids,
+                idx,
+                adjmatrix_avg,
+                cellGraph_avg,
+                i,
+            )
+
+            # for min dist
+            CheckAdjacency_Distance_new(
+                cellEdgeList,
                 cellids,
                 idx,
                 adjacencyMatrix,
                 cellGraph,
                 i,
             )
-            # for j in cellids[i]:
-            #     minDist = CheckAdjacency(cellEdgeList[idx[i]], cellEdgeList[j], thr)
-            #     if minDist != 0 and minDist < thr:
-            #         adjacencyMatrix[i, j] = minDist
-            #         adjacencyMatrix[j, i] = minDist
-            #         cellGraph[i].add(j)
-            #         cellGraph[j].add(i)
 
     AdjacencyMatrix2Graph(
         adjacencyMatrix,
@@ -814,9 +854,15 @@ def AdjacencyMatrix(
     )
     # Remove background
     adjacencyMatrix = adjacencyMatrix[1:, 1:]
+    adjmatrix_avg = adjmatrix_avg[1:, 1:]
+
+    adjmatrix_avg_csr = scipy.sparse.csr_matrix(adjmatrix_avg)
     adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
     scipy.io.mmwrite(
         output_dir / (baseoutputfilename + "_AdjacencyMatrix.mtx"), adjacencyMatrix_csr
+    )
+    scipy.io.mmwrite(
+        output_dir / (baseoutputfilename + "_AdjacencyMatrix_avg.mtx"), adjmatrix_avg_csr
     )
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
         for i in range(numCells):
@@ -1564,6 +1610,7 @@ def cell_cluster_IDs(
                     "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
                     "K-Means [Shape-Vectors Normalized]",
+                    "K-Means [UMAP_All_Features]",
                 ]
             ),
             allClusters,
@@ -1582,6 +1629,7 @@ def cell_cluster_IDs(
                     "K-Means [Mean-All-SubRegions] Expression",
                     "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
+                    "K-Means [UMAP_All_Features]",
                 ]
             ),
             allClusters,
@@ -1950,7 +1998,13 @@ def cell_analysis(
         clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
     if options.get("skip_outlinePCA"):
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        (
+            clustercells_tsneAll,
+            clustercells_tsneAllcenters,
+            tsneAll_header,
+            clustercells_umapAll,
+            clustercells_umapAllcenters,
+        ) = DR_AllFeatures(
             all_clusters,
             types_list,
             filename,
@@ -1963,7 +2017,13 @@ def cell_analysis(
             texture_matrix,
         )
     else:
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        (
+            clustercells_tsneAll,
+            clustercells_tsneAllcenters,
+            tsneAll_header,
+            clustercells_umapAll,
+            clustercells_umapAllcenters,
+        ) = DR_AllFeatures(
             all_clusters,
             types_list,
             filename,
@@ -1976,7 +2036,11 @@ def cell_analysis(
             norm_shape_vectors,
             texture_matrix,
         )
+
+    # tsne
     cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+    # umap
+    cluster_cell_imgumapAll = cell_map(mask, clustercells_umapAll, seg_n, options)
 
     # for each channel in the mask
     for i in range(len(maskchs)):
@@ -2057,6 +2121,7 @@ def cell_analysis(
                 [clustercells_texturecenters, texture_channels],
                 [clustercells_tsneAllcenters, tsneAll_header],
                 normshapeclcenters,
+                [clustercells_umapAllcenters, tsneAll_header],
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
@@ -2075,6 +2140,7 @@ def cell_analysis(
                 clustercells_texture,
                 clustercells_tsneAll,
                 clustercells_norm_shapevectors,
+                clustercells_umapAll,
             )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -2092,6 +2158,7 @@ def cell_analysis(
                 cluster_cell_imgtsneAll[bestz],
                 clustercells_shape[bestz],
                 clustercells_norm_shape[bestz],
+                cluster_cell_imgumapAll[bestz],
             )
         else:
             make_legends(
@@ -2110,6 +2177,7 @@ def cell_analysis(
                 clustercells_uvallcenters,
                 [clustercells_texturecenters, texture_channels],
                 [clustercells_tsneAllcenters, tsneAll_header],
+                [clustercells_umapAllcenters, tsneAll_header],
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
@@ -2126,6 +2194,7 @@ def cell_analysis(
                 clustercells_uvall,
                 clustercells_texture,
                 clustercells_tsneAll,
+                clustercells_umapAll,
             )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -2141,6 +2210,7 @@ def cell_analysis(
                 cluster_cell_imgtotal[bestz],
                 cluster_cell_texture[bestz],
                 cluster_cell_imgtsneAll[bestz],
+                cluster_cell_imgumapAll[bestz],
             )
 
     if options.get("debug"):
@@ -2930,7 +3000,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return [texture, texture_featureNames]
 
 
-def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
+def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
     """
 
     By: Young Je Lee and Ted Zhang
@@ -3069,55 +3139,9 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
             matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
 
-    # if tSNEInitialization == "random":
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init=tSNEInitialization,
-    #         random_state=0,
-    #     )
-    # elif tSNEInitialization == "pca" and pcaMethod == "full":
-    #     try:
-    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
-    #             matrix_all_OnlyCell
-    #         )
-    #     except ValueError:
-    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
-    #             matrix_all_OnlyCell
-    #         )
-    #
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init="random",
-    #         random_state=0,
-    #     )
-    # elif tSNEInitialization == "pca" and pcaMethod == "random":
-    #     matrix_all_OnlyCell = PCA(
-    #         n_components=numComp, svd_solver="randomized", random_state=0
-    #     ).fit_transform(matrix_all_OnlyCell)
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init="random",
-    #         random_state=0,
-    #     )
-    # else:
-    #     print("Error in arguments for tSNE_all")
-    # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
-
     # 2D - Scatterplot
-    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
-    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.pdf"), **figure_save_params)
+    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1], marker=".")
+    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.png"), bbox_inches="tight")
     plt.clf()
     plt.close()
 
@@ -3133,7 +3157,33 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # for i in range(len(clustercells_all)):
     #    clustercells_all[i]=len(clustercells_allcenters)-1-np.where(clusterMembership_descending==clustercells_all[i])[0]
 
-    return clustercells_all, clustercells_allcenters, tSNE_allfeatures_headers
+    # umap
+    reducer = umap.UMAP()
+    umap_features = matrix_all_OnlyCell_full.copy()
+    umap_embed = reducer.fit_transform(umap_features)
+
+    # 2D umap
+    plt.scatter(umap_embed[:, 0], umap_embed[:, 1], marker=".")
+    plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"), bbox_inches="tight")
+    plt.clf()
+    plt.close()
+
+    umap_header = [x for x in range(1, umap_embed.shape[1] + 1)]
+    write_2_csv(
+        umap_header, umap_embed, filename + "-UMAP_allfeatures", output_dir, cellidx, options
+    )
+
+    clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
+        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options
+    )
+
+    return (
+        clustercells_all,
+        clustercells_allcenters,
+        tSNE_allfeatures_headers,
+        clustercells_all_umap,
+        clustercells_allcenters_umap,
+    )
 
 
 def BlockwiseZscore(data):

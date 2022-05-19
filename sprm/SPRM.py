@@ -120,15 +120,15 @@ def analysis(
     # switch channels and z dims
     ##############################
     ##############################
-    # data = im.get_data()
-    # s, t, c, z, y, x = data.shape
-    # data = data.reshape(s, t, z, c, y, x)
-    # im.set_data(data)
-    #
-    # data = mask.get_data()
-    # s, t, c, z, y, x = data.shape
-    # data = data.reshape(s, t, z, c, y, x)
-    # mask.set_data(data)
+    data = im.get_data()
+    s, t, c, z, y, x = data.shape
+    data = data.reshape(s, t, z, c, y, x)
+    im.set_data(data)
+
+    data = mask.get_data()
+    s, t, c, z, y, x = data.shape
+    data = data.reshape(s, t, z, c, y, x)
+    mask.set_data(data)
     ##############################
     ##############################
 
@@ -382,6 +382,20 @@ def main(
 
     # start time of processing a single img
     stime = time.monotonic() if options.get("debug") else None
+
+    ### LOCAL TESTING ###
+    # for i in range(len(img_files)):
+    #     im, mask, cc, segm = analysis(img_files[i],
+    #              mask_files[i],
+    #              opt_img_files[0],
+    #              output_dir,
+    #              options)
+    #
+    #     im_list.append(im)
+    #     mask_list.append(mask)
+    #     cell_total.append(cc)
+    #     seg_metric_list.append(segm)
+    #### END LOCAL TESTING ###
 
     use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
     executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
