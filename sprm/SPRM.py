@@ -11,6 +11,7 @@ from .outlinePCA import (
     pca_recon,
 )
 from .single_method_eval import *
+from .single_method_eval_3D import *
 from .SPRM_pkg import *
 
 """
@@ -120,15 +121,15 @@ def analysis(
     # switch channels and z dims
     ##############################
     ##############################
-    data = im.get_data()
-    s, t, c, z, y, x = data.shape
-    data = data.reshape(s, t, z, c, y, x)
-    im.set_data(data)
-
-    data = mask.get_data()
-    s, t, c, z, y, x = data.shape
-    data = data.reshape(s, t, z, c, y, x)
-    mask.set_data(data)
+    # data = im.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # im.set_data(data)
+    #
+    # data = mask.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # mask.set_data(data)
     ##############################
     ##############################
 
@@ -424,15 +425,14 @@ def main(
                 cell_total.append(cell_count)
                 seg_metric_list.append(seg_metrics)
 
-    quality_measures(
-        im_list,
-        mask_list,
-        seg_metric_list,
-        cell_total,
-        img_files,
-        output_dir,
-        options,
-    )
+    if options.get("image_dimension") == "3D":
+        quality_measures_3D(
+            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+        )
+    else:
+        quality_measures(
+            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+        )
 
     if options.get("debug"):
         print(f"Total runtime: {time.monotonic() - stime}")
