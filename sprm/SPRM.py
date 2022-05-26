@@ -138,7 +138,10 @@ def analysis(
 
     seg_metrics = None
     if eval_pathway:
-        seg_metrics = single_method_eval(im, mask, output_dir)
+        if options.get("image_dimension") == "3D":
+            seg_metrics = single_method_eval_3D(im, mask, output_dir)
+        else:
+            seg_metrics = single_method_eval(im, mask, output_dir)
         if eval_pathway == 1:
             # only perform evaluation on single segmentation method
             struct = {"Segmentation Evaluation Metrics v1.5": seg_metrics}
@@ -398,6 +401,7 @@ def main(
     #     seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
+    ### CWL RUNS ###
     use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
     executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
     print("Using", processes, "worker(s) with executor", type(executor).__name__)
@@ -424,6 +428,8 @@ def main(
                 mask_list.append(mask)
                 cell_total.append(cell_count)
                 seg_metric_list.append(seg_metrics)
+
+    ### CWL END ###
 
     if options.get("image_dimension") == "3D":
         quality_measures_3D(
