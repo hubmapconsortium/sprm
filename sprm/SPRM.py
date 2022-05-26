@@ -265,8 +265,8 @@ def main(
         # time point loop (don't expect multiple time points)
         for t in range(0, im.get_data().shape[1]):
 
-            # seg_n = mask.get_labels("cell")
-            seg_n = mask.get_labels("0")
+            seg_n = mask.get_labels("cell")
+            # seg_n = mask.get_labels("0")
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
@@ -387,9 +387,14 @@ def main(
         mask.quit()
         im.quit()
 
-    quality_measures(
-        im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
-    )
+    if options.get("image_dimension") == "3D":
+        quality_measures_3D(
+            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+        )
+    else:
+        quality_measures(
+            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
+        )
 
     # recluster features
     # recluster(output_dir, im, options)
