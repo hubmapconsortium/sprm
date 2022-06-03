@@ -92,31 +92,31 @@ class IMGstruct:
     def read_data(self, options):
 
         # Haoran: hot fix for 5 dims 3D IMC images
-        if len(self.img.data.shape) == 5:
-            data = self.img.data[:, :, :, :, :]
-            dims = data.shape
-            s, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-        else:
-            data = self.img.data[:, :, :, :, :, :]
-            dims = data.shape
+        # if len(self.img.data.shape) == 5:
+        #     data = self.img.data[:, :, :, :, :]
+        #     dims = data.shape
+        #     s, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+        # else:
+        #     data = self.img.data[:, :, :, :, :, :]
+        #     dims = data.shape
+        #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
+        #     if t > 1:
+        #         data = data.reshape((s, 1, t * c, z, y, x))
+
+        data = self.img.data
+        dims = data.shape
+
+        if dims == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
 
-        # data = self.img.data
-        # dims = data.shape
-        #
-        # if dims == 6:
-        #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
-        #     if t > 1:
-        #         data = data.reshape((s, 1, t * c, z, y, x))
-        #
-        # elif dims == 5:
-        #     t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-        #     if t > 1:
-        #         data = data.reshape((1, t * c, z, y, x))
-        #
-        #     data = data[np.newaxis, ...]
+        elif dims == 5:
+            t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+            if t > 1:
+                data = data.reshape((1, t * c, z, y, x))
+
+            data = data[np.newaxis, ...]
 
         return data
 
@@ -1006,8 +1006,8 @@ def AdjacencyMatrix(
     # if maskImg.shape[3] > 1:
     #     z = maskImg.shape[3]
 
-    a = maskImg.shape[5]
-    b = maskImg.shape[4]
+    a = maskImg.shape[1]
+    b = maskImg.shape[0]
 
     if paraopt == 1:
         cel = nbList(cellEdgeList)
