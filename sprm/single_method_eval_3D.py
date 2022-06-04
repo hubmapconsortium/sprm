@@ -1,10 +1,13 @@
 import importlib.resources
 import pickle
 import re
+import xml.etree.ElementTree as ET
+from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import numpy as np
 import xmltodict
+from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
 from skimage.filters import threshold_mean
@@ -20,11 +23,31 @@ Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.5
-09/08/2021
+04/21/2022
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
+
+def get_schema_url(ome_xml_root_node: ET.Element) -> str:
+    if m := schema_url_pattern.match(ome_xml_root_node.tag):
+        return m.group(1)
+    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
+
+def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+    """
+    Returns total pixel size in square micrometers.
+    """
+    reg = UnitRegistry()
+    
+    sizes: List[Quantity] = []
+    for dimension in ["X", "Y"]:
+        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+        sizes.append(value * unit)
+    
+    size = prod(sizes)
+    return size.to("micrometer ** 2").magnitude
 
 def thresholding(img):
     threshold = threshold_mean(img.astype(np.int64))
@@ -330,10 +353,15 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         metrics[channel_names[channel]] = {}
         img_channels = img.data[0, 0, :, :, :, :]
         if channel_names[channel] == "Matched Cell":
-            matched_fraction = 1.0
-            pixel_size = 1
+
+            schema_url = get_schema_url(img.img.metadata.root_node)
+            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            pixel_size = get_pixel_area(pixels_node.attrib)
+            
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
+
+            # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
 
             # calculate number of cell per 100 squared micron
             cell_num = len(np.unique(current_mask)) - 1
@@ -341,7 +369,6 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             cell_num_normalized = cell_num / micron_num * 100
 
             # calculate the standard deviation of cell size
-
             cell_size_std = cell_size_uniformity(current_mask)
 
             # get coverage metrics
@@ -368,7 +395,6 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             metrics[channel_names[channel]]["1/(ln(StandardDeviationOfCellSize)+1)"] = 1 / (
                 np.log(cell_size_std) + 1
             )
-            metrics[channel_names[channel]]["FractionOfMatchedCellsAndNuclei"] = matched_fraction
             metrics[channel_names[channel]]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (
                 foreground_CV + 1
             )
@@ -402,6 +428,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     with importlib.resources.open_binary("sprm", "pca_3D.pickle") as f:
         PCA_model = pickle.load(f)
 
+    # generate quality score
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 

@@ -90,6 +90,8 @@ class IMGstruct:
         return img
 
     def read_data(self, options):
+        data = self.img.data
+        dims = data.shape
 
         # Haoran: hot fix for 5 dims 3D IMC images
         # if len(self.img.data.shape) == 5:
@@ -102,9 +104,6 @@ class IMGstruct:
         #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
         #     if t > 1:
         #         data = data.reshape((s, 1, t * c, z, y, x))
-
-        data = self.img.data
-        dims = data.shape
 
         if dims == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
