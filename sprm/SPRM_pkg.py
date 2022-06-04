@@ -6,7 +6,7 @@ from collections import defaultdict
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import matplotlib
 import matplotlib.cm
@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
+import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from matplotlib import collections as mc
@@ -26,6 +27,7 @@ from numpy import linalg as LA
 from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
+from scipy.spatial import KDTree
 from skimage.feature.texture import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
@@ -91,6 +93,18 @@ class IMGstruct:
         data = self.img.data
         dims = data.shape
 
+        # Haoran: hot fix for 5 dims 3D IMC images
+        # if len(self.img.data.shape) == 5:
+        #     data = self.img.data[:, :, :, :, :]
+        #     dims = data.shape
+        #     s, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
+        # else:
+        #     data = self.img.data[:, :, :, :, :, :]
+        #     dims = data.shape
+        #     s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
+        #     if t > 1:
+        #         data = data.reshape((s, 1, t * c, z, y, x))
+
         if dims == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
@@ -106,9 +120,11 @@ class IMGstruct:
         return data
 
     def read_channel_names(self):
-        img = self.img
+        img: AICSImage = self.img
+        print(img)
         cn = img.get_channel_names(scene=0)
         # cn = img.channel_names
+
         if cn[0] == "cells":
             cn[0] = "cell"
         return cn
@@ -136,6 +152,23 @@ class MaskStruct(IMGstruct):
         self.cell_index = []
         self.bad_cells = []
         self.ROI = []
+
+    def read_channel_names(self):
+        img: AICSImage = self.img
+        print(img)
+        cn = img.get_channel_names(scene=0)
+        # cn = img.channel_names
+
+        # fix for mask without names for broken aicsimageio
+        if cn[0] == "cells":
+            cn[0] = "cell"
+        elif cn[0] == "0":
+            cn[0] = "cell"
+            cn[1] = "nuclei"
+            cn[2] = "cell_boundaries"
+            cn[3] = "nucleus_boundaries"
+
+        return cn
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -176,11 +209,17 @@ class MaskStruct(IMGstruct):
             data = np.repeat(data, dims[3], axis=3)
             # print(data.shape)
             # set bestz
-        else:
-            bestz.append(0)
+        else:  # 3D case or that slice 0 is best
+            if dims[3] > 1:
+                bestz.append(int(dims[3] / 2))
+            else:
+                bestz.append(0)
 
         # set bestz
         self.set_bestz(bestz)
+
+        # check to make sure is int64
+        data = data.astype(int)
 
         return data
 
@@ -353,13 +392,14 @@ def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarra
     if i == 0:
         print("Performing statistical analyses on ROIs...")
 
-    y, x = coord[1], coord[0]
+    z, y, x = coord[0], coord[1], coord[2]
     y = y.astype(int)
     x = x.astype(int)
 
     temp = im.get_data()
 
-    channel_all_mask = temp[0, t, :, 0, x, y]
+    # for 3D needs best z
+    channel_all_mask = temp[0, t, :, z, y, x]
     ROI = np.transpose(channel_all_mask)
 
     cov_m = np.cov(ROI)
@@ -512,10 +552,36 @@ def append_coord(masked_imgs_coord, rlabel_mask, indices):
     return
 
 
+def append_coord_3D(masked_imgs_coord, rlabel_mask, indices):
+    for i in range(0, len(rlabel_mask)):
+        masked_imgs_coord[rlabel_mask[i]][0].append(indices[0][i])
+        masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
+        masked_imgs_coord[rlabel_mask[i]][2].append(indices[2][i])
+
+    return
+
+
 @nb.njit(parallel=True)
 def cell_num_index_map(flat_mask: np.ndarray, cell_num_dict: Dict):
     for i in nb.prange(0, len(flat_mask)):
         flat_mask[i] = cell_num_dict.get(flat_mask[i])
+
+
+def unravel_indices_3D(mask_channels, maxvalue, channel_coords):
+    for j in range(0, len(mask_channels)):
+        # might want to change this to pure numpy arrays
+        masked_imgs_coord = [[[], [], []] for i in range(maxvalue)]
+        labeled_mask = mask_channels[j]
+        rlabel_mask = labeled_mask[:, :, :].reshape(-1)
+        indices = np.arange(len(rlabel_mask))
+        indices = np.unravel_index(
+            indices, (labeled_mask.shape[0], labeled_mask.shape[1], labeled_mask.shape[2])
+        )
+
+        append_coord_3D(masked_imgs_coord, rlabel_mask, indices)
+        masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
+
+        channel_coords.append(masked_imgs_coord)
 
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
@@ -585,7 +651,7 @@ def get_coordinates(mask, options):
     assert (maxvalue - 1) == np.max(mask_data)
 
     # post-process for edge case cell coordinates - only 1 point
-    freq = np.unique(mask_data[0, 0, 0, 0, :, :], return_counts=True)
+    freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.set_bad_cells(idx)
 
@@ -594,7 +660,11 @@ def get_coordinates(mask, options):
     for i in range(0, mask_4D.shape[0]):
         mask_channels.append(mask_4D[i, :, :, :])
 
-    unravel_indices(mask_channels, maxvalue, channel_coords)  # new
+    # 3D case
+    if mask_4D.shape[1] > 1:
+        unravel_indices_3D(mask_channels, maxvalue, channel_coords)
+    else:
+        unravel_indices(mask_channels, maxvalue, channel_coords)  # new
     # npwhere(mask_channels, maxvalue, channel_coords_np) #old
 
     # remove idx from coords
@@ -618,18 +688,27 @@ def cell_graphs(
     """
 
     cellmask = ROI_coords[0]
-    cell_center = np.zeros((len(cellmask), 2))
+    cell_center = np.zeros((len(cellmask), 3))
     # cell_idx = mask.get_cell_index()
 
-    for i in range(1, len(cellmask)):
-        m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-        cell_center[i, 0] = m[0]
-        cell_center[i, 1] = m[1]
+    if cellmask[0].shape[0] == 3:
+        for i in range(1, len(cellmask)):
+            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
+            m = np.mean(cellmask[i], axis=1).astype(int)
+            cell_center[i, 0] = m[1]
+            cell_center[i, 1] = m[2]
+            cell_center[i, 2] = m[0]
+    else:
+        for i in range(1, len(cellmask)):
+            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
+            m = np.mean(cellmask[i], axis=1).astype(int)
+            cell_center[i, 0] = m[0]
+            cell_center[i, 1] = m[1]
 
     cell_center_df = pd.DataFrame(cell_center)
     cell_center_df.index.name = "ID"
 
-    cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y"])
+    cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y", "z"])
     adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
 
     # adj_cell_list(cellmask, fname, outputdir)
@@ -656,8 +735,11 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        AdjacencyMatrix(mask, ROI_coords[2], cell_center, inCells, fname, outputdir, options)
-        # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
+        if ROI_coords[2][0].shape[0] == 2:
+            AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
+        else:  # 3D
+            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
         print("Runtime of adj matrix: ", time.monotonic() - stime)
     else:
         df = pd.DataFrame(np.zeros(1))
@@ -687,15 +769,57 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
     return 0
 
 
-def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
+def cell_check(cc, cell):
+
+    d = {}
+    d[cell.tobytes()] = None
+    if cc.tobytes() in d.keys():
+        return True
+    else:
+        return False
+
+
+def CheckAdjacency_Distance(cell_center, cell, cellids, idx, adjmatrix, cellGraph, i):
     for j in cellids[i]:
         # if j >= idx[-1]:
         #     continue
 
         k = idx[i]
 
-        sub = cell_center[k] - cell_center[j]
-        distance = LA.norm(sub)
+        # check for edge cases in which cell centers lie within another cell
+        bool = cell_check(cell_center[j], cell[k])
+        boole = cell_check(cell_center[k], cell[j])
+
+        if bool or boole:
+            continue
+        else:
+
+            sub = cell_center[k] - cell_center[j]
+            distance = LA.norm(sub)
+            adjmatrix[k, j] = distance
+            adjmatrix[j, k] = distance
+            cellGraph[k].add(j)
+            cellGraph[j].add(k)
+
+
+def CheckAdjacency_Distance_new(celledge, cellids, idx, adjmatrix, cellGraph, i):
+    for j in cellids[i]:
+        # if j >= idx[-1]:
+        #     continue
+
+        k = idx[i]
+
+        a = np.asarray(celledge[j])
+        b = np.asarray(celledge[k])
+        tree = KDTree(a.T)
+        dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
+        # res_df = df[["X1", "Y1"]]
+        # res_df[["X2", "Y2"]] = df[["X2", "Y2"]].iloc[ind].reset_index(drop=True)
+        # res_df["distance"] = dist
+        # sub = cell_center[k] - cell_center[j]
+
+        # distance = LA.norm(sub)
+        distance = np.argmin(dist)
 
         adjmatrix[k, j] = distance
         adjmatrix[j, k] = distance
@@ -703,27 +827,9 @@ def CheckAdjacency_Distance(cell_center, cellids, idx, adjmatrix, cellGraph, i):
         cellGraph[j].add(k)
 
 
-def CheckAdjacency(cellCoords_control, cellCoords_cur, cell_centers, thr):
-    minValue = np.inf
-
-    for k in range(len(cellCoords_cur[0])):
-
-        sub = cellCoords_control[0] - cellCoords_cur[0, k]
-        sub2 = cellCoords_control[1] - cellCoords_cur[1, k]
-        subtracted = np.stack((sub, sub2))
-        # distance = np.array(l)
-        # subtracted = np.asarray([cellCoords_control[0] - cellCoords_cur[0, k], cellCoords_control[1] - cellCoords_cur[1, k]])
-        distance = LA.norm(subtracted, axis=0)
-        # d = LA.norm(subtracted)
-        if np.min(distance) < thr:
-            return np.min(distance)
-
-    return 0
-
-
-def AdjacencyMatrix(
+def AdjacencyMatrix_3D(
     mask,
-    cellEdgeList,
+    ROI_coords,
     cell_center: pd.DataFrame,
     inCells: list,
     baseoutputfilename,
@@ -747,20 +853,158 @@ def AdjacencyMatrix(
     print("adjacency calculation begin")
     # start = time.perf_counter()
 
+    cellEdgeList = ROI_coords[2]
+
     # numCells = len(inCells)
     numCells = len(cellEdgeList)
     cellidx = mask.get_cell_index()
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
+    # min_dist
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
+
+    # avg dist
+    adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph_avg = defaultdict(set)
 
     if window == None:
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")
+
+    # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+    maskImg = mask.get_data()[0, 0, loc, :, :, :]
+
+    z = maskImg.shape[0]
+    a = maskImg.shape[2]
+    b = maskImg.shape[1]
+
+    if paraopt == 1:
+        cel = nbList(cellEdgeList)
+        # not compatible for 3D
+        windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
+    else:
+        windowCoords, windowSize, windowXY = get_windows_3D(
+            numCells, cellEdgeList, inCells, delta, a, b, z
+        )
+
+    templist = []
+    for i in range(len(windowCoords)):
+        tempImg = np.zeros((windowSize[i][2], windowSize[i][1], windowSize[i][0]))
+        tempImg[windowCoords[i][2, :], windowCoords[i][1, :], windowCoords[i][0, :]] = 1
+        templist.append(tempImg)
+
+    dimglist = [binary_dilation(x, iterations=thr) for x in templist]
+    maskcrop = [maskImg[x[4] : x[5], x[2] : x[3], x[0] : x[1]] for x in windowXY]
+    nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
+    cellids = [np.unique(x)[1:] for x in nimglist]
+    idx = np.arange(1, len(cellids) + 1)
+    cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
+
+    for i in range(len(cellids)):
+        if cellids[i].size == 0:
+            continue
+        else:
+            CheckAdjacency_Distance(
+                cell_center,
+                ROI_coords[0],
+                cellids,
+                idx,
+                adjmatrix_avg,
+                cellGraph_avg,
+                i,
+            )
+
+            # for min dist
+            CheckAdjacency_Distance_new(
+                cellEdgeList,
+                cellids,
+                idx,
+                adjacencyMatrix,
+                cellGraph,
+                i,
+            )
+
+    AdjacencyMatrix2Graph(
+        adjacencyMatrix,
+        cell_center,
+        cellGraph,
+        output_dir / (baseoutputfilename + "_AdjacencyGraph.pdf"),
+        thr,
+    )
+    # Remove background
+    adjacencyMatrix = adjacencyMatrix[1:, 1:]
+    adjmatrix_avg = adjmatrix_avg[1:, 1:]
+
+    adjmatrix_avg_csr = scipy.sparse.csr_matrix(adjmatrix_avg)
+    adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
+    scipy.io.mmwrite(
+        output_dir / (baseoutputfilename + "_AdjacencyMatrix.mtx"), adjacencyMatrix_csr
+    )
+    scipy.io.mmwrite(
+        output_dir / (baseoutputfilename + "_AdjacencyMatrix_avg.mtx"), adjmatrix_avg_csr
+    )
+    with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
+        for i in range(numCells):
+            print(i, file=f)
+
+
+def AdjacencyMatrix(
+    mask,
+    ROI_coords,
+    cell_center: pd.DataFrame,
+    inCells: list,
+    baseoutputfilename,
+    output_dir,
+    options: Dict,
+    window=None,
+):
+    """
+    By: Young Je Lee, Ted Zhang and Matt Ruffalo
+    """
+
+    ###
+    # change from list[np.arrays] -> np.array
+    ###
+    # cel = nbList()
+    thr = options.get("cell_adj_dilation_itr")
+    cell_center = cell_center.to_numpy()
+
+    paraopt = options.get("cell_adj_parallel")
+    loc = mask.get_labels("cell_boundaries")
+    print("adjacency calculation begin")
+    # start = time.perf_counter()
+
+    cellEdgeList = ROI_coords[2]
+
+    # numCells = len(inCells)
+    numCells = len(cellEdgeList)
+    cellidx = mask.get_cell_index()
+    # intCells = mask.get_interior_cells()
+    # assert (numCells == intCells)
+
+    # min_dist
+    adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph = defaultdict(set)
+
+    # avg dist
+    adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph_avg = defaultdict(set)
+
+    if window == None:
+        delta = options.get("adj_matrix_delta")
+    else:
+        delta = len(window) + options.get("adj_matrix_delta")
+
     maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+    # maskImg = mask.get_data()
+
+    # #check if 3D or not
+    # if maskImg.shape[3] > 1:
+    #     z = maskImg.shape[3]
+
     a = maskImg.shape[1]
     b = maskImg.shape[0]
 
@@ -789,21 +1033,27 @@ def AdjacencyMatrix(
         if cellids[i].size == 0:
             continue
         else:
+
+            # for avg dist
             CheckAdjacency_Distance(
                 cell_center,
+                ROI_coords[0],
+                cellids,
+                idx,
+                adjmatrix_avg,
+                cellGraph_avg,
+                i,
+            )
+
+            # for min dist
+            CheckAdjacency_Distance_new(
+                cellEdgeList,
                 cellids,
                 idx,
                 adjacencyMatrix,
                 cellGraph,
                 i,
             )
-            # for j in cellids[i]:
-            #     minDist = CheckAdjacency(cellEdgeList[idx[i]], cellEdgeList[j], thr)
-            #     if minDist != 0 and minDist < thr:
-            #         adjacencyMatrix[i, j] = minDist
-            #         adjacencyMatrix[j, i] = minDist
-            #         cellGraph[i].add(j)
-            #         cellGraph[j].add(i)
 
     AdjacencyMatrix2Graph(
         adjacencyMatrix,
@@ -814,15 +1064,66 @@ def AdjacencyMatrix(
     )
     # Remove background
     adjacencyMatrix = adjacencyMatrix[1:, 1:]
+    adjmatrix_avg = adjmatrix_avg[1:, 1:]
+
+    adjmatrix_avg_csr = scipy.sparse.csr_matrix(adjmatrix_avg)
     adjacencyMatrix_csr = scipy.sparse.csr_matrix(adjacencyMatrix)
     scipy.io.mmwrite(
         output_dir / (baseoutputfilename + "_AdjacencyMatrix.mtx"), adjacencyMatrix_csr
+    )
+    scipy.io.mmwrite(
+        output_dir / (baseoutputfilename + "_AdjacencyMatrix_avg.mtx"), adjmatrix_avg_csr
     )
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
         for i in range(numCells):
             print(i, file=f)
 
     # return adjacencyMatrix
+
+
+def get_windows_3D(numCells, cellEdgeList, inCells, delta, a, b, c):
+    windowCoords = []
+    windowSize = []
+    windowRange_xy = []
+
+    for i in range(1, numCells):
+        # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+        # xmin, xmax, ymin, ymax = np.min(cellEdgeList[inCells[i]][0]), np.max(cellEdgeList[inCells[i]][0]), np.min(
+        #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
+
+        xmin, xmax, ymin, ymax, zmin, zmax = (
+            np.min(cellEdgeList[i][2]),
+            np.max(cellEdgeList[i][2]),
+            np.min(cellEdgeList[i][1]),
+            np.max(cellEdgeList[i][1]),
+            np.min(cellEdgeList[i][0]),
+            np.max(cellEdgeList[i][0]),
+        )
+
+        xmin = xmin - delta if xmin - delta > 0 else 0
+        xmax = xmax + delta + 1 if xmax + delta + 1 < a else a
+        ymin = ymin - delta if ymin - delta > 0 else 0
+        ymax = ymax + delta + 1 if ymax + delta + 1 < b else b
+        zmin = zmin - delta if zmin - delta > 0 else 0
+        zmax = zmax + delta + 1 if zmax + delta + 1 < c else c
+        # tempImg = np.zeros((xmax - xmin, ymax - ymin))
+        xyz = np.array([xmin, xmax, ymin, ymax, zmin, zmax])
+        windowRange_xy.append(xyz)
+
+        x = xmax - xmin
+        y = ymax - ymin
+        z = zmax - zmin
+        d = np.array([x, y, z])
+
+        temp1 = cellEdgeList[i][2] - xmin
+        temp2 = cellEdgeList[i][1] - ymin
+        temp3 = cellEdgeList[i][0] - zmin
+
+        temp = np.stack((temp1, temp2, temp3))
+        windowCoords.append(temp)
+        windowSize.append(d)
+
+    return windowCoords, windowSize, windowRange_xy
 
 
 def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
@@ -860,19 +1161,6 @@ def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
         temp = np.stack((temp1, temp2))
         windowCoords.append(temp)
         windowSize.append(c)
-
-        # for j in range(0, len(cellEdgeList[i][0])):
-        #     tempImg[test[j], test2[j]] = 1
-        # tempImg[test, test2] = 1
-        # tempImg[cellEdgeList[i][0] - xmin, cellEdgeList[i][1] - ymin] = 1
-
-        # nbwindows.append(tempImg)
-        # maskimgwindow.append(maskImg[xmin:xmax, ymin:ymax])
-
-        # windowspec['xmin'] = xmin
-        # windowspec['xmax'] = xmax
-        # windowspec['ymin'] = ymin
-        # windowspec['ymax'] = ymax
 
     return windowCoords, windowSize, windowRange_xy
 
@@ -929,6 +1217,42 @@ def nbget_windows(numCells, cellEdgeList, inCells, delta, a, b):
 
 def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center: np.ndarray, cellGraph, name, thr):
     cell_center = pd.DataFrame(cell_center)
+    cells = set(cell_center.index)
+    fig, ax = plt.subplots(figsize=(17.0, 17.0))
+    plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], ",")
+    plt.title("Cell Adjacency Graph, distance <" + str(thr))
+    for i, cell_coord in cell_center.iterrows():
+        idx = list(cellGraph[i])
+        if idx and all(x in cells for x in idx):
+            neighbors = cell_center.loc[idx, :]
+            lines = []
+            for j, neighbor_coord in neighbors.iterrows():
+                lines.append([cell_coord, neighbor_coord])
+
+                # dist = adjacencyMatrix[i, j]
+                # gap = (neighbor_coord - cell_coord) / 2
+                # ax.text(
+                #     cell_coord[0] + gap[0],
+                #     cell_coord[1] + gap[1],
+                #     '%.1f' % dist,
+                #     ha='center',
+                #     va='center',
+                #     fontsize='xx-small'
+                # )
+            line = mc.LineCollection(lines, colors=[(1, 0, 0, 1)])
+            ax.add_collection(line)
+    plt.savefig(name, **figure_save_params)
+    plt.clf()
+    plt.close()
+
+
+def AdjacencyMatrix2Graph(adjacencyMatrix, cell_center_og: np.ndarray, cellGraph, name, thr):
+    cell_center = pd.DataFrame(cell_center_og)
+
+    # check if 3D or 2D - drop z if 3D
+    if cell_center.shape[1] == 3:
+        cell_center = cell_center.drop(columns=2)
+
     cells = set(cell_center.index)
     fig, ax = plt.subplots(figsize=(17.0, 17.0))
     plt.plot(cell_center.iloc[:, 0], cell_center.iloc[:, 1], ",")
@@ -1564,6 +1888,7 @@ def cell_cluster_IDs(
                     "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
                     "K-Means [Shape-Vectors Normalized]",
+                    "K-Means [UMAP_All_Features]",
                 ]
             ),
             allClusters,
@@ -1582,6 +1907,7 @@ def cell_cluster_IDs(
                     "K-Means [Mean-All-SubRegions] Expression",
                     "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
+                    "K-Means [UMAP_All_Features]",
                 ]
             ),
             allClusters,
@@ -1950,7 +2276,13 @@ def cell_analysis(
         clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
     if options.get("skip_outlinePCA"):
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        (
+            clustercells_tsneAll,
+            clustercells_tsneAllcenters,
+            tsneAll_header,
+            clustercells_umapAll,
+            clustercells_umapAllcenters,
+        ) = DR_AllFeatures(
             all_clusters,
             types_list,
             filename,
@@ -1963,7 +2295,13 @@ def cell_analysis(
             texture_matrix,
         )
     else:
-        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+        (
+            clustercells_tsneAll,
+            clustercells_tsneAllcenters,
+            tsneAll_header,
+            clustercells_umapAll,
+            clustercells_umapAllcenters,
+        ) = DR_AllFeatures(
             all_clusters,
             types_list,
             filename,
@@ -1976,7 +2314,11 @@ def cell_analysis(
             norm_shape_vectors,
             texture_matrix,
         )
+
+    # tsne
     cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+    # umap
+    cluster_cell_imgumapAll = cell_map(mask, clustercells_umapAll, seg_n, options)
 
     # for each channel in the mask
     for i in range(len(maskchs)):
@@ -2057,6 +2399,7 @@ def cell_analysis(
                 [clustercells_texturecenters, texture_channels],
                 [clustercells_tsneAllcenters, tsneAll_header],
                 normshapeclcenters,
+                [clustercells_umapAllcenters, tsneAll_header],
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
@@ -2075,6 +2418,7 @@ def cell_analysis(
                 clustercells_texture,
                 clustercells_tsneAll,
                 clustercells_norm_shapevectors,
+                clustercells_umapAll,
             )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -2092,6 +2436,7 @@ def cell_analysis(
                 cluster_cell_imgtsneAll[bestz],
                 clustercells_shape[bestz],
                 clustercells_norm_shape[bestz],
+                cluster_cell_imgumapAll[bestz],
             )
         else:
             make_legends(
@@ -2110,6 +2455,7 @@ def cell_analysis(
                 clustercells_uvallcenters,
                 [clustercells_texturecenters, texture_channels],
                 [clustercells_tsneAllcenters, tsneAll_header],
+                [clustercells_umapAllcenters, tsneAll_header],
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
@@ -2126,6 +2472,7 @@ def cell_analysis(
                 clustercells_uvall,
                 clustercells_texture,
                 clustercells_tsneAll,
+                clustercells_umapAll,
             )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -2141,6 +2488,7 @@ def cell_analysis(
                 cluster_cell_imgtotal[bestz],
                 cluster_cell_texture[bestz],
                 cluster_cell_imgtsneAll[bestz],
+                cluster_cell_imgumapAll[bestz],
             )
 
     if options.get("debug"):
@@ -2366,11 +2714,11 @@ def quality_measures(
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
         total_intensity_cell = np.concatenate(cells, axis=1)
         total_intensity_per_chancell = np.sum(
-            im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
+            im_channels[0, :, total_intensity_cell[1], total_intensity_cell[2]], axis=0
         )
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
 
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[1], bgpixels[2]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -2381,6 +2729,225 @@ def quality_measures(
         total_intensity_nuclei = np.concatenate(nuclei, axis=1)
         total_intensity_nuclei_per_chan = np.sum(
             im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0
+        )
+
+        # cytoplasm total intensity per channel
+        # cytoplasm_all = np.concatenate(cytoplasm, axis=1)
+        # total_cytoplasm = np.sum(im_channels[0, :, cytoplasm_all[0], cytoplasm_all[1]], axis=0)
+
+        # nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
+        nuc_cell_avgR = total_intensity_nuclei_per_chan / total_intensity_per_chancell
+        cell_bg_avgR = (
+            total_intensity_per_chancell
+            / (total_intensity_per_chanbg / bgpixels.shape[1])
+            / cell_total[i]
+        )
+
+        # read in silhouette scores
+        sscore_path = output_dir / (img_name + "clusteringsilhouetteScores.csv")
+        sscore_file = get_paths(sscore_path)
+        sscore = pd.read_csv(sscore_file[0]).to_numpy()
+        mean_all = sscore[0, 1:]
+        maxscore = np.max(mean_all)
+        maxidx = np.argmax(mean_all) + 2
+
+        # read in signal csv
+        signal_path = output_dir / (img_name + "-SNR.csv")
+        signal_file = get_paths(signal_path)
+        SNR = pd.read_csv(signal_file[0]).to_numpy()
+        zscore = SNR[0, 1:]
+        otsu = SNR[1, 1:]
+
+        # Image Information
+        struct["Image Information"] = dict()
+        # Image Quality Metrics not requiring image segmentation
+        struct["Image Quality Metrics not requiring image segmentation"] = dict()
+        # Image Quality Metrics requiring background segmentation
+        struct["Image Quality Metrics requiring background segmentation"] = dict()
+
+        if not options.get("sprm_segeval_both") == 0:
+            struct["Image Quality Metrics requiring background segmentation"][
+                "Fraction of Pixels in Image Background"
+            ] = seg_metric_list[i][1]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "1/AvgCVBackground"
+            ] = seg_metric_list[i][2]
+            struct["Image Quality Metrics requiring background segmentation"][
+                "FractionOfFirstPCBackground"
+            ] = seg_metric_list[i][3]
+
+        # Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Channel Statistics"
+        ] = dict()
+        struct["Image Information"]["Number of Channels"] = len(channels)
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Number of Cells"
+        ] = cell_total[i]
+        # struct["Number of Background Pixels"] = bgpixels.shape[1]
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Fraction of Image Occupied by Cells"
+        ] = (pixels - bgpixels.shape[1]) / pixels
+
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Total Intensity"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+            "Average per Cell Ratios"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Mean-All"] = dict()
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Max Silhouette Score"] = maxscore
+        struct["Image Quality Metrics that require cell segmentation"][
+            "Silhouette Scores From Clustering"
+        ]["Cluster with Max Score"] = maxidx
+
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Signal To Noise Otsu"
+        ] = dict()
+        struct["Image Quality Metrics not requiring image segmentation"][
+            "Signal To Noise Z-Score"
+        ] = dict()
+
+        for j in range(len(mean_all)):
+            struct["Image Quality Metrics that require cell segmentation"][
+                "Silhouette Scores From Clustering"
+            ]["Mean-All"][j + 2] = mean_all[j]
+
+        for j in range(len(channels)):
+            struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+                channels[j]
+            ] = total_intensity_per_chan[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]] = dict()
+
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Cells"] = int(total_intensity_per_chancell[j])
+            # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
+            #     channels[j]
+            # ]["Background"] = total_intensity_per_chanbg[j]
+
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
+            struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
+                "Average per Cell Ratios"
+            ][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
+
+            struct["Image Quality Metrics not requiring image segmentation"][
+                "Signal To Noise Otsu"
+            ][channels[j]] = otsu[j]
+            struct["Image Quality Metrics not requiring image segmentation"][
+                "Signal To Noise Z-Score"
+            ][channels[j]] = zscore[j]
+
+        with open(output_dir / (img_name + "-SPRM_Image_Quality_Measures.json"), "w") as json_file:
+            json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
+
+
+def quality_measures_3D(
+    im_list: List[IMGstruct],
+    mask_list: List[MaskStruct],
+    seg_metric_list: List[Dict[str, Any]],
+    cell_total: List[int],
+    img_files: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
+):
+    """
+    Quality Measurements for SPRM analysis
+    """
+
+    for i in range(len(img_files)):
+        print("Writing out quality measures...")
+
+        struct = dict()
+
+        img_name = img_files[i].name
+        im = im_list[i]
+        mask = mask_list[i]
+
+        bestz = mask.get_bestz()
+        ROI_coords = mask.get_ROI()
+
+        im_data = im.get_data()
+        im_dims = im_data.shape
+
+        im_channels = im_data[0, 0, :, bestz, :, :]
+        pixels = im_dims[-2] * im_dims[-1]
+        bgpixels = ROI_coords[0][0]
+        cells = ROI_coords[0][1:]
+        nuclei = ROI_coords[1][1:]
+
+        # Image Quality Metrics that require cell segmentation
+        struct["Image Quality Metrics that require cell segmentation"] = dict()
+        if options.get("sprm_segeval_both") == 1:
+            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
+            continue
+        if options.get("sprm_segeval_both") == 2:
+            struct["Segmentation Evaluation Metrics"] = seg_metric_list[i][0]
+
+        channels = im.get_channel_labels()
+        # get cytoplasm coords
+        # cytoplasm = find_cytoplasm(ROI_coords)
+
+        # dims are z c y x
+        total_intensity_per_chan = im_channels
+        total_intensity_per_chan = np.reshape(
+            total_intensity_per_chan,
+            (
+                total_intensity_per_chan.shape[1],
+                total_intensity_per_chan.shape[0]
+                * total_intensity_per_chan.shape[2]
+                * total_intensity_per_chan.shape[3],
+            ),
+        )
+        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
+
+        # check / filter out 1-D coords - hot fix
+        # cytoplasm_ndims = [x.ndim for x in cytoplasm]
+        # cytoplasm_ndims = np.asarray(cytoplasm_ndims)
+        # idx_ndims = np.where(cytoplasm_ndims == 1)[0]
+        #
+        # cytoplasm = np.delete(cytoplasm, idx_ndims).tolist()
+
+        # cell total intensity per channel
+        # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
+        # total_intensity_file = get_paths(total_intensity_path)
+        # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
+        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_per_chancell = np.sum(
+            im_channels[
+                total_intensity_cell[0], :, total_intensity_cell[1], total_intensity_cell[2]
+            ],
+            axis=0,
+        )
+        # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
+
+        total_intensity_per_chanbg = np.sum(
+            im_channels[bgpixels[0], :, bgpixels[1], bgpixels[2]], axis=0
+        )
+
+        # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
+        # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
+        # total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
+        # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
+
+        # nuclei total intensity per channel
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        total_intensity_nuclei_per_chan = np.sum(
+            im_channels[
+                total_intensity_nuclei[0], :, total_intensity_nuclei[1], total_intensity_nuclei[2]
+            ],
+            axis=0,
         )
 
         # cytoplasm total intensity per channel
@@ -2518,7 +3085,12 @@ def reallocate_parallel(im, mask, ichan, options):
     pass
 
 
-def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
+def reallocate_and_merge_intensities(
+    im: IMGstruct,
+    mask: MaskStruct,
+    optional_img_file: Optional[Path],
+    options: Dict[str, Any],
+):
     # check if image needs to be resized to match mask
     if check_shape(im, mask):
         s, t, c, z, y, x = im.get_data().shape
@@ -2658,23 +3230,39 @@ def quality_control(mask: MaskStruct, img: IMGstruct, ROI_coords: List, options:
 
     # normalize bg intensities
     if options.get("normalize_bg"):
-        normalize_background(img, ROI_coords)
+        normalize_background(img, mask, ROI_coords)
 
 
-def normalize_background(im, ROI_coords):
+def normalize_background(im, mask, ROI_coords):
     # pass
     img = im.get_data()
+    dims = mask.get_data().shape
 
-    for i in range(img.shape[2]):
-        img_ch = img[0, 0, i, 0, :, :]
-        bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
+    if dims[3] > 1:  # 3D
 
-        avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+        for i in range(img.shape[2]):
+            img_ch = img[0, 0, i, :, :, :]
+            bg_img_ch = img_ch[
+                ROI_coords[0][0][0, :], ROI_coords[0][0][1, :], ROI_coords[0][0][2, :]
+            ]
 
-        if avg == 0:
-            continue
+            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
 
-        img[0, 0, i, 0, :, :] = img_ch / avg
+            if avg == 0:
+                continue
+
+            img[0, 0, i, :, :, :] = img_ch / avg
+    else:
+        for i in range(img.shape[2]):
+            img_ch = img[0, 0, i, 0, :, :]
+            bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
+
+            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+
+            if avg == 0:
+                continue
+
+            img[0, 0, i, 0, :, :] = img_ch / avg
 
     im.set_data(img)
 
@@ -2688,6 +3276,10 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     upper_bound = bestz[0] + bound + 1
     if lower_bound < 0 or upper_bound > z:
         raise ValueError("zslice bound is invalid. Please reset and run SPRM")
+    elif z > 1:
+        idx = np.arange(0, z).tolist()
+        mask.set_bestz(idx)
+        return
     else:
         new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
         new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
@@ -2698,16 +3290,27 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
 
 
 def find_edge_cells(mask):
-    # 3D case
+    z = mask.get_data().shape[3]
     channels = mask.get_data().shape[2]
-    bestz = mask.get_bestz()[0]
-    data = mask.get_data()[0, 0, :, bestz, :, :]
+    data = mask.get_data()[0, 0, 0, :, :, :]
     border = []
-    for i in range(0, channels):
-        border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
-        border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
-        border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
-        border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
+
+    if z > 1:  # 3D case
+        for i in range(0, z):
+            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
+            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
+            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
+            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
+
+    else:  # 2D case
+        bestz = mask.get_bestz()[0]
+        data = mask.get_data()[0, 0, :, bestz, :, :]
+
+        for i in range(0, channels):
+            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
+            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
+            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
+            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
 
     border = np.unique(border).tolist()
     mask.set_edge_cells(border)
@@ -2715,6 +3318,11 @@ def find_edge_cells(mask):
     sMask = mask.get_data()[0, 0, 0, :, :, :]
     unique = np.unique(sMask)[1:]
     og_cell_idx = mask.get_cell_index()
+
+    # 3D case
+    # if z > 1:
+    #     pass
+    # else:  # 2D case
 
     if (og_cell_idx == unique).all():
         interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
@@ -2925,7 +3533,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return [texture, texture_featureNames]
 
 
-def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
+def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
     """
 
     By: Young Je Lee and Ted Zhang
@@ -3064,55 +3672,9 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
             idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
             matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
 
-    # if tSNEInitialization == "random":
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init=tSNEInitialization,
-    #         random_state=0,
-    #     )
-    # elif tSNEInitialization == "pca" and pcaMethod == "full":
-    #     try:
-    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="full").fit_transform(
-    #             matrix_all_OnlyCell
-    #         )
-    #     except ValueError:
-    #         matrix_all_OnlyCell = PCA(n_components=numComp, svd_solver="randomized").fit_transform(
-    #             matrix_all_OnlyCell
-    #         )
-    #
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init="random",
-    #         random_state=0,
-    #     )
-    # elif tSNEInitialization == "pca" and pcaMethod == "random":
-    #     matrix_all_OnlyCell = PCA(
-    #         n_components=numComp, svd_solver="randomized", random_state=0
-    #     ).fit_transform(matrix_all_OnlyCell)
-    #     tsne = TSNE(
-    #         n_components=numComp,
-    #         perplexity=perplexity,
-    #         early_exaggeration=early_exaggeration,
-    #         learning_rate=learning_rate,
-    #         n_iter=n_iter,
-    #         init="random",
-    #         random_state=0,
-    #     )
-    # else:
-    #     print("Error in arguments for tSNE_all")
-    # tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
-
     # 2D - Scatterplot
-    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1])
-    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.pdf"), **figure_save_params)
+    plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1], marker=".")
+    plt.savefig(output_dir / (filename + "-tSNE_allfeatures.png"), bbox_inches="tight")
     plt.clf()
     plt.close()
 
@@ -3128,7 +3690,33 @@ def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, op
     # for i in range(len(clustercells_all)):
     #    clustercells_all[i]=len(clustercells_allcenters)-1-np.where(clusterMembership_descending==clustercells_all[i])[0]
 
-    return clustercells_all, clustercells_allcenters, tSNE_allfeatures_headers
+    # umap
+    reducer = umap.UMAP()
+    umap_features = matrix_all_OnlyCell_full.copy()
+    umap_embed = reducer.fit_transform(umap_features)
+
+    # 2D umap
+    plt.scatter(umap_embed[:, 0], umap_embed[:, 1], marker=".")
+    plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"), bbox_inches="tight")
+    plt.clf()
+    plt.close()
+
+    umap_header = [x for x in range(1, umap_embed.shape[1] + 1)]
+    write_2_csv(
+        umap_header, umap_embed, filename + "-UMAP_allfeatures", output_dir, cellidx, options
+    )
+
+    clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
+        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options
+    )
+
+    return (
+        clustercells_all,
+        clustercells_allcenters,
+        tSNE_allfeatures_headers,
+        clustercells_all_umap,
+        clustercells_allcenters_umap,
+    )
 
 
 def BlockwiseZscore(data):
