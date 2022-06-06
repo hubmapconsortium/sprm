@@ -384,7 +384,9 @@ def save_image(
     i.save(file_path)
 
 
-def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarray, np.ndarray):
+def calculations(
+    coord, im: IMGstruct, t: int, i: int, bestz: int
+) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     Returns covariance matrix, mean vector, and total vector
     """
@@ -392,13 +394,18 @@ def calculations(coord, im: IMGstruct, t: int, i: int) -> (np.ndarray, np.ndarra
     if i == 0:
         print("Performing statistical analyses on ROIs...")
 
-    z, y, x = coord[0], coord[1], coord[2]
+    if coord.shape[0] > 2:
+        z, y, x = coord[0], coord[1], coord[2]
+        z = z.astype(int)
+    else:
+        y, x = coord[0], coord[1]
+        z = bestz
+
     y = y.astype(int)
     x = x.astype(int)
 
     temp = im.get_data()
 
-    # for 3D needs best z
     channel_all_mask = temp[0, t, :, z, y, x]
     ROI = np.transpose(channel_all_mask)
 
@@ -2714,11 +2721,11 @@ def quality_measures(
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
         total_intensity_cell = np.concatenate(cells, axis=1)
         total_intensity_per_chancell = np.sum(
-            im_channels[0, :, total_intensity_cell[1], total_intensity_cell[2]], axis=0
+            im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
         )
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
 
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[1], bgpixels[2]], axis=0)
+        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
