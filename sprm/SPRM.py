@@ -121,6 +121,7 @@ def analysis(
     # switch channels and z dims
     ##############################
     ##############################
+    ###LOCAL TESTING ON MAC###
     # data = im.get_data()
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
@@ -130,6 +131,7 @@ def analysis(
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
     # mask.set_data(data)
+    # mask.set_bestz([0])
     ##############################
     ##############################
 
@@ -277,7 +279,7 @@ def analysis(
                     covar_matrix[t, j, i, :, :],
                     mean_vector[t, j, i, :, :],
                     total_vector[t, j, i, :, :],
-                ) = calculations(masked_imgs_coord[i], im, t, i)
+                ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
 
         if not options.get("skip_outlinePCA"):
             # save the means, covars, shape and total for each cell
