@@ -32,6 +32,7 @@ setup(
     install_requires=[
         "aicsimageio<3.2",
         "frozendict",
+        "lxml",
         "manhole",
         "matplotlib",
         "numba",

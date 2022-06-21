@@ -6,8 +6,11 @@ from collections import defaultdict
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Dict, List, Optional, Sequence, Union
 
+import aicsimageio
+import lxml
 import matplotlib
 import matplotlib.cm
 import matplotlib.colors
@@ -51,11 +54,34 @@ Version: 1.03
 
 """
 
+# for aicsimageio<4
+def get_channel_names(image: aicsimageio.AICSImage) -> List[str]:
+    if isinstance(image.metadata, aicsimageio.vendor.omexml.OMEXML):
+        # aicsimageio<4 doesn't allow overriding whether to include
+        # an encoding declaration or to skip decoding to text from bytes,
+        # so re-encode to UTF-8 bytes ourselves
+        metadata = image.metadata.to_xml().encode("utf-8")
+    elif isinstance(image.metadata, str):
+        # shouldn't have an encoding declaration if aicsimageio didn't
+        # recognize it as OME-XML, so lxml needs it to be bytes
+        metadata = image.metadata
+    tree = lxml.etree.fromstring(metadata)
+    namespaces = tree.nsmap.copy()
+    namespaces["OME"] = namespaces[None]
+    del namespaces[None]
+    channels = tree.xpath("//OME:Pixels/OME:Channel/@Name", namespaces=namespaces)
+    return channels
+
 
 class IMGstruct:
     """
     Main Struct for IMG information
     """
+
+    img: AICSImage
+    data: np.ndarray
+    path: Path
+    name: str
 
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
@@ -121,8 +147,9 @@ class IMGstruct:
 
     def read_channel_names(self):
         img: AICSImage = self.img
-        print(img)
-        cn = img.get_channel_names(scene=0)
+        cn = get_channel_names(img)
+        print("Channel names:")
+        pprint(cn)
         # cn = img.channel_names
 
         if cn[0] == "cells":
@@ -152,23 +179,6 @@ class MaskStruct(IMGstruct):
         self.cell_index = []
         self.bad_cells = []
         self.ROI = []
-
-    def read_channel_names(self):
-        img: AICSImage = self.img
-        print(img)
-        cn = img.get_channel_names(scene=0)
-        # cn = img.channel_names
-
-        # fix for mask without names for broken aicsimageio
-        if cn[0] == "cells":
-            cn[0] = "cell"
-        elif cn[0] == "0":
-            cn[0] = "cell"
-            cn[1] = "nuclei"
-            cn[2] = "cell_boundaries"
-            cn[3] = "nucleus_boundaries"
-
-        return cn
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
