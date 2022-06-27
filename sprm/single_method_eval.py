@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import xmltodict
 from PIL import Image

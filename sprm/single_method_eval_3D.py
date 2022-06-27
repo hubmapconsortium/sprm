@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import xmltodict
 from pint import Quantity, UnitRegistry
@@ -34,20 +35,22 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
         return m.group(1)
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
+
 def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     """
     Returns total pixel size in square micrometers.
     """
     reg = UnitRegistry()
-    
+
     sizes: List[Quantity] = []
     for dimension in ["X", "Y"]:
         unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
-    
+
     size = prod(sizes)
     return size.to("micrometer ** 2").magnitude
+
 
 def thresholding(img):
     threshold = threshold_mean(img.astype(np.int64))
@@ -191,7 +194,7 @@ def cell_type(mask, channels):
     for i in range(n):
         channel = channels[i]
         z, x, y = channel.shape
-        channel_z = ss.fit_transform(channel.reshape(z, x*y)).reshape(z, x, y)
+        channel_z = ss.fit_transform(channel.reshape(z, x * y)).reshape(z, x, y)
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
@@ -219,7 +222,7 @@ def cell_uniformity(mask, channels, label_list):
     for i in range(n):
         channel = channels[i]
         z, x, y = channel.shape
-        channel_z = ss.fit_transform(channel.reshape(z, x*y)).reshape(z, x, y)
+        channel_z = ss.fit_transform(channel.reshape(z, x * y)).reshape(z, x, y)
         cell_intensity = []
         cell_intensity_z = []
         for j in range(cell_coord_num):
@@ -286,7 +289,6 @@ def flatten_dict(input_dict):
     return local_list
 
 
-
 def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
@@ -325,10 +327,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     except:
         thresholding_channels = range(img.data.shape[2])
         seg_channel_provided = False
-    img_thresholded = sum(
-        thresholding(img.data[0, 0, c, :, :, :])
-        for c in thresholding_channels
-    )
+    img_thresholded = sum(thresholding(img.data[0, 0, c, :, :, :]) for c in thresholding_channels)
     if not seg_channel_provided:
         img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
     img_binary_pieces = []
@@ -338,7 +337,6 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
-
 
     # set mask channel names
     channel_names = [
@@ -357,7 +355,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             schema_url = get_schema_url(img.img.metadata.root_node)
             pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
             pixel_size = get_pixel_area(pixels_node.attrib)
-            
+
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
 
@@ -375,7 +373,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             foreground_fraction, background_fraction, mask_foreground_fraction = fraction(
                 img_binary, mask_binary
             )
-            
+
             foreground_CV, foreground_PCA = foreground_uniformity(
                 img_binary, mask_binary, img_channels
             )
