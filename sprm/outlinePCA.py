@@ -682,7 +682,7 @@ def interpalong(poly, npoints):
             # print(i,j)
             xdist = poly[j, 0] - curpos[0]
             ydist = poly[j, 1] - curpos[1]
-            tdist = np.sqrt(xdist ** 2 + ydist ** 2)
+            tdist = np.sqrt(xdist**2 + ydist**2)
             need = interval - sofar
             # print(xdist,ydist,tdist,need)
             if tdist >= need:

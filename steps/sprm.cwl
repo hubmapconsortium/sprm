@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.0.8.2
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
@@ -17,20 +17,26 @@ inputs:
     type: Directory
     inputBinding:
       position: 1
+  processes:
+    type: int?
+    default: 1
+    inputBinding:
+      position: 2
+      prefix: "--processes"
   enable_manhole:
     type: boolean?
     inputBinding:
-      position: 2
+      position: 3
       prefix: "--enable-manhole"
   enable_faulthandler:
     type: boolean?
     inputBinding:
-      position: 3
+      position: 4
       prefix: "--enable-faulthandler"
   verbose:
     type: boolean?
     inputBinding:
-      position: 4
+      position: 5
       prefix: "--verbose"
   options_file:
     type: File?
