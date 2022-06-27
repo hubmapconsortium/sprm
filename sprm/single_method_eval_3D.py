@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import xmltodict
-from PIL import Image
 from pint import Quantity, UnitRegistry
 from scipy.sparse import csr_matrix
 from scipy.stats import variation
@@ -25,10 +24,32 @@ Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
 Version: 1.5
-09/08/2021
+04/21/2022
 """
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
+
+
+def get_schema_url(ome_xml_root_node: ET.Element) -> str:
+    if m := schema_url_pattern.match(ome_xml_root_node.tag):
+        return m.group(1)
+    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
+
+
+def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+    """
+    Returns total pixel size in square micrometers.
+    """
+    reg = UnitRegistry()
+
+    sizes: List[Quantity] = []
+    for dimension in ["X", "Y"]:
+        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+        sizes.append(value * unit)
+
+    size = prod(sizes)
+    return size.to("micrometer ** 2").magnitude
 
 
 def thresholding(img):
@@ -40,11 +61,17 @@ def thresholding(img):
 
 def fraction(img_bi, mask_bi):
     foreground_all = np.sum(img_bi)
-    background_all = img_bi.shape[0] * img_bi.shape[1] - foreground_all
+    background_all = img_bi.shape[0] * img_bi.shape[1] * img_bi.shape[2] - foreground_all
     mask_all = np.sum(mask_bi)
     background = len(np.where(mask_bi - img_bi == 1)[0])
     foreground = np.sum(mask_bi * img_bi)
-    return foreground / foreground_all, background / background_all, foreground / mask_all
+    if background_all == 0:
+        background_fraction = 0
+    else:
+        background_fraction = background / background_all
+    foreground_fraction = foreground / foreground_all
+    mask_fraction = foreground / mask_all
+    return foreground_fraction, background_fraction, mask_fraction
 
 
 def foreground_separation(img_thre):
@@ -89,7 +116,8 @@ def uniformity_fraction(loc, channels) -> float:
     for i in range(n):
         channel = channels[i]
         ss = StandardScaler()
-        channel_z = ss.fit_transform(channel.copy())
+        z, x, y = channel.shape
+        channel_z = ss.fit_transform(channel.reshape(z, x * y)).reshape(z, x, y)
         intensity = channel_z[tuple(loc.T)]
         feature_matrix_pieces.append(intensity)
     feature_matrix = np.vstack(feature_matrix_pieces)
@@ -102,42 +130,14 @@ def uniformity_fraction(loc, channels) -> float:
 def foreground_uniformity(img_bi, mask, channels):
     foreground_loc = np.argwhere((img_bi - mask) == 1)
     CV = uniformity_CV(foreground_loc, channels)
-    foreground_pixel_num = foreground_loc.shape[0]
-    foreground_loc_fraction = 1
-    while foreground_loc_fraction > 0:
-        try:
-            foreground_loc_sampled = foreground_loc[
-                np.random.randint(
-                    foreground_pixel_num,
-                    size=round(foreground_pixel_num * foreground_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(foreground_loc_sampled, channels)
-            break
-        except:
-            foreground_loc_fraction = foreground_loc_fraction / 2
+    fraction = uniformity_fraction(foreground_loc, channels)
     return CV, fraction
 
 
 def background_uniformity(img_bi, channels):
     background_loc = np.argwhere(img_bi == 0)
     CV = uniformity_CV(background_loc, channels)
-    background_pixel_num = background_loc.shape[0]
-    background_loc_fraction = 1
-    while background_loc_fraction > 0:
-        try:
-            background_loc_sampled = background_loc[
-                np.random.randint(
-                    background_pixel_num,
-                    size=round(background_pixel_num * background_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(background_loc_sampled, channels)
-            break
-        except:
-            background_loc_fraction = background_loc_fraction / 2
+    fraction = uniformity_fraction(background_loc, channels)
     return CV, fraction
 
 
@@ -193,7 +193,8 @@ def cell_type(mask, channels):
     feature_matrix_z_pieces = []
     for i in range(n):
         channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+        z, x, y = channel.shape
+        channel_z = ss.fit_transform(channel.reshape(z, x * y)).reshape(z, x, y)
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
@@ -220,7 +221,8 @@ def cell_uniformity(mask, channels, label_list):
     feature_matrix_z_pieces = []
     for i in range(n):
         channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+        z, x, y = channel.shape
+        channel_z = ss.fit_transform(channel.reshape(z, x * y)).reshape(z, x, y)
         cell_intensity = []
         cell_intensity_z = []
         for j in range(cell_coord_num):
@@ -261,10 +263,11 @@ def cell_uniformity(mask, channels, label_list):
 
 def compute_M(data):
     cols = np.arange(data.size)
-    return csr_matrix((cols, (data.ravel(), cols)), shape=(data.max() + 1, data.size))
+    return csr_matrix((cols, (data.ravel(), cols)), shape=(np.int64(data.max() + 1), data.size))
 
 
 def get_indices_sparse(data):
+    data = data.astype(np.uint64)
     M = compute_M(data)
     return [np.unravel_index(row.data, data.shape) for row in M]
 
@@ -286,28 +289,6 @@ def flatten_dict(input_dict):
     return local_list
 
 
-def get_schema_url(ome_xml_root_node: ET.Element) -> str:
-    if m := schema_url_pattern.match(ome_xml_root_node.tag):
-        return m.group(1)
-    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
-
-
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
-    """
-    Returns total pixel size in square micrometers.
-    """
-    reg = UnitRegistry()
-
-    sizes: List[Quantity] = []
-    for dimension in ["X", "Y"]:
-        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
-        sizes.append(value * unit)
-
-    size = prod(sizes)
-    return size.to("micrometer ** 2").magnitude
-
-
 def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
@@ -319,13 +300,11 @@ def get_quality_score(features, model):
     return score
 
 
-def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
+def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
-    # get best z slice for future use
-    bestz = mask.bestz
 
     # get compartment masks
-    matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
+    matched_mask = mask.data[0, 0, :, :, :, :]
     cell_matched_mask = matched_mask[0]
     nuclear_matched_mask = matched_mask[1]
     cell_outside_nucleus_mask = cell_matched_mask - nuclear_matched_mask
@@ -348,19 +327,16 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     except:
         thresholding_channels = range(img.data.shape[2])
         seg_channel_provided = False
-    img_thresholded = sum(
-        thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
-        for c in thresholding_channels
-    )
+    img_thresholded = sum(thresholding(img.data[0, 0, c, :, :, :]) for c in thresholding_channels)
     if not seg_channel_provided:
         img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
-    img_binary = foreground_separation(img_thresholded)
+    img_binary_pieces = []
+    for z in range(img_thresholded.shape[0]):
+        img_binary_pieces.append(foreground_separation(img_thresholded[z]))
+    img_binary = np.stack(img_binary_pieces, axis=0)
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
-    # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
-    fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
-    fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
     # set mask channel names
     channel_names = [
@@ -373,14 +349,8 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         current_mask = metric_mask[channel]
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
+        img_channels = img.data[0, 0, :, :, :, :]
         if channel_names[channel] == "Matched Cell":
-            mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
-            try:
-                matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
-                    "Value"
-                ]["OriginalMetadata"]["Value"]
-            except:
-                matched_fraction = 1.0
 
             schema_url = get_schema_url(img.img.metadata.root_node)
             pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
@@ -389,21 +359,20 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num
 
+            # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
+
             # calculate number of cell per 100 squared micron
             cell_num = len(np.unique(current_mask)) - 1
 
             cell_num_normalized = cell_num / micron_num * 100
 
             # calculate the standard deviation of cell size
-
             cell_size_std = cell_size_uniformity(current_mask)
 
             # get coverage metrics
             foreground_fraction, background_fraction, mask_foreground_fraction = fraction(
                 img_binary, mask_binary
             )
-
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
 
             foreground_CV, foreground_PCA = foreground_uniformity(
                 img_binary, mask_binary, img_channels
@@ -424,7 +393,6 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             metrics[channel_names[channel]]["1/(ln(StandardDeviationOfCellSize)+1)"] = 1 / (
                 np.log(cell_size_std) + 1
             )
-            metrics[channel_names[channel]]["FractionOfMatchedCellsAndNuclei"] = matched_fraction
             metrics[channel_names[channel]]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (
                 foreground_CV + 1
             )
@@ -435,7 +403,6 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             # get cell type labels
             cell_type_labels = cell_type(current_mask, img_channels)
         else:
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
                 current_mask, img_channels, cell_type_labels
@@ -455,9 +422,11 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             ] = avg_cell_silhouette
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-    with importlib.resources.open_binary("sprm", "pca.pickle") as f:
+    print(metrics_flat)
+    with importlib.resources.open_binary("sprm", "pca_3D.pickle") as f:
         PCA_model = pickle.load(f)
 
+    # generate quality score
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 

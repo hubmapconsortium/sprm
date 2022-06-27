@@ -32,6 +32,7 @@ setup(
     install_requires=[
         "aicsimageio<3.2",
         "frozendict",
+        "lxml",
         "manhole",
         "matplotlib",
         "numba",
@@ -45,6 +46,7 @@ setup(
         "tables",
         "tifffile==2020.2.16",
         "xmltodict",
+        "umap-learn",
     ],
     python_requires=">=3.8",
     entry_points={
