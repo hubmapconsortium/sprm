@@ -336,7 +336,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     img_binary = np.stack(img_binary_pieces, axis=0)
     img_binary = np.sign(img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
-    fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
+    fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2])
 
     # set mask channel names
     channel_names = [
@@ -356,7 +356,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
             pixel_size = get_pixel_area(pixels_node.attrib)
 
-            pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
+            pixel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
             micron_num = pixel_size * pixel_num
 
             # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
