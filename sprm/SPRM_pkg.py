@@ -1,5 +1,6 @@
 import json
 import math
+import sys
 import time
 from bisect import bisect
 from collections import defaultdict
@@ -31,7 +32,8 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
-from skimage.feature.texture import greycomatrix, greycoprops
+# from skimage.feature.texture import greycomatrix, greycoprops
+from skimage.feature import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -102,8 +104,12 @@ class IMGstruct:
     def get_meta(self):
         return self.img.metadata
 
-    def quit(self):
-        return self.img.close()
+    # def quit(self):
+    #     self.img = None
+    #     self.data = None
+    #     self.path = None
+    #     self.name = None
+    #     self.channel_labels = None
 
     @staticmethod
     def read_img(path: Path, options: Dict) -> AICSImage:
@@ -131,29 +137,36 @@ class IMGstruct:
         #     if t > 1:
         #         data = data.reshape((s, 1, t * c, z, y, x))
 
-        if dims == 6:
+        #older version of aicsimageio<3.2
+        if len(dims) == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
 
-        elif dims == 5:
-            t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-            if t > 1:
-                data = data.reshape((1, t * c, z, y, x))
-
+        #newer version of aicsimageio>4.0 -> correct dimensions
+        elif len(dims) == 5:
             data = data[np.newaxis, ...]
+
+        else:
+            print('image/expressions dimensions are incompatible. Please check that its in correct format.')
 
         return data
 
     def read_channel_names(self):
         img: AICSImage = self.img
-        cn = get_channel_names(img)
+        # cn = get_channel_names(img)
+        cn = img.channel_names
         print("Channel names:")
-        pprint(cn)
-        # cn = img.channel_names
+        print(cn)
 
+        #hot fix to channel names expected
         if cn[0] == "cells":
             cn[0] = "cell"
+        if cn[2] == 'cell_boundary':
+            cn[2] = 'cell_boundaries'
+        if cn[3] == 'nucleus_boundary':
+            cn[3] = 'nucleus_boundaries'
+
         return cn
 
     def get_name(self):
@@ -194,6 +207,11 @@ class MaskStruct(IMGstruct):
         data = self.img.data
         dims = data.shape
         # s,t,c,z,y,x = dims[0],dims[1],dims[2],dims[3],dims[4],dims[5]
+
+        #aicsimageio > 4.0
+        if len(dims) == 5:
+            data = data[np.newaxis, ...]
+
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
         if check_sum == 0:  # assumes the best z is not the first slice
@@ -220,8 +238,8 @@ class MaskStruct(IMGstruct):
             # print(data.shape)
             # set bestz
         else:  # 3D case or that slice 0 is best
-            if dims[3] > 1:
-                bestz.append(int(dims[3] / 2))
+            if dims[2] > 1:
+                bestz.append(int(data.shape[3] / 2))
             else:
                 bestz.append(0)
 
@@ -266,6 +284,18 @@ class MaskStruct(IMGstruct):
     def get_ROI(self):
         return self.ROI
 
+    # def quit(self):
+    #     self.img = None
+    #     self.data = None
+    #     self.path = None
+    #     self.name = None
+    #     self.channel_labels = None
+    #     self.bestz = None
+    #     self.interior_cells = None
+    #     self.edge_cells = None
+    #     self.bad_cells = None
+    #     self.cell_index = None
+    #     self.ROI = None
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
@@ -1872,10 +1902,10 @@ def write_ometiff(im: IMGstruct, output_dir: Path, bestz: List, *argv):
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = OmeTiffWriter(f[0])
-    writer.save(pcaimg, channel_names=im.get_channel_labels(), image_name=im.get_name())
-    writer = OmeTiffWriter(f[1])
-    writer.save(superpixel, channel_names=im.get_channel_labels(), image_name=im.get_name())
+    writer = OmeTiffWriter()
+    writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order='CYX')
+    writer = OmeTiffWriter()
+    writer.save(superpixel, f[1], image_name=im.get_name(), dim_order='CYX')
 
 
 def check_file_exist(paths: Path):

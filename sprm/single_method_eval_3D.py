@@ -44,7 +44,13 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
 
     sizes: List[Quantity] = []
     for dimension in ["X", "Y"]:
-        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        try:
+            unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        #default
+        except KeyError as e:
+            print(e)
+            print('Using default dimension of nm')
+            unit = reg['nm']
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
@@ -352,9 +358,14 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         img_channels = img.data[0, 0, :, :, :, :]
         if channel_names[channel] == "Matched Cell":
 
-            schema_url = get_schema_url(img.img.metadata.root_node)
-            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            pixel_size = get_pixel_area(pixels_node.attrib)
+            root = ET.fromstring(img.img.metadata.to_xml())
+            schema_url = get_schema_url(root)
+            metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
+            pixel_size = get_pixel_area(metadata)
+
+            # schema_url = get_schema_url(img.img.metadata.root_node)
+            # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            # pixel_size = get_pixel_area(pixels_node.attrib)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
             micron_num = pixel_size * pixel_num

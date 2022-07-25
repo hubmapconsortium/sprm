@@ -382,9 +382,15 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             except:
                 matched_fraction = 1.0
 
-            schema_url = get_schema_url(img.img.metadata.root_node)
-            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            pixel_size = get_pixel_area(pixels_node.attrib)
+            #new for aicsimageio > 4.0
+            root = ET.fromstring(img.img.metadata.to_xml())
+            schema_url = get_schema_url(root)
+            metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
+            pixel_size = get_pixel_area(metadata)
+
+            # schema_url = get_schema_url(img.img.metadata.root_node)
+            # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            # pixel_size = get_pixel_area(pixels_node.attrib)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             micron_num = pixel_size * pixel_num

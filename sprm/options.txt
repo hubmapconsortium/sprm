@@ -1,4 +1,4 @@
-debug 0
+debug 1
 num_cellclusters silhouette 3 10
 num_voxelclusters 3
 num_markers 3
