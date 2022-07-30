@@ -36,7 +36,7 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+def get_pixel_area(pixel_node_attrib: Dict[str, str], img) -> float:
     """
     Returns total pixel size in square micrometers.
     """
@@ -46,11 +46,15 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     for dimension in ["X", "Y"]:
         try:
             unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        #default
+        #self parse through raw metadata
         except KeyError as e:
             print(e)
-            print('Using default dimension of nm')
-            unit = reg['nm']
+            print('Parsing metadata through SPRM')
+            metadata_str = img.img.xarray_dask_data.unprocessed[270]
+            regex = re.search(f"PhysicalSize{dimension}Unit", metadata_str).regs[0][1]
+            unit = metadata_str[regex+2:regex+4]
+            unit = reg[unit]
+
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
@@ -361,7 +365,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             root = ET.fromstring(img.img.metadata.to_xml())
             schema_url = get_schema_url(root)
             metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
-            pixel_size = get_pixel_area(metadata)
+            pixel_size = get_pixel_area(metadata, img)
 
             # schema_url = get_schema_url(img.img.metadata.root_node)
             # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
