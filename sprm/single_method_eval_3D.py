@@ -32,14 +32,14 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     reg = UnitRegistry()
 
     sizes: List[Quantity] = []
-    for dimension in ["X", "Y"]:
+    for dimension in ["X", "Y", "Z"]:
 
         unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
     size = prod(sizes)
-    return size.to("micrometer ** 2").magnitude
+    return size.to("micrometer ** 3").magnitude
 
 def fraction(img_bi, mask_bi):
     foreground_all = np.sum(img_bi)
@@ -246,7 +246,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             )
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
-                "NumberOfCellsPer100SquareMicrons"
+                "NumberOfCellsPer100CubicMicrons"
             ] = cell_num_normalized
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
