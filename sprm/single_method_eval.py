@@ -20,6 +20,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
+
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
@@ -261,10 +262,11 @@ def cell_uniformity(mask, channels, label_list):
 
 def compute_M(data):
     cols = np.arange(data.size)
-    return csr_matrix((cols, (data.ravel(), cols)), shape=(data.max() + 1, data.size))
+    return csr_matrix((cols, (data.ravel(), cols)), shape=(np.int64(data.max() + 1), data.size))
 
 
 def get_indices_sparse(data):
+    data = data.astype(np.uint64)
     M = compute_M(data)
     return [np.unravel_index(row.data, data.shape) for row in M]
 
@@ -292,7 +294,7 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
-def get_pixel_area(pixel_node_attrib: Dict[str, str], img) -> float:
+def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
     """
     Returns total pixel size in square micrometers.
     """
@@ -300,17 +302,8 @@ def get_pixel_area(pixel_node_attrib: Dict[str, str], img) -> float:
 
     sizes: List[Quantity] = []
     for dimension in ["X", "Y"]:
-        try:
-            unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        #self parse through raw metadata
-        except KeyError as e:
-            print(e)
-            print('Parsing metadata through SPRM')
-            metadata_str = img.img.xarray_dask_data.unprocessed[270]
-            regex = re.search(f"PhysicalSize{dimension}Unit", metadata_str).regs[0][1]
-            unit = metadata_str[regex+2:regex+4]
-            unit = reg[unit]
 
+        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
@@ -393,10 +386,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 matched_fraction = 1.0
 
             #new for aicsimageio > 4.0
-            root = ET.fromstring(img.img.metadata.to_xml())
+            try:
+                root = ET.fromstring(img.img.xarray_dask_data.unprocessed[270])
+            except:
+                root = ET.fromstring(img.img.metadata.to_xml())
             schema_url = get_schema_url(root)
             metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
-            pixel_size = get_pixel_area(metadata, img)
+            pixel_size = get_pixel_area(metadata)
 
             # schema_url = get_schema_url(img.img.metadata.root_node)
             # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
