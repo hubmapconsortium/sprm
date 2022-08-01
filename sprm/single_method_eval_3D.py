@@ -25,17 +25,17 @@ Version: 1.5
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+def get_voxel_volume(voxel_node_attrib: Dict[str, str]) -> float:
     """
-    Returns total pixel size in square micrometers.
+    Returns total voxel size in cubic micrometers.
     """
     reg = UnitRegistry()
 
     sizes: List[Quantity] = []
     for dimension in ["X", "Y", "Z"]:
 
-        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+        unit = reg[voxel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+        value = float(voxel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
     size = prod(sizes)
@@ -196,8 +196,8 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         img_binary_pieces.append(foreground_separation(img_thresholded[z]))
     img_binary = np.stack(img_binary_pieces, axis=0)
     img_binary = np.sign(img_binary)
-    background_pixel_num = np.argwhere(img_binary == 0).shape[0]
-    fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2])
+    background_voxel_num = np.argwhere(img_binary == 0).shape[0]
+    fraction_background = background_voxel_num / (img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2])
 
     # set mask channel names
     channel_names = [
@@ -217,18 +217,18 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             root = ET.fromstring(img.img.xarray_dask_data.unprocessed[270])
             schema_url = get_schema_url(root)
             metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
-            pixel_size = get_pixel_area(metadata)
+            voxel_size = get_voxel_volume(metadata)
 
             # schema_url = get_schema_url(img.img.metadata.root_node)
-            # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            # pixel_size = get_pixel_area(pixels_node.attrib)
+            # voxels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
+            # voxel_size = get_voxel_volume(voxels_node.attrib)
 
-            pixel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
-            micron_num = pixel_size * pixel_num
+            voxel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
+            micron_num = voxel_size * voxel_num
 
             # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
 
-            # calculate number of cell per 100 squared micron
+            # calculate number of cell per 100 cubic micron
             cell_num = len(np.unique(current_mask)) - 1
 
             cell_num_normalized = cell_num / micron_num * 100
