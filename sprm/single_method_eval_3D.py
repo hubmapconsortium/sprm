@@ -1,20 +1,29 @@
 import importlib.resources
 import pickle
-import re
-import xml.etree.ElementTree as ET
-from math import prod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import xmltodict
-from pint import Quantity, UnitRegistry
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from .single_method_eval import thresholding, foreground_separation, uniformity_CV, cell_uniformity_CV, cell_uniformity_fraction, weighted_by_cluster, cell_size_uniformity, get_indexed_mask, flatten_dict, get_schema_url, compute_M, get_indices_sparse, get_quality_score
+from .single_method_eval import (
+    cell_size_uniformity,
+    cell_uniformity_CV,
+    cell_uniformity_fraction,
+    flatten_dict,
+    foreground_separation,
+    get_indices_sparse,
+    get_physical_dimension_func,
+    get_quality_score,
+    thresholding,
+    uniformity_CV,
+    weighted_by_cluster,
+)
+
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
@@ -23,23 +32,8 @@ Version: 1.5
 04/21/2022
 """
 
-schema_url_pattern = re.compile(r"\{(.+)\}OME")
+get_voxel_volume = get_physical_dimension_func(3)
 
-def get_voxel_volume(voxel_node_attrib: Dict[str, str]) -> float:
-    """
-    Returns total voxel size in cubic micrometers.
-    """
-    reg = UnitRegistry()
-
-    sizes: List[Quantity] = []
-    for dimension in ["X", "Y", "Z"]:
-
-        unit = reg[voxel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        value = float(voxel_node_attrib[f"PhysicalSize{dimension}"])
-        sizes.append(value * unit)
-
-    size = prod(sizes)
-    return size.to("micrometer ** 3").magnitude
 
 def fraction(img_bi, mask_bi):
     foreground_all = np.sum(img_bi)
@@ -54,6 +48,7 @@ def fraction(img_bi, mask_bi):
     foreground_fraction = foreground / foreground_all
     mask_fraction = foreground / mask_all
     return foreground_fraction, background_fraction, mask_fraction
+
 
 def uniformity_fraction(loc, channels) -> float:
     n = len(channels)
@@ -84,6 +79,7 @@ def background_uniformity(img_bi, channels):
     CV = uniformity_CV(background_loc, channels)
     fraction = uniformity_fraction(background_loc, channels)
     return CV, fraction
+
 
 def cell_type(mask, channels):
     label_list = []
@@ -161,6 +157,7 @@ def cell_uniformity(mask, channels, label_list):
         fraction.append(weighted_by_cluster(fraction_current, labels))
     return CV, fraction, silhouette[1:]
 
+
 def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
 
@@ -197,7 +194,9 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
     img_binary = np.stack(img_binary_pieces, axis=0)
     img_binary = np.sign(img_binary)
     background_voxel_num = np.argwhere(img_binary == 0).shape[0]
-    fraction_background = background_voxel_num / (img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2])
+    fraction_background = background_voxel_num / (
+        img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2]
+    )
 
     # set mask channel names
     channel_names = [
@@ -212,26 +211,19 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         metrics[channel_names[channel]] = {}
         img_channels = img.data[0, 0, :, :, :, :]
         if channel_names[channel] == "Matched Cell":
-
-            # root = ET.fromstring(img.img.metadata.to_xml())
-            root = ET.fromstring(img.img.xarray_dask_data.unprocessed[270])
-            schema_url = get_schema_url(root)
-            metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
-            voxel_size = get_voxel_volume(metadata)
-
-            # schema_url = get_schema_url(img.img.metadata.root_node)
-            # voxels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            # voxel_size = get_voxel_volume(voxels_node.attrib)
+            units, voxel_size = get_voxel_volume(img.img)
 
             voxel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
-            micron_num = voxel_size * voxel_num
+            total_volume = voxel_size * voxel_num
 
             # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
 
             # calculate number of cell per 100 cubic micron
-            cell_num = len(np.unique(current_mask)) - 1
+            cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cell_num_normalized = cell_num / micron_num * 100
+            cells_per_volume = cell_num / total_volume
+            units.define("hundred_cubic_micron = micrometer ** 3 * 100")
+            cell_num_normalized = cells_per_volume.to("cell / hundred_cubic_micron")
 
             # calculate the standard deviation of cell size
             cell_size_std = cell_size_uniformity(current_mask)
@@ -247,7 +239,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
                 "NumberOfCellsPer100CubicMicrons"
-            ] = cell_num_normalized
+            ] = cell_num_normalized.magnitude
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
             ] = foreground_fraction
