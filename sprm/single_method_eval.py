@@ -6,6 +6,7 @@ from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import aicsimageio
 import numpy as np
 import xmltodict
 from PIL import Image
@@ -19,7 +20,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
-
 
 """
 Companion to SPRM.py
@@ -294,21 +294,24 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
+def get_pixel_area(img: aicsimageio.AICSImage) -> Tuple[UnitRegistry, Quantity]:
     """
-    Returns total pixel size in square micrometers.
+    Returns total pixel area as a pint.Quantity
     """
     reg = UnitRegistry()
 
+    root = ET.fromstring(img.xarray_dask_data.unprocessed[270])
+    schema_url = get_schema_url(root)
+    pixel_node_attrib = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
+
     sizes: List[Quantity] = []
     for dimension in ["X", "Y"]:
-
         unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
         value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
         sizes.append(value * unit)
 
     size = prod(sizes)
-    return size.to("micrometer ** 2").magnitude
+    return reg, size.to("micrometer ** 2")
 
 
 def get_quality_score(features, model):
@@ -385,14 +388,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             except:
                 matched_fraction = 1.0
 
-            #new for aicsimageio > 4.0
-            try:
-                root = ET.fromstring(img.img.xarray_dask_data.unprocessed[270])
-            except:
-                root = ET.fromstring(img.img.metadata.to_xml())
-            schema_url = get_schema_url(root)
-            metadata = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
-            pixel_size = get_pixel_area(metadata)
+            units, pixel_size = get_pixel_area(img.img)
 
             # schema_url = get_schema_url(img.img.metadata.root_node)
             # pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
@@ -402,9 +398,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             micron_num = pixel_size * pixel_num
 
             # calculate number of cell per 100 squared micron
-            cell_num = len(np.unique(current_mask)) - 1
+            units.define("cell = []")
+            cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cell_num_normalized = cell_num / micron_num * 100
+            cells_per_micron = cell_num / micron_num
+            units.define("hundred_square_micron = micrometer ** 2 * 100")
+            cell_num_normalized = cells_per_micron.to("cell / hundred_square_micron")
 
             # calculate the standard deviation of cell size
 
@@ -423,7 +422,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
                 "NumberOfCellsPer100SquareMicrons"
-            ] = cell_num_normalized
+            ] = cell_num_normalized.magnitude
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
             ] = foreground_fraction
