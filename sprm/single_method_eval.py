@@ -412,12 +412,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             units, pixel_size = get_pixel_area(img.img)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
-            micron_num = pixel_size * pixel_num
+            total_area = pixel_size * pixel_num
 
             # calculate number of cell per 100 squared micron
             cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cells_per_area = cell_num / micron_num
+            cells_per_area = cell_num / total_area
             units.define("hundred_square_micron = micrometer ** 2 * 100")
             cell_num_normalized = cells_per_area.to("cell / hundred_square_micron")
 

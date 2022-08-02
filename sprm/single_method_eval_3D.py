@@ -214,15 +214,14 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             units, voxel_size = get_voxel_volume(img.img)
 
             voxel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
-            # total number of cubic microns in image
-            micron_num = voxel_size * voxel_num
+            total_volume = voxel_size * voxel_num
 
             # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
 
             # calculate number of cell per 100 cubic micron
             cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cells_per_volume = cell_num / micron_num
+            cells_per_volume = cell_num / total_volume
             units.define("hundred_cubic_micron = micrometer ** 3 * 100")
             cell_num_normalized = cells_per_volume.to("cell / hundred_cubic_micron")
 
