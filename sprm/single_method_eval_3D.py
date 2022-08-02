@@ -1,14 +1,10 @@
 import importlib.resources
 import pickle
-import re
-import xml.etree.ElementTree as ET
-from math import prod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import xmltodict
-from pint import Quantity, UnitRegistry
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
@@ -23,7 +19,6 @@ from .single_method_eval import (
     get_indices_sparse,
     get_physical_dimension_func,
     get_quality_score,
-    get_schema_url,
     thresholding,
     uniformity_CV,
     weighted_by_cluster,
@@ -36,8 +31,6 @@ Author: Haoran Chen and Ted Zhang
 Version: 1.5
 04/21/2022
 """
-
-schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
 get_voxel_volume = get_physical_dimension_func(3)
 
