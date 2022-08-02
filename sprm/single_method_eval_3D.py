@@ -222,9 +222,9 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             # calculate number of cell per 100 cubic micron
             cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cells_per_micron = cell_num / micron_num
+            cells_per_volume = cell_num / micron_num
             units.define("hundred_cubic_micron = micrometer ** 3 * 100")
-            cell_num_normalized = cells_per_micron.to("cell / hundred_cubic_micron")
+            cell_num_normalized = cells_per_volume.to("cell / hundred_cubic_micron")
 
             # calculate the standard deviation of cell size
             cell_size_std = cell_size_uniformity(current_mask)

@@ -417,9 +417,9 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             # calculate number of cell per 100 squared micron
             cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cells_per_micron = cell_num / micron_num
+            cells_per_area = cell_num / micron_num
             units.define("hundred_square_micron = micrometer ** 2 * 100")
-            cell_num_normalized = cells_per_micron.to("cell / hundred_square_micron")
+            cell_num_normalized = cells_per_area.to("cell / hundred_square_micron")
 
             # calculate the standard deviation of cell size
 
