@@ -13,12 +13,12 @@ inputs:
     type: Directory[]
     inputBinding:
       position: 0
-      prefix: "--img_dir"
+      prefix: "--img-dir"
   mask_dir:
     type: Directory[]
     inputBinding:
       position: 1
-      prefix: "--mask_dir"
+      prefix: "--mask-dir"
   processes:
     type: int?
     default: 1

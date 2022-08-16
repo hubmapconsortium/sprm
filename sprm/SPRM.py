@@ -451,9 +451,9 @@ def main(
 
 def argparse_wrapper():
     p = ArgumentParser()
-    p.add_argument("img_dir", type=Path)
-    p.add_argument("mask_dir", type=Path)
-    p.add_argument("optional_img_dir", type=Path, nargs="?")
+    p.add_argument("--img-dir", type=Path, required=True)
+    p.add_argument("--mask-dir", type=Path, required=True)
+    p.add_argument("--optional-img-dir", type=Path, nargs="?")
     p.add_argument("-p", "--processes", type=int, default=1)
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
