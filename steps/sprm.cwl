@@ -10,13 +10,15 @@ baseCommand: sprm
 
 inputs:
   image_dir:
-    type: Directory
+    type: Directory[]
     inputBinding:
       position: 0
+      prefix: "--img_dir"
   mask_dir:
-    type: Directory
+    type: Directory[]
     inputBinding:
       position: 1
+      prefix: "--mask_dir"
   processes:
     type: int?
     default: 1
