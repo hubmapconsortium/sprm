@@ -478,6 +478,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # fill the image to handle artifacts from rotation
         # cmask = fillimage(cmask)
         cmask = ndimage.binary_fill_holes(cmask).astype(int)
+        cmask = ndimage.binary_fill_holes(cmask).astype(int)
+        cmask = ndimage.binary_erosion(cmask)
 
         # remove isolated pixels
         cmask = remove_island_pixels(cmask)

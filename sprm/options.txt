@@ -1,4 +1,4 @@
-debug 1
+debug 0
 num_cellclusters silhouette 3 10
 num_voxelclusters 3
 num_markers 3
@@ -19,7 +19,7 @@ glcm_distances [1]
 skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
-zscore_norm 0
+zscore_norm 1
 skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore

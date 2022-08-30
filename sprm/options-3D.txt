@@ -19,7 +19,7 @@ glcm_distances [1]
 skip_outlinePCA 1
 interior_cells_only 1
 normalize_bg 1
-zscore_norm 0
+zscore_norm 1
 skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore
