@@ -409,6 +409,7 @@ def adjust_matplotlib_categorical_cmap(
 def save_image(
     a: np.ndarray,
     file_path: Union[str, Path],
+    options: dict,
 ):
     """
     :param a: 2 or 3-dimensional NumPy array
@@ -428,14 +429,25 @@ def save_image(
         i.save(file_path)
     else: #image is 3D and will use animated png to display
         apng = APNG()
-        for i in range(len(image_rgb_8bit)):
+        #forward
+        for j in range(len(image_rgb_8bit)):
             in_mem_file = io.BytesIO()
-            i = Image.fromarray(image_rgb_8bit[i], mode="RGBA")
+            i = Image.fromarray(image_rgb_8bit[j], mode="RGBA")
             i.save(in_mem_file, format="PNG")
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=10)
+            apng.append(png, delay=options.get('apng_delay'))
+
+        #backward
+        for j in range(len(image_rgb_8bit)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(image_rgb_8bit[-j], mode="RGBA")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get('apng_delay'))
 
         apng.save(file_path)
 
@@ -1631,13 +1643,14 @@ def plotprincomp(
         print("After Transpose: ", plotim.shape)
 
     for i in range(0, 3):
-        cmin = plotim[:, :, i].min()
-        cmax = plotim[:, :, i].max()
+
+        cmin = plotim[..., i].min()
+        cmax = plotim[..., i].max()
         if options.get("debug"):
             print("Min and Max before normalization: ", cmin, cmax)
-        plotim[:, :, i] = ((plotim[:, :, i] - cmin) / (cmax - cmin)) * 255.0
-        cmin = plotim[:, :, i].min()
-        cmax = plotim[:, :, i].max()
+        plotim[..., i] = ((plotim[..., i] - cmin) / (cmax - cmin)) * 255.0
+        cmin = plotim[..., i].min()
+        cmax = plotim[..., i].max()
         if options.get("debug"):
             print("Min and Max after normalization: ", cmin, cmax)
 
@@ -1648,14 +1661,25 @@ def plotprincomp(
         img.save(output_dir / filename)
     else:
         apng = APNG()
-        for i in range(len(plotim)):
+        #forward
+        for j in range(len(plotim)):
             in_mem_file = io.BytesIO()
-            i = Image.fromarray(plotim[i], mode="RGB")
+            i = Image.fromarray(plotim[j], mode="RGB")
             i.save(in_mem_file, format="PNG")
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=10)
+            apng.append(png, delay=options.get('apng_delay'))
+
+        #backward
+        for j in range(len(plotim)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(plotim[-j], mode="RGB")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get('apng_delay'))
 
         apng.save(output_dir / filename)
 
@@ -2017,7 +2041,7 @@ def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Pat
 
     cluster_im = get_last2d(cluster_im, bestz, options)
 
-    save_image(cluster_im, output_dir / filename)
+    save_image(cluster_im, output_dir / filename, options)
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
