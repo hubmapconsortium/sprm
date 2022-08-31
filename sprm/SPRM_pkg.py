@@ -1957,13 +1957,14 @@ def write_ometiff(im: IMGstruct, output_dir: Path, options: Dict, *argv):
 
     if options.get('image_dimension') == '3D':
         pca_dim_order = 'CZYX'
-        superpixel_dim_order = 'ZYX'
+        # superpixel_dim_order = 'ZYX'
         pca_tp = (3, 0, 1, 2)
     else:
         pca_dim_order = 'CYX'
-        superpixel_dim_order = 'YX'
+        # superpixel_dim_order = 'YX'
         pca_tp = (2, 0, 1)
 
+    superpixel_dim_order = 'ZYX'
     pcaimg = np.transpose(pcaimg, pca_tp)
 
     s = ["-channel_pca.ome.tiff", "-superpixel.ome.tiff"]
