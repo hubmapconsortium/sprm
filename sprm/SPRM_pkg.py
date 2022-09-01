@@ -32,6 +32,7 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
+
 # from skimage.feature.texture import greycomatrix, greycoprops
 from skimage.feature import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
@@ -139,18 +140,20 @@ class IMGstruct:
         #     if t > 1:
         #         data = data.reshape((s, 1, t * c, z, y, x))
 
-        #older version of aicsimageio<3.2
+        # older version of aicsimageio<3.2
         if len(dims) == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
 
-        #newer version of aicsimageio>4.0 -> correct dimensions
+        # newer version of aicsimageio>4.0 -> correct dimensions
         elif len(dims) == 5:
             data = data[np.newaxis, ...]
 
         else:
-            print('image/expressions dimensions are incompatible. Please check that its in correct format.')
+            print(
+                "image/expressions dimensions are incompatible. Please check that its in correct format."
+            )
 
         return data
 
@@ -161,13 +164,13 @@ class IMGstruct:
         print("Channel names:")
         print(cn)
 
-        #hot fix to channel names expected
+        # hot fix to channel names expected
         if cn[0] == "cells":
             cn[0] = "cell"
-        if cn[2] == 'cell_boundary':
-            cn[2] = 'cell_boundaries'
-        if cn[3] == 'nucleus_boundary':
-            cn[3] = 'nucleus_boundaries'
+        if cn[2] == "cell_boundary":
+            cn[2] = "cell_boundaries"
+        if cn[3] == "nucleus_boundary":
+            cn[3] = "nucleus_boundaries"
 
         return cn
 
@@ -210,7 +213,7 @@ class MaskStruct(IMGstruct):
         dims = data.shape
         # s,t,c,z,y,x = dims[0],dims[1],dims[2],dims[3],dims[4],dims[5]
 
-        #aicsimageio > 4.0
+        # aicsimageio > 4.0
         if len(dims) == 5:
             data = data[np.newaxis, ...]
 
@@ -298,6 +301,7 @@ class MaskStruct(IMGstruct):
     #     self.bad_cells = None
     #     self.cell_index = None
     #     self.ROI = None
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
@@ -943,7 +947,7 @@ def AdjacencyMatrix_3D(
     adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph_avg = defaultdict(set)
 
-    if window == None:
+    if window is None:
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")
@@ -1067,7 +1071,7 @@ def AdjacencyMatrix(
     adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph_avg = defaultdict(set)
 
-    if window == None:
+    if window is None:
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")

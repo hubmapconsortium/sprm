@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
 import aicsimageio
 import numpy as np
@@ -295,7 +295,7 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
 
 
 def get_physical_dimension_func(
-    dimensions: int,
+    dimensions: Literal[2, 3],
 ) -> Callable[[aicsimageio.AICSImage], Tuple[UnitRegistry, Quantity]]:
     dimension_names = "XYZ"
 
