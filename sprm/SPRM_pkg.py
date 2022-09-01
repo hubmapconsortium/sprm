@@ -1845,6 +1845,9 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         print("Number of unique labels:")
         print(len(np.unique(voxelbycluster_labels)))
 
+    #add 1 to cluster so index starts @1
+    voxelbycluster_labels += 1
+
     return voxelbycluster_labels
 
 
@@ -2054,6 +2057,7 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
         if not options.get("skip_outlinePCA"):
             plot_img(argv[6], [0], filename + "-Cluster_Shape.png", output_dir, options)
             plot_img(argv[7], [0], filename + "-Cluster_ShapeNormalized.png", output_dir, options)
+            plot_img(argv[8], [0], filename + "-clusterbyUMAP.png", output_dir, options)
 
             plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
             plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
@@ -2062,7 +2066,7 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
             plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
             plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
             plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
-
+            plot_img(argv[6], [0], filename + "-clusterbyUMAP.png", output_dir, options)
 
 def make_legends(
     feature_names,
