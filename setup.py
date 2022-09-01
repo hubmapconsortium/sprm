@@ -44,9 +44,10 @@ setup(
         "scikit-learn",
         "shapely",
         "tables",
-        "tifffile==2022.5.4",
+        "tifffile==2022.8.3",
         "xmltodict",
         "umap-learn",
+        "apng"
     ],
     python_requires=">=3.8",
     entry_points={

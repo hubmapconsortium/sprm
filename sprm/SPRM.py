@@ -191,16 +191,16 @@ def analysis(
     # these are done on the whole image, not the individual cells
     # do clustering on the individual pixels to find 'pixel types'
     superpixels = voxel_cluster(im, options)
-    plot_img(superpixels, bestz[0], baseoutputfilename + "-Superpixels.png", output_dir)
+    plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
 
     # do PCA on the channel values to find channel components
     reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
     PCA_img = plotprincomp(
-        reducedim, bestz[0], baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
+        reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
     )
 
     # writing out as a ometiff file of visualizations by channels
-    write_ometiff(im, output_dir, bestz, PCA_img, superpixels[bestz[0]])
+    write_ometiff(im, output_dir, options, PCA_img, superpixels[bestz])
 
     # check if the image and mask spatial resolutions match
     # and reallocate intensity to the mask resolution if not
