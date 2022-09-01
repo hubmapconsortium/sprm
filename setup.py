@@ -47,7 +47,7 @@ setup(
         "tifffile==2022.8.3",
         "xmltodict",
         "umap-learn",
-        "apng"
+        "apng",
     ],
     python_requires=">=3.8",
     entry_points={

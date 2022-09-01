@@ -1,3 +1,4 @@
+import io
 import json
 import math
 import sys
@@ -23,6 +24,7 @@ import scipy.sparse
 import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
+from apng import APNG, PNG
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
 from numba.typed import Dict as nbDict
@@ -40,8 +42,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
-from apng import APNG, PNG
-import io
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .ims_sparse_allchan import findpixelfractions
@@ -427,13 +427,13 @@ def save_image(
     image_rgb = adjusted_cmap[a]
     image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
 
-    #find out if input image is 2D or 3D
+    # find out if input image is 2D or 3D
     if image_rgb_8bit.ndim <= 3:
         i = Image.fromarray(image_rgb_8bit, mode="RGBA")
         i.save(file_path)
-    else: #image is 3D and will use animated png to display
+    else:  # image is 3D and will use animated png to display
         apng = APNG()
-        #forward
+        # forward
         for j in range(len(image_rgb_8bit)):
             in_mem_file = io.BytesIO()
             i = Image.fromarray(image_rgb_8bit[j], mode="RGBA")
@@ -441,9 +441,9 @@ def save_image(
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=options.get('apng_delay'))
+            apng.append(png, delay=options.get("apng_delay"))
 
-        #backward
+        # backward
         for j in range(len(image_rgb_8bit)):
             in_mem_file = io.BytesIO()
             i = Image.fromarray(image_rgb_8bit[-j], mode="RGBA")
@@ -451,9 +451,10 @@ def save_image(
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=options.get('apng_delay'))
+            apng.append(png, delay=options.get("apng_delay"))
 
         apng.save(file_path)
+
 
 def calculations(
     coord, im: IMGstruct, t: int, i: int, bestz: int
@@ -964,9 +965,7 @@ def AdjacencyMatrix_3D(
         # not compatible for 3D
         windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows_3D(
-            numCells, cellEdgeList, delta, a, b, z
-        )
+        windowCoords, windowSize, windowXY = get_windows_3D(numCells, cellEdgeList, delta, a, b, z)
 
     templist = []
     for i in range(len(windowCoords)):
@@ -1090,9 +1089,7 @@ def AdjacencyMatrix(
         cel = nbList(cellEdgeList)
         windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows(
-            numCells, cellEdgeList, delta, a, b
-        )
+        windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, delta, a, b)
 
     templist = []
     for i in range(len(windowCoords)):
@@ -1166,7 +1163,7 @@ def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
 
     for i in range(1, numCells):
 
-        #get window ranges
+        # get window ranges
         xmin, xmax, ymin, ymax, zmin, zmax = (
             np.min(cellEdgeList[i][2]),
             np.max(cellEdgeList[i][2]),
@@ -1176,7 +1173,7 @@ def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
             np.max(cellEdgeList[i][0]),
         )
 
-        #padding
+        # padding
         xmin = xmin - delta if xmin - delta > 0 else 0
         xmax = xmax + delta + 1 if xmax + delta + 1 < a else a
         ymin = ymin - delta if ymin - delta > 0 else 0
@@ -1625,7 +1622,7 @@ def plotprincomp(
     reducedim: np.ndarray, bestz: list, filename: str, output_dir: Path, options: Dict
 ) -> np.ndarray:
     print("Plotting PCA image...")
-    if options.get('image_dimension') == '2D':
+    if options.get("image_dimension") == "2D":
         bestz = bestz[0]
         tp = (1, 2, 0)
     else:
@@ -1665,7 +1662,7 @@ def plotprincomp(
         img.save(output_dir / filename)
     else:
         apng = APNG()
-        #forward
+        # forward
         for j in range(len(plotim)):
             in_mem_file = io.BytesIO()
             i = Image.fromarray(plotim[j], mode="RGB")
@@ -1673,9 +1670,9 @@ def plotprincomp(
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=options.get('apng_delay'))
+            apng.append(png, delay=options.get("apng_delay"))
 
-        #backward
+        # backward
         for j in range(len(plotim)):
             in_mem_file = io.BytesIO()
             i = Image.fromarray(plotim[-j], mode="RGB")
@@ -1683,7 +1680,7 @@ def plotprincomp(
             in_mem_file.seek(0)
             img_bytes = in_mem_file.read()
             png = PNG.from_bytes(img_bytes)
-            apng.append(png, delay=options.get('apng_delay'))
+            apng.append(png, delay=options.get("apng_delay"))
 
         apng.save(output_dir / filename)
 
@@ -1849,7 +1846,7 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         print("Number of unique labels:")
         print(len(np.unique(voxelbycluster_labels)))
 
-    #add 1 to cluster so index starts @1
+    # add 1 to cluster so index starts @1
     voxelbycluster_labels += 1
 
     return voxelbycluster_labels
@@ -1962,16 +1959,16 @@ def write_ometiff(im: IMGstruct, output_dir: Path, options: Dict, *argv):
     # superpixel = superpixel.astype(np.int32)
     # superpixel = superpixel[np.newaxis, :, :]
 
-    if options.get('image_dimension') == '3D':
-        pca_dim_order = 'CZYX'
+    if options.get("image_dimension") == "3D":
+        pca_dim_order = "CZYX"
         # superpixel_dim_order = 'ZYX'
         pca_tp = (3, 0, 1, 2)
     else:
-        pca_dim_order = 'CYX'
+        pca_dim_order = "CYX"
         # superpixel_dim_order = 'YX'
         pca_tp = (2, 0, 1)
 
-    superpixel_dim_order = 'ZYX'
+    superpixel_dim_order = "ZYX"
     pcaimg = np.transpose(pcaimg, pca_tp)
 
     s = ["-channel_pca.ome.tiff", "-superpixel.ome.tiff"]
@@ -2053,9 +2050,15 @@ def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Pat
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-    plot_img(argv[0], [0], filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir, options)
-    plot_img(argv[1], [0], filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir, options)
-    plot_img(argv[3], [0], filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir, options)
+    plot_img(
+        argv[0], [0], filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir, options
+    )
+    plot_img(
+        argv[1], [0], filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir, options
+    )
+    plot_img(
+        argv[3], [0], filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir, options
+    )
 
     if i == 0:
         if not options.get("skip_outlinePCA"):
@@ -2071,6 +2074,7 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
             plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
             plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
             plot_img(argv[6], [0], filename + "-clusterbyUMAP.png", output_dir, options)
+
 
 def make_legends(
     feature_names,
@@ -2731,7 +2735,7 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
 
 def get_last2d(data: np.ndarray, bestz: list, options: dict) -> np.ndarray:
 
-    if options.get('image_dimension') == '3D' or data.ndim <= 2:
+    if options.get("image_dimension") == "3D" or data.ndim <= 2:
         return data
 
     bestz = bestz[0]
