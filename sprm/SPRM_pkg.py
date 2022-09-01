@@ -2046,22 +2046,22 @@ def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Pat
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-    plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir, options)
-    plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir, options)
-    plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir, options)
+    plot_img(argv[0], [0], filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir, options)
+    plot_img(argv[1], [0], filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir, options)
+    plot_img(argv[3], [0], filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir, options)
 
     if i == 0:
         if not options.get("skip_outlinePCA"):
-            plot_img(argv[6], 0, filename + "-Cluster_Shape.png", output_dir, options)
-            plot_img(argv[7], 0, filename + "-Cluster_ShapeNormalized.png", output_dir, options)
+            plot_img(argv[6], [0], filename + "-Cluster_Shape.png", output_dir, options)
+            plot_img(argv[7], [0], filename + "-Cluster_ShapeNormalized.png", output_dir, options)
 
-            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir, options)
-            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir, options)
-            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
+            plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
+            plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
+            plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
         else:
-            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir, options)
-            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir, options)
-            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
+            plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
+            plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
+            plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
 
 
 def make_legends(
