@@ -36,12 +36,24 @@ outputs:
     label: "SPRM output"
 
 steps:
+  ome_tiff_normalize_expr:
+    in:
+      data_dir:
+        source: image_dir
+    out: [output_dir]
+    run: ome-tiff-normalize/ome_tiff_normalize.cwl
+  ome_tiff_normalize_mask:
+    in:
+      data_dir:
+        source: mask_dir
+    out: [output_dir]
+    run: ome-tiff-normalize/ome_tiff_normalize.cwl
   sprm:
     in:
       image_dir:
-        source: image_dir
+        source: ome_tiff_normalize_expr/output_dir
       mask_dir:
-        source: mask_dir
+        source: ome_tiff_normalize_mask/output_dir
       options_file:
         source: options_file
       options_preset:

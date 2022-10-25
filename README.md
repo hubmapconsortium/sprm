@@ -14,7 +14,7 @@ Two OMETIFF files from the output of CytoKit -
 
 ## Execution: (assuming SPRM.py is in working directory)
 ```bash
-[python_path] SPRM.py [img_dir_path] [mask_dir_path] [options_img_dir_path]
+[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path]
 ```
 
 SPRM takes in three command line arguments that specify the path in the following order:\
@@ -55,4 +55,3 @@ into an appropriate Python environment, if necessary).
 
 Robert F. Murphy - murphy@cmu.edu\
 Ted (Ce) Zhang - tedz@andrew.cmu.edu
-

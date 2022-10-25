@@ -1,23 +1,28 @@
 import importlib.resources
 import pickle
-import re
-import xml.etree.ElementTree as ET
-from math import prod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import xmltodict
-from pint import Quantity, UnitRegistry
-from scipy.sparse import csr_matrix
-from scipy.stats import variation
-from skimage.filters import threshold_mean
-from skimage.morphology import area_closing, closing, disk
-from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+
+from .single_method_eval import (
+    cell_size_uniformity,
+    cell_uniformity_CV,
+    cell_uniformity_fraction,
+    flatten_dict,
+    foreground_separation,
+    get_indices_sparse,
+    get_physical_dimension_func,
+    get_quality_score,
+    thresholding,
+    uniformity_CV,
+    weighted_by_cluster,
+)
 
 """
 Companion to SPRM.py
@@ -27,36 +32,7 @@ Version: 1.5
 04/21/2022
 """
 
-schema_url_pattern = re.compile(r"\{(.+)\}OME")
-
-
-def get_schema_url(ome_xml_root_node: ET.Element) -> str:
-    if m := schema_url_pattern.match(ome_xml_root_node.tag):
-        return m.group(1)
-    raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
-
-
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
-    """
-    Returns total pixel size in square micrometers.
-    """
-    reg = UnitRegistry()
-
-    sizes: List[Quantity] = []
-    for dimension in ["X", "Y"]:
-        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
-        sizes.append(value * unit)
-
-    size = prod(sizes)
-    return size.to("micrometer ** 2").magnitude
-
-
-def thresholding(img):
-    threshold = threshold_mean(img.astype(np.int64))
-    img_thre = img > threshold
-    img_thre = img_thre * 1
-    return img_thre
+get_voxel_volume = get_physical_dimension_func(3)
 
 
 def fraction(img_bi, mask_bi):
@@ -72,42 +48,6 @@ def fraction(img_bi, mask_bi):
     foreground_fraction = foreground / foreground_all
     mask_fraction = foreground / mask_all
     return foreground_fraction, background_fraction, mask_fraction
-
-
-def foreground_separation(img_thre):
-    contour_ref = img_thre.copy()
-    img_thre = closing(img_thre, disk(1))
-
-    img_thre = -img_thre + 1
-    img_thre = closing(img_thre, disk(2))
-    img_thre = -img_thre + 1
-
-    img_thre = closing(img_thre, disk(20))
-
-    img_thre = -img_thre + 1
-    img_thre = closing(img_thre, disk(10))
-    img_thre = -img_thre + 1
-
-    img_thre = area_closing(img_thre, 20000, connectivity=2)
-    contour_ref = contour_ref.astype(float)
-    img_thre = img_thre.astype(float)
-    img_binary = MorphGAC(
-        -contour_ref + 1, 5, -img_thre + 1, smoothing=1, balloon=0.8, threshold=0.5
-    )
-    img_binary = area_closing(img_binary, 1000, connectivity=2)
-
-    return -img_binary + 1
-
-
-def uniformity_CV(loc, channels):
-    CV = []
-    n = len(channels)
-    for i in range(n):
-        channel = channels[i]
-        channel = channel / np.mean(channel)
-        intensity = channel[tuple(loc.T)]
-        CV.append(np.std(intensity))
-    return np.average(CV)
 
 
 def uniformity_fraction(loc, channels) -> float:
@@ -139,49 +79,6 @@ def background_uniformity(img_bi, channels):
     CV = uniformity_CV(background_loc, channels)
     fraction = uniformity_fraction(background_loc, channels)
     return CV, fraction
-
-
-def cell_uniformity_CV(feature_matrix):
-    CV = []
-    for i in range(feature_matrix.shape[1]):
-        if np.sum(feature_matrix[:, i]) == 0:
-            CV.append(np.nan)
-        else:
-            CV.append(variation(feature_matrix[:, i]))
-
-    if np.sum(np.nan_to_num(CV)) == 0:
-        return 0
-    else:
-        return np.nanmean(CV)
-
-
-def cell_uniformity_fraction(feature_matrix):
-    if np.sum(feature_matrix) == 0 or feature_matrix.shape[0] == 1:
-        return 1
-    else:
-        pca = PCA(n_components=1)
-        model = pca.fit(feature_matrix)
-        fraction = model.explained_variance_ratio_[0]
-        return fraction
-
-
-def weighted_by_cluster(vector, labels):
-    for i in range(len(vector)):
-        vector[i] = vector[i] * len(np.where(labels == i)[0])
-    weighted_average = np.sum(vector) / len(labels)
-    return weighted_average
-
-
-def cell_size_uniformity(mask):
-    cell_coord = get_indices_sparse(mask)[1:]
-    cell_coord_num = len(cell_coord)
-    cell_size = []
-    for i in range(cell_coord_num):
-        cell_size_current = len(cell_coord[i][0])
-        if cell_size_current != 0:
-            cell_size.append(cell_size_current)
-    cell_size_std = np.std(np.expand_dims(np.array(cell_size), 1))
-    return cell_size_std
 
 
 def cell_type(mask, channels):
@@ -261,45 +158,6 @@ def cell_uniformity(mask, channels, label_list):
     return CV, fraction, silhouette[1:]
 
 
-def compute_M(data):
-    cols = np.arange(data.size)
-    return csr_matrix((cols, (data.ravel(), cols)), shape=(np.int64(data.max() + 1), data.size))
-
-
-def get_indices_sparse(data):
-    data = data.astype(np.uint64)
-    M = compute_M(data)
-    return [np.unravel_index(row.data, data.shape) for row in M]
-
-
-def get_indexed_mask(mask, boundary):
-    boundary = boundary * 1
-    boundary_loc = np.where(boundary == 1)
-    boundary[boundary_loc] = mask[boundary_loc]
-    return boundary
-
-
-def flatten_dict(input_dict):
-    local_list = []
-    for key, value in input_dict.items():
-        if type(value) == dict:
-            local_list.extend(flatten_dict(value))
-        else:
-            local_list.append(value)
-    return local_list
-
-
-def get_quality_score(features, model):
-    ss = model[0]
-    pca = model[1]
-    features_scaled = ss.transform(features)
-    score = (
-        pca.transform(features_scaled)[0, 0] * pca.explained_variance_ratio_[0]
-        + pca.transform(features_scaled)[0, 1] * pca.explained_variance_ratio_[1]
-    )
-    return score
-
-
 def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
 
@@ -335,8 +193,10 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         img_binary_pieces.append(foreground_separation(img_thresholded[z]))
     img_binary = np.stack(img_binary_pieces, axis=0)
     img_binary = np.sign(img_binary)
-    background_pixel_num = np.argwhere(img_binary == 0).shape[0]
-    fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
+    background_voxel_num = np.argwhere(img_binary == 0).shape[0]
+    fraction_background = background_voxel_num / (
+        img_binary.shape[0] * img_binary.shape[1] * img_binary.shape[2]
+    )
 
     # set mask channel names
     channel_names = [
@@ -351,20 +211,19 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         metrics[channel_names[channel]] = {}
         img_channels = img.data[0, 0, :, :, :, :]
         if channel_names[channel] == "Matched Cell":
+            units, voxel_size = get_voxel_volume(img.img)
 
-            schema_url = get_schema_url(img.img.metadata.root_node)
-            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            pixel_size = get_pixel_area(pixels_node.attrib)
-
-            pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
-            micron_num = pixel_size * pixel_num
+            voxel_num = mask_binary.shape[0] * mask_binary.shape[1] * mask_binary.shape[2]
+            total_volume = voxel_size * voxel_num
 
             # TODO: match 3D cell and nuclei and calculate the fraction of match, assume cell and nuclei are matched for now
 
-            # calculate number of cell per 100 squared micron
-            cell_num = len(np.unique(current_mask)) - 1
+            # calculate number of cell per 100 cubic micron
+            cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cell_num_normalized = cell_num / micron_num * 100
+            cells_per_volume = cell_num / total_volume
+            units.define("hundred_cubic_micron = micrometer ** 3 * 100")
+            cell_num_normalized = cells_per_volume.to("cell / hundred_cubic_micron")
 
             # calculate the standard deviation of cell size
             cell_size_std = cell_size_uniformity(current_mask)
@@ -379,8 +238,8 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
             )
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
-                "NumberOfCellsPer100SquareMicrons"
-            ] = cell_num_normalized
+                "NumberOfCellsPer100CubicMicrons"
+            ] = cell_num_normalized.magnitude
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
             ] = foreground_fraction

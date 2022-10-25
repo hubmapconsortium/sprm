@@ -1,0 +1,3 @@
+[submodule "ome-tiff-normalize"]
+	path = ome-tiff-normalize
+	url = https://github.com/hubmapconsortium/ome-tiff-normalize

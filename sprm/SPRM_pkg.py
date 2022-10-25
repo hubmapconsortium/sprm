@@ -1,5 +1,7 @@
+import io
 import json
 import math
+import sys
 import time
 from bisect import bisect
 from collections import defaultdict
@@ -22,6 +24,7 @@ import scipy.sparse
 import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
+from apng import APNG, PNG
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
 from numba.typed import Dict as nbDict
@@ -31,7 +34,9 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
-from skimage.feature.texture import greycomatrix, greycoprops
+
+# from skimage.feature.texture import greycomatrix, greycoprops
+from skimage.feature import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -102,8 +107,12 @@ class IMGstruct:
     def get_meta(self):
         return self.img.metadata
 
-    def quit(self):
-        return self.img.close()
+    # def quit(self):
+    #     self.img = None
+    #     self.data = None
+    #     self.path = None
+    #     self.name = None
+    #     self.channel_labels = None
 
     @staticmethod
     def read_img(path: Path, options: Dict) -> AICSImage:
@@ -131,29 +140,38 @@ class IMGstruct:
         #     if t > 1:
         #         data = data.reshape((s, 1, t * c, z, y, x))
 
-        if dims == 6:
+        # older version of aicsimageio<3.2
+        if len(dims) == 6:
             s, t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4], dims[5]
             if t > 1:
                 data = data.reshape((s, 1, t * c, z, y, x))
 
-        elif dims == 5:
-            t, c, z, y, x = dims[0], dims[1], dims[2], dims[3], dims[4]
-            if t > 1:
-                data = data.reshape((1, t * c, z, y, x))
-
+        # newer version of aicsimageio>4.0 -> correct dimensions
+        elif len(dims) == 5:
             data = data[np.newaxis, ...]
+
+        else:
+            print(
+                "image/expressions dimensions are incompatible. Please check that its in correct format."
+            )
 
         return data
 
     def read_channel_names(self):
         img: AICSImage = self.img
-        cn = get_channel_names(img)
+        # cn = get_channel_names(img)
+        cn = img.channel_names
         print("Channel names:")
-        pprint(cn)
-        # cn = img.channel_names
+        print(cn)
 
+        # hot fix to channel names expected
         if cn[0] == "cells":
             cn[0] = "cell"
+        if cn[2] == "cell_boundary":
+            cn[2] = "cell_boundaries"
+        if cn[3] == "nucleus_boundary":
+            cn[3] = "nucleus_boundaries"
+
         return cn
 
     def get_name(self):
@@ -194,6 +212,11 @@ class MaskStruct(IMGstruct):
         data = self.img.data
         dims = data.shape
         # s,t,c,z,y,x = dims[0],dims[1],dims[2],dims[3],dims[4],dims[5]
+
+        # aicsimageio > 4.0
+        if len(dims) == 5:
+            data = data[np.newaxis, ...]
+
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
         if check_sum == 0:  # assumes the best z is not the first slice
@@ -220,8 +243,8 @@ class MaskStruct(IMGstruct):
             # print(data.shape)
             # set bestz
         else:  # 3D case or that slice 0 is best
-            if dims[3] > 1:
-                bestz.append(int(dims[3] / 2))
+            if dims[2] > 1:
+                bestz.append(int(data.shape[3] / 2))
             else:
                 bestz.append(0)
 
@@ -265,6 +288,19 @@ class MaskStruct(IMGstruct):
 
     def get_ROI(self):
         return self.ROI
+
+    # def quit(self):
+    #     self.img = None
+    #     self.data = None
+    #     self.path = None
+    #     self.name = None
+    #     self.channel_labels = None
+    #     self.bestz = None
+    #     self.interior_cells = None
+    #     self.edge_cells = None
+    #     self.bad_cells = None
+    #     self.cell_index = None
+    #     self.ROI = None
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -377,9 +413,10 @@ def adjust_matplotlib_categorical_cmap(
 def save_image(
     a: np.ndarray,
     file_path: Union[str, Path],
+    options: dict,
 ):
     """
-    :param a: 2-dimensional NumPy array
+    :param a: 2 or 3-dimensional NumPy array
     """
     if (a.round() != a).any():
         raise ValueError("need integral values for categorical plots")
@@ -387,11 +424,36 @@ def save_image(
 
     cmap = choose_colormap(a)
     adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
-
     image_rgb = adjusted_cmap[a]
     image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
-    i = Image.fromarray(image_rgb_8bit, mode="RGBA")
-    i.save(file_path)
+
+    # find out if input image is 2D or 3D
+    if image_rgb_8bit.ndim <= 3:
+        i = Image.fromarray(image_rgb_8bit, mode="RGBA")
+        i.save(file_path)
+    else:  # image is 3D and will use animated png to display
+        apng = APNG()
+        # forward
+        for j in range(len(image_rgb_8bit)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(image_rgb_8bit[j], mode="RGBA")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        # backward
+        for j in range(len(image_rgb_8bit)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(image_rgb_8bit[-j], mode="RGBA")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        apng.save(file_path)
 
 
 def calculations(
@@ -874,7 +936,7 @@ def AdjacencyMatrix_3D(
 
     # numCells = len(inCells)
     numCells = len(cellEdgeList)
-    cellidx = mask.get_cell_index()
+    # cellidx = mask.get_cell_index()
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
@@ -886,7 +948,7 @@ def AdjacencyMatrix_3D(
     adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph_avg = defaultdict(set)
 
-    if window == None:
+    if window is None:
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")
@@ -903,9 +965,7 @@ def AdjacencyMatrix_3D(
         # not compatible for 3D
         windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows_3D(
-            numCells, cellEdgeList, inCells, delta, a, b, z
-        )
+        windowCoords, windowSize, windowXY = get_windows_3D(numCells, cellEdgeList, delta, a, b, z)
 
     templist = []
     for i in range(len(windowCoords)):
@@ -1010,7 +1070,7 @@ def AdjacencyMatrix(
     adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph_avg = defaultdict(set)
 
-    if window == None:
+    if window is None:
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")
@@ -1029,9 +1089,7 @@ def AdjacencyMatrix(
         cel = nbList(cellEdgeList)
         windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
     else:
-        windowCoords, windowSize, windowXY = get_windows(
-            numCells, cellEdgeList, inCells, delta, a, b
-        )
+        windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, delta, a, b)
 
     templist = []
     for i in range(len(windowCoords)):
@@ -1098,16 +1156,14 @@ def AdjacencyMatrix(
     # return adjacencyMatrix
 
 
-def get_windows_3D(numCells, cellEdgeList, inCells, delta, a, b, c):
+def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
     windowCoords = []
     windowSize = []
     windowRange_xy = []
 
     for i in range(1, numCells):
-        # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-        # xmin, xmax, ymin, ymax = np.min(cellEdgeList[inCells[i]][0]), np.max(cellEdgeList[inCells[i]][0]), np.min(
-        #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
 
+        # get window ranges
         xmin, xmax, ymin, ymax, zmin, zmax = (
             np.min(cellEdgeList[i][2]),
             np.max(cellEdgeList[i][2]),
@@ -1117,6 +1173,7 @@ def get_windows_3D(numCells, cellEdgeList, inCells, delta, a, b, c):
             np.max(cellEdgeList[i][0]),
         )
 
+        # padding
         xmin = xmin - delta if xmin - delta > 0 else 0
         xmax = xmax + delta + 1 if xmax + delta + 1 < a else a
         ymin = ymin - delta if ymin - delta > 0 else 0
@@ -1143,7 +1200,7 @@ def get_windows_3D(numCells, cellEdgeList, inCells, delta, a, b, c):
     return windowCoords, windowSize, windowRange_xy
 
 
-def get_windows(numCells, cellEdgeList, inCells, delta, a, b):
+def get_windows(numCells, cellEdgeList, delta, a, b):
     windowCoords = []
     windowSize = []
     windowRange_xy = []
@@ -1512,6 +1569,9 @@ def clusterchannels(
     if options.get("debug"):
         print(channvals.shape)
 
+    if options.get("zscore_norm"):
+        channvals = stats.zscore(channvals)
+
     channvals_full = channvals.copy()
     tries = 0
     while True:
@@ -1559,41 +1619,70 @@ def clusterchannels(
 
 
 def plotprincomp(
-    reducedim: np.ndarray, bestz: int, filename: str, output_dir: Path, options: Dict
+    reducedim: np.ndarray, bestz: list, filename: str, output_dir: Path, options: Dict
 ) -> np.ndarray:
     print("Plotting PCA image...")
-    reducedim = reducedim[:, bestz, :, :]
-    k = reducedim.shape[0]
-    if k > 2:
-        reducedim = reducedim[0:3, :, :]
+    if options.get("image_dimension") == "2D":
+        bestz = bestz[0]
+        tp = (1, 2, 0)
     else:
-        rzeros = np.zeros(reducedim.shape)
-        reducedim[k:3, :, :] = rzeros[k:3, :, :]
+        tp = (1, 2, 3, 0)
 
-    plotim = reducedim.transpose(1, 2, 0)
+    reducedim = reducedim[:, bestz, :, :]
+    # k = reducedim.shape[0]
+    # if k > 2:
+    #     reducedim = reducedim[0:3, :, :]
+    # else:
+    #     rzeros = np.zeros(reducedim.shape)
+    #     reducedim[k:3, :, :] = rzeros[k:3, :, :]
+
+    # plotim = reducedim.transpose(1, 2, 0)
+    plotim = np.transpose(reducedim, tp)
 
     if options.get("debug"):
         print("Before Transpose:", reducedim.shape)
         print("After Transpose: ", plotim.shape)
 
-    # zscore
-    if options.get("zscore_norm"):
-        plotim = stats.zscore(plotim)
-
     for i in range(0, 3):
-        cmin = plotim[:, :, i].min()
-        cmax = plotim[:, :, i].max()
+
+        cmin = plotim[..., i].min()
+        cmax = plotim[..., i].max()
         if options.get("debug"):
             print("Min and Max before normalization: ", cmin, cmax)
-        plotim[:, :, i] = ((plotim[:, :, i] - cmin) / (cmax - cmin)) * 255.0
-        cmin = plotim[:, :, i].min()
-        cmax = plotim[:, :, i].max()
+        plotim[..., i] = ((plotim[..., i] - cmin) / (cmax - cmin)) * 255.0
+        cmin = plotim[..., i].min()
+        cmax = plotim[..., i].max()
         if options.get("debug"):
             print("Min and Max after normalization: ", cmin, cmax)
 
     plotim = plotim.round().astype(np.uint8)
-    img = Image.fromarray(plotim, mode="RGB")
-    img.save(output_dir / filename)
+
+    if plotim.ndim <= 3:
+        img = Image.fromarray(plotim, mode="RGB")
+        img.save(output_dir / filename)
+    else:
+        apng = APNG()
+        # forward
+        for j in range(len(plotim)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(plotim[j], mode="RGB")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        # backward
+        for j in range(len(plotim)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(plotim[-j], mode="RGB")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        apng.save(output_dir / filename)
 
     return plotim
 
@@ -1708,7 +1797,6 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     print("Clustering random sample of voxels...")
     stime = time.monotonic() if options.get("debug") else None
 
-    num_voxelclusters = options.get("num_voxelclusters")
     # if options.get("cluster_evaluation_method") == 'silhouette':
     #     cluster_list = []
     #     cluster_score = []
@@ -1757,6 +1845,9 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         print("Cluster Label dimensions: ", voxelbycluster_labels.shape)
         print("Number of unique labels:")
         print(len(np.unique(voxelbycluster_labels)))
+
+    # add 1 to cluster so index starts @1
+    voxelbycluster_labels += 1
 
     return voxelbycluster_labels
 
@@ -1858,24 +1949,36 @@ def matchNShow_markers(
     return table, markers
 
 
-def write_ometiff(im: IMGstruct, output_dir: Path, bestz: List, *argv):
+def write_ometiff(im: IMGstruct, output_dir: Path, options: Dict, *argv):
     print("Writing out ometiffs for visualizations...")
     pcaimg = argv[0]
-    pcaimg = pcaimg.reshape((pcaimg.shape[2], pcaimg.shape[0], pcaimg.shape[1]))
-    pcaimg = pcaimg.astype(np.int32)
+    # pcaimg = pcaimg.astype(np.int32)
 
-    superpixel = get_last2d(argv[1], bestz[0])
-    superpixel = superpixel.astype(np.int32)
-    superpixel = superpixel[np.newaxis, :, :]
+    superpixel = argv[1]
+    # superpixel = get_last2d(argv[1], bestz[0])
+    # superpixel = superpixel.astype(np.int32)
+    # superpixel = superpixel[np.newaxis, :, :]
+
+    if options.get("image_dimension") == "3D":
+        pca_dim_order = "CZYX"
+        # superpixel_dim_order = 'ZYX'
+        pca_tp = (3, 0, 1, 2)
+    else:
+        pca_dim_order = "CYX"
+        # superpixel_dim_order = 'YX'
+        pca_tp = (2, 0, 1)
+
+    superpixel_dim_order = "ZYX"
+    pcaimg = np.transpose(pcaimg, pca_tp)
 
     s = ["-channel_pca.ome.tiff", "-superpixel.ome.tiff"]
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = OmeTiffWriter(f[0])
-    writer.save(pcaimg, channel_names=im.get_channel_labels(), image_name=im.get_name())
-    writer = OmeTiffWriter(f[1])
-    writer.save(superpixel, channel_names=im.get_channel_labels(), image_name=im.get_name())
+    writer = OmeTiffWriter()
+    writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order=pca_dim_order)
+    writer = OmeTiffWriter()
+    writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 
 def check_file_exist(paths: Path):
@@ -1939,29 +2042,38 @@ def cell_cluster_IDs(
     #             filename + '-cell_cluster', output_dir, options)
 
 
-def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path):
-    cluster_im = get_last2d(cluster_im, bestz)
+def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Path, options: dict):
 
-    save_image(cluster_im, output_dir / filename)
+    cluster_im = get_last2d(cluster_im, bestz, options)
+
+    save_image(cluster_im, output_dir / filename, options)
 
 
 def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-    plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
-    plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
-    plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
+    plot_img(
+        argv[0], [0], filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir, options
+    )
+    plot_img(
+        argv[1], [0], filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir, options
+    )
+    plot_img(
+        argv[3], [0], filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir, options
+    )
 
     if i == 0:
         if not options.get("skip_outlinePCA"):
-            plot_img(argv[6], 0, filename + "-Cluster_Shape.png", output_dir)
-            plot_img(argv[7], 0, filename + "-Cluster_ShapeNormalized.png", output_dir)
+            plot_img(argv[6], [0], filename + "-Cluster_Shape.png", output_dir, options)
+            plot_img(argv[7], [0], filename + "-Cluster_ShapeNormalized.png", output_dir, options)
+            plot_img(argv[8], [0], filename + "-clusterbyUMAP.png", output_dir, options)
 
-            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+            plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
+            plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
+            plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
         else:
-            plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-            plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-            plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+            plot_img(argv[4], [0], filename + "-clusterbyTexture.png", output_dir, options)
+            plot_img(argv[2], [0], filename + "-clusterbyMeansAll.png", output_dir, options)
+            plot_img(argv[5], [0], filename + "-clusterbytSNEAllFeatures.png", output_dir, options)
+            plot_img(argv[6], [0], filename + "-clusterbyUMAP.png", output_dir, options)
 
 
 def make_legends(
@@ -2621,9 +2733,12 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
     return arr[locs], np.split(coords, locs[1:], axis=1)
 
 
-def get_last2d(data: np.ndarray, bestz: int) -> np.ndarray:
-    if data.ndim <= 2:
+def get_last2d(data: np.ndarray, bestz: list, options: dict) -> np.ndarray:
+
+    if options.get("image_dimension") == "3D" or data.ndim <= 2:
         return data
+
+    bestz = bestz[0]
     slc = [0] * (data.ndim - 3)
     slc += [bestz, slice(None), slice(None)]
     return data[tuple(slc)]

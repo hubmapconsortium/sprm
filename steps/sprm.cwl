@@ -3,20 +3,22 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.0.9.4
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
 
 inputs:
   image_dir:
-    type: Directory
+    type: Directory[]
     inputBinding:
       position: 0
+      prefix: "--img-dir"
   mask_dir:
-    type: Directory
+    type: Directory[]
     inputBinding:
       position: 1
+      prefix: "--mask-dir"
   processes:
     type: int?
     default: 1
