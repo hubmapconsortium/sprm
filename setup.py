@@ -30,7 +30,7 @@ setup(
         "": ["*.txt", "*.pickle"],
     },
     install_requires=[
-        "aicsimageio<3.2",
+        "aicsimageio==4.8.0",
         "frozendict",
         "lxml",
         "manhole",
@@ -44,9 +44,10 @@ setup(
         "scikit-learn",
         "shapely",
         "tables",
-        "tifffile==2020.2.16",
+        "tifffile==2022.8.3",
         "xmltodict",
         "umap-learn",
+        "apng",
     ],
     python_requires=">=3.8",
     entry_points={

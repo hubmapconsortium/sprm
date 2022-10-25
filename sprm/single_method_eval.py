@@ -4,8 +4,9 @@ import re
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
+import aicsimageio
 import numpy as np
 import xmltodict
 from PIL import Image
@@ -261,10 +262,11 @@ def cell_uniformity(mask, channels, label_list):
 
 def compute_M(data):
     cols = np.arange(data.size)
-    return csr_matrix((cols, (data.ravel(), cols)), shape=(data.max() + 1, data.size))
+    return csr_matrix((cols, (data.ravel(), cols)), shape=(np.int64(data.max() + 1), data.size))
 
 
 def get_indices_sparse(data):
+    data = data.astype(np.uint64)
     M = compute_M(data)
     return [np.unravel_index(row.data, data.shape) for row in M]
 
@@ -292,20 +294,45 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
     raise ValueError(f"Couldn't extract schema URL from tag name {ome_xml_root_node.tag}")
 
 
-def get_pixel_area(pixel_node_attrib: Dict[str, str]) -> float:
-    """
-    Returns total pixel size in square micrometers.
-    """
-    reg = UnitRegistry()
+def get_physical_dimension_func(
+    dimensions: Literal[2, 3],
+) -> Callable[[aicsimageio.AICSImage], Tuple[UnitRegistry, Quantity]]:
+    dimension_names = "XYZ"
 
-    sizes: List[Quantity] = []
-    for dimension in ["X", "Y"]:
-        unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
-        value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
-        sizes.append(value * unit)
+    def physical_dimension_func(img: aicsimageio.AICSImage) -> Tuple[UnitRegistry, Quantity]:
+        """
+        Returns area of each pixel (if dimensions == 2) or volume of each
+        voxel (if dimensions == 3) as a pint.Quantity. Also returns the
+        unit registry associated with these dimensions, with a 'cell' unit
+        added to the defaults
+        """
+        reg = UnitRegistry()
+        reg.define("cell = []")
 
-    size = prod(sizes)
-    return size.to("micrometer ** 2").magnitude
+        # aicsimageio parses the OME-XML metadata when loading an image,
+        # and uses that metadata to populate various data structures in
+        # the AICSImage object. The AICSImage.metadata.to_xml() function
+        # constructs a new OME-XML string from that metadata, so anything
+        # ignored by aicsimageio won't be present in that XML document.
+        # Unfortunately, current aicsimageio ignores physical size units,
+        # so we have to parse the original XML ourselves:
+        root = ET.fromstring(img.xarray_dask_data.unprocessed[270])
+        schema_url = get_schema_url(root)
+        pixel_node_attrib = root.findall(f".//{{{schema_url}}}Pixels")[0].attrib
+
+        sizes: List[Quantity] = []
+        for _, dimension in zip(range(dimensions), dimension_names):
+            unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+            value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
+            sizes.append(value * unit)
+
+        size: Quantity = prod(sizes)
+        return reg, size
+
+    return physical_dimension_func
+
+
+get_pixel_area = get_physical_dimension_func(2)
 
 
 def get_quality_score(features, model):
@@ -382,17 +409,17 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             except:
                 matched_fraction = 1.0
 
-            schema_url = get_schema_url(img.img.metadata.root_node)
-            pixels_node = img.img.metadata.dom.findall(f".//{{{schema_url}}}Pixels")[0]
-            pixel_size = get_pixel_area(pixels_node.attrib)
+            units, pixel_size = get_pixel_area(img.img)
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
-            micron_num = pixel_size * pixel_num
+            total_area = pixel_size * pixel_num
 
             # calculate number of cell per 100 squared micron
-            cell_num = len(np.unique(current_mask)) - 1
+            cell_num = units["cell"] * len(np.unique(current_mask)) - 1
 
-            cell_num_normalized = cell_num / micron_num * 100
+            cells_per_area = cell_num / total_area
+            units.define("hundred_square_micron = micrometer ** 2 * 100")
+            cell_num_normalized = cells_per_area.to("cell / hundred_square_micron")
 
             # calculate the standard deviation of cell size
 
@@ -411,7 +438,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
             metrics[channel_names[channel]][
                 "NumberOfCellsPer100SquareMicrons"
-            ] = cell_num_normalized
+            ] = cell_num_normalized.magnitude
             metrics[channel_names[channel]][
                 "FractionOfForegroundOccupiedByCells"
             ] = foreground_fraction
