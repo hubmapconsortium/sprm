@@ -406,7 +406,7 @@ def main(
     ### CWL RUNS ###
     use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
     executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    print("Using", processes, "worker(s) with executor", type(executor).__name__)
+    print("Using", processes, "worker(s) with executor", executor.__name__)
     with executor(max_workers=processes) as executor:
         futures = []
         for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
