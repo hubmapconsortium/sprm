@@ -10,7 +10,7 @@ from os import walk
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, List, Optional, Sequence, Union
-
+from contextlib import contextmanager
 import aicsimageio
 import lxml
 import matplotlib
@@ -34,15 +34,14 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
-
+from matplotlib.colors import Colormap
 # from skimage.feature.texture import greycomatrix, greycoprops
 from skimage.feature import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, NMF
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
-
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
@@ -58,6 +57,142 @@ Version: 1.03
 
 
 """
+
+@contextmanager
+def new_plot():
+    plt.clf()
+    try:
+        yield
+    finally:
+        plt.clf()
+        plt.close()
+
+
+def dataframe_pcolormesh(
+    matrix: pd.DataFrame,
+    cmap: Optional[Colormap] = None,
+    x_label=True,
+    **kwargs,
+):
+    """
+    Plots a data frame as an image, using the specified color map to transform values.
+
+    It is the user's responsibility to save the resulting plot.
+    """
+    if x_label:
+        x_figsize = matrix.shape[1] * (1 / 4)
+        tick_axes = "both"
+    else:
+        x_figsize = matrix.shape[1] / 15
+        tick_axes = "x"
+
+    plt.figure(
+        figsize=(x_figsize, matrix.shape[0] / 5),
+    )
+
+    ax = plt.gca()
+
+    ax.tick_params(axis=tick_axes, direction="out")
+
+    if x_label:
+        ax.set_xticks(range(matrix.shape[1]))
+        ax.xaxis.set_major_formatter(matplotlib.ticker.NullFormatter())
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(matrix.columns))
+        x_minor_locator = matplotlib.ticker.AutoMinorLocator(n=2)
+        x_minor_locator.MAXTICKS = 1000000000
+        ax.xaxis.set_minor_locator(x_minor_locator)
+        for tick in ax.xaxis.get_minor_ticks():
+            tick.tick1line.set_markersize(0)
+            tick.tick2line.set_markersize(0)
+            tick.label1.set_horizontalalignment("center")
+            tick.label1.set_rotation("vertical")
+
+    ax.set_yticks(range(matrix.shape[0]))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.NullFormatter())
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(matrix.index))
+    y_minor_locator = matplotlib.ticker.AutoMinorLocator(n=2)
+    y_minor_locator.MAXTICKS = 1000000000
+    ax.yaxis.set_minor_locator(y_minor_locator)
+    for tick in ax.yaxis.get_minor_ticks():
+        tick.tick1line.set_markersize(0)
+        tick.tick2line.set_markersize(0)
+        tick.label1.set_verticalalignment("center")
+
+    if cmap is not None:
+        kwargs["cmap"] = cmap
+    mesh = ax.pcolormesh(matrix, **kwargs)
+
+    plt.colorbar(mesh, ax=ax)
+
+    ax.invert_yaxis()
+
+def append_to_filename(path: Path, suffix: str) -> Path:
+    return path.with_name(path.name + suffix)
+
+def NMF_calc(im, fname, output_dir, options):
+    '''
+        by Matt Ruffalo
+    '''
+
+    #2D
+    channel_data = im.data[0, 0, :, 0, :, :]
+    # shape_to_restore = channel_data.shape
+    flattened = channel_data.reshape(
+        channel_data.shape[0], np.prod(channel_data.shape[1:])
+    ).transpose()
+
+    n_components = options.get('num_channelPCA_components')
+
+    print("Performing NMF decomposition")
+    nmf = NMF(n_components=n_components)
+
+    tries = 0
+    while True:
+        try:
+            transformed_flat = nmf.fit(flattened)
+            break
+        except Exception as e:
+            print(e)
+            print("Exceptions caught: ", tries)
+
+            if tries == 0:
+                nmf = NMF(n_components=n_components, init='random')
+                tries += 1
+            else:
+                print("halving the dataset...")
+                n_samples = int(flattened.shape[0] / 2)
+                idx = np.random.choice(flattened.shape[0], n_samples, replace=False)
+                flattened = flattened[idx, :]
+
+    transformed_flat = transformed_flat.transform(flattened)
+
+    component_df = pd.DataFrame(
+        nmf.components_.T,
+        index=im.get_channel_labels(),
+        columns=[f"Comp. {i}" for i in range(n_components)],
+    )
+    output_component_csv = append_to_filename(output_dir, (fname + "_nmf_components.csv"))
+    print("Saving NMF components CSV to", output_component_csv)
+    component_df.to_csv(output_component_csv)
+
+    output_component_pdf = append_to_filename(output_dir, (fname + "_nmf_components.pdf"))
+    print("Saving NMF components PDF to", output_component_pdf)
+    with new_plot():
+        dataframe_pcolormesh(component_df)
+        plt.savefig(output_component_pdf, bbox_inches="tight")
+
+    print("Reshaping data to save as image")
+    transformed = transformed_flat.transpose().reshape(n_components, *channel_data.shape[1:])
+    transformed_plot = np.transpose(transformed, (1, 2, 0))
+    print("Normalizing transformed values")
+    for i in range(n_components):
+        transformed_plot[..., i] *= 255.0 / transformed_plot[..., i].max()
+
+    transformed_plot = transformed_plot.round().astype(np.uint8)
+    img = Image.fromarray(transformed_plot, mode="RGB")
+    output_png = append_to_filename(output_dir, (fname + "_nmf_top3.png"))
+    print("Saving NMF-transformed image to", output_png)
+    img.save(output_png)
 
 # for aicsimageio<4
 def get_channel_names(image: aicsimageio.AICSImage) -> List[str]:
@@ -1878,8 +2013,19 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
 
     # check cc and variance is not NaNs
     if np.isnan(cc).any():
-        markerlist = list(np.argsort(-clustercenters.ravel())[:markergoal])
-        return markerlist
+        markerlist = list(np.argsort(-clustercenters.ravel()))
+        #remap back to original feature length
+        markerlist = [np.unravel_index(i, clustercenters.shape)[0] for i in markerlist]
+        markerlist_markergoal = markerlist[:markergoal]
+        #check to see if index is identical or not
+        if len(markerlist_markergoal) != len(set(markerlist_markergoal)):
+            markerlist_markergoal = set()
+            idx = 0
+            while len(set(markerlist_markergoal)) < markergoal:
+                markerlist_markergoal.add(markerlist[idx])
+                idx += 1
+
+        return list(markerlist_markergoal)
 
     thresh = 0.9
     increment = 0.1

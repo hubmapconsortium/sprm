@@ -172,7 +172,6 @@ def analysis(
     cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
     # signal to noise ratio of the image
-
     SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
     bestz = mask.get_bestz()
@@ -186,6 +185,9 @@ def analysis(
     # check for whether there are accompanying images of the same field
     # TODO: don't require empty list if no other file
     opt_img_file = optional_img_file or []
+
+    #NMF calculation
+    NMF_calc(im, baseoutputfilename, output_dir, options)
 
     # do superpixel and PCA analysis before reallocating images to conserve memory
     # these are done on the whole image, not the individual cells
@@ -390,46 +392,46 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    # for i in range(len(img_files)):
-    #     im, mask, cc, segm = analysis(img_files[i],
-    #              mask_files[i],
-    #              opt_img_files[0],
-    #              output_dir,
-    #              options)
-    #
-    #     im_list.append(im)
-    #     mask_list.append(mask)
-    #     cell_total.append(cc)
-    #     seg_metric_list.append(segm)
+    for i in range(len(img_files)):
+        im, mask, cc, segm = analysis(img_files[i],
+                 mask_files[i],
+                 opt_img_files[0],
+                 output_dir,
+                 options)
+
+        im_list.append(im)
+        mask_list.append(mask)
+        cell_total.append(cc)
+        seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
-    use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    print("Using", processes, "worker(s) with executor", executor.__name__)
-    with executor(max_workers=processes) as executor:
-        futures = []
-        for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
-            futures.append(
-                executor.submit(
-                    analysis,
-                    img_file,
-                    mask_file,
-                    opt_img_file,
-                    output_dir,
-                    options,
-                )
-            )
-
-        for future in futures:
-            maybe_result = future.result()
-            if maybe_result is not None:
-                im, mask, cell_count, seg_metrics = maybe_result
-
-                im_list.append(im)
-                mask_list.append(mask)
-                cell_total.append(cell_count)
-                seg_metric_list.append(seg_metrics)
+    # use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
+    # executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
+    # print("Using", processes, "worker(s) with executor", executor.__name__)
+    # with executor(max_workers=processes) as executor:
+    #     futures = []
+    #     for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
+    #         futures.append(
+    #             executor.submit(
+    #                 analysis,
+    #                 img_file,
+    #                 mask_file,
+    #                 opt_img_file,
+    #                 output_dir,
+    #                 options,
+    #             )
+    #         )
+    #
+    #     for future in futures:
+    #         maybe_result = future.result()
+    #         if maybe_result is not None:
+    #             im, mask, cell_count, seg_metrics = maybe_result
+    #
+    #             im_list.append(im)
+    #             mask_list.append(mask)
+    #             cell_total.append(cell_count)
+    #             seg_metric_list.append(seg_metrics)
 
     ### CWL END ###
 
