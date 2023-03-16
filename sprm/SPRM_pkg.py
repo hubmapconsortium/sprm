@@ -3535,7 +3535,7 @@ def normalize_image(img):
 def normalize_background(im, mask, ROI_coords):
     # pass
     img = im.get_data().copy()
-    img = img.astype("int64")
+    # img = img.astype("int64")
     dims = mask.get_data().shape
 
     if dims[3] > 1:  # 3D
@@ -3549,6 +3549,8 @@ def normalize_background(im, mask, ROI_coords):
 
             if avg == 0:
                 continue
+            elif avg < 1:
+                avg = 1
 
             img[0, 0, i, :, :, :] = img_ch / avg
     else:
@@ -3560,6 +3562,8 @@ def normalize_background(im, mask, ROI_coords):
 
             if avg == 0:
                 continue
+            elif avg < 1:
+                avg = 1
 
             img[0, 0, i, 0, :, :] = img_ch / avg
 
