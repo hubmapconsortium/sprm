@@ -5,6 +5,7 @@ import sys
 import time
 from bisect import bisect
 from collections import defaultdict
+from contextlib import contextmanager
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
@@ -27,6 +28,7 @@ from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from apng import APNG, PNG
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
+from matplotlib.colors import Colormap
 from numba.typed import Dict as nbDict
 from numba.typed import List as nbList
 from numpy import linalg as LA
@@ -39,7 +41,7 @@ from scipy.spatial import KDTree
 from skimage.feature import greycomatrix, greycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
+from sklearn.decomposition import NMF, PCA
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
@@ -58,6 +60,148 @@ Version: 1.03
 
 
 """
+
+
+@contextmanager
+def new_plot():
+    plt.clf()
+    try:
+        yield
+    finally:
+        plt.clf()
+        plt.close()
+
+
+def dataframe_pcolormesh(
+    matrix: pd.DataFrame,
+    cmap: Optional[Colormap] = None,
+    x_label=True,
+    **kwargs,
+):
+    """
+    Plots a data frame as an image, using the specified color map to transform values.
+
+    It is the user's responsibility to save the resulting plot.
+    """
+    if x_label:
+        x_figsize = matrix.shape[1] * (1 / 4)
+        tick_axes = "both"
+    else:
+        x_figsize = matrix.shape[1] / 15
+        tick_axes = "x"
+
+    plt.figure(
+        figsize=(x_figsize, matrix.shape[0] / 5),
+    )
+
+    ax = plt.gca()
+
+    ax.tick_params(axis=tick_axes, direction="out")
+
+    if x_label:
+        ax.set_xticks(range(matrix.shape[1]))
+        ax.xaxis.set_major_formatter(matplotlib.ticker.NullFormatter())
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(matrix.columns))
+        x_minor_locator = matplotlib.ticker.AutoMinorLocator(n=2)
+        x_minor_locator.MAXTICKS = 1000000000
+        ax.xaxis.set_minor_locator(x_minor_locator)
+        for tick in ax.xaxis.get_minor_ticks():
+            tick.tick1line.set_markersize(0)
+            tick.tick2line.set_markersize(0)
+            tick.label1.set_horizontalalignment("center")
+            tick.label1.set_rotation("vertical")
+
+    ax.set_yticks(range(matrix.shape[0]))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.NullFormatter())
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(matrix.index))
+    y_minor_locator = matplotlib.ticker.AutoMinorLocator(n=2)
+    y_minor_locator.MAXTICKS = 1000000000
+    ax.yaxis.set_minor_locator(y_minor_locator)
+    for tick in ax.yaxis.get_minor_ticks():
+        tick.tick1line.set_markersize(0)
+        tick.tick2line.set_markersize(0)
+        tick.label1.set_verticalalignment("center")
+
+    if cmap is not None:
+        kwargs["cmap"] = cmap
+    mesh = ax.pcolormesh(matrix, **kwargs)
+
+    plt.colorbar(mesh, ax=ax)
+
+    ax.invert_yaxis()
+
+
+def append_to_filename(path: Path, suffix: str) -> Path:
+    return path.with_name(path.name + suffix)
+
+
+def NMF_calc(im, fname, output_dir, options):
+    """
+    by Matt Ruffalo
+    """
+
+    # 2D
+    channel_data = im.data[0, 0, :, 0, :, :]
+    # shape_to_restore = channel_data.shape
+    flattened = channel_data.reshape(
+        channel_data.shape[0], np.prod(channel_data.shape[1:])
+    ).transpose()
+
+    n_components = options.get("num_channelPCA_components")
+
+    print("Performing NMF decomposition")
+    nmf = NMF(n_components=n_components)
+
+    flattened_copy = flattened.copy()
+    tries = 0
+    while True:
+        try:
+            transformed_flat = nmf.fit(flattened_copy)
+            break
+        except Exception as e:
+            print(e)
+            print("Exceptions caught: ", tries)
+
+            if tries == 0:
+                nmf = NMF(n_components=n_components, init="random")
+                tries += 1
+            else:
+                print("halving the dataset...")
+                n_samples = int(flattened_copy.shape[0] / 2)
+                idx = np.random.choice(flattened.shape[0], n_samples, replace=False)
+                flattened_copy = flattened[idx, :]
+                tries += 1
+
+    transformed_flat = transformed_flat.transform(flattened)
+
+    component_df = pd.DataFrame(
+        nmf.components_.T,
+        index=im.get_channel_labels(),
+        columns=[f"Comp. {i}" for i in range(n_components)],
+    )
+    output_component_csv = output_dir / (fname + "_nmf_components.csv")
+    print("Saving NMF components CSV to", output_component_csv)
+    component_df.to_csv(output_component_csv)
+
+    output_component_pdf = output_dir / (fname + "_nmf_components.pdf")
+    print("Saving NMF components PDF to", output_component_pdf)
+    with new_plot():
+        dataframe_pcolormesh(component_df)
+        plt.savefig(output_component_pdf, bbox_inches="tight")
+
+    print("Reshaping data to save as image")
+    transformed = transformed_flat.transpose().reshape(n_components, *channel_data.shape[1:])
+    transformed_plot = np.transpose(transformed, (1, 2, 0))
+    print("Normalizing transformed values")
+    for i in range(n_components):
+        transformed_plot[..., i] *= 255.0 / transformed_plot[..., i].max()
+
+    transformed_plot = transformed_plot.round().astype(np.uint8)
+    img = Image.fromarray(transformed_plot, mode="RGB")
+    output_png = output_dir / (fname + "_nmf_top3.png")
+    print("Saving NMF-transformed image to", output_png)
+    img.save(output_png)
+
 
 # for aicsimageio<4
 def get_channel_names(image: aicsimageio.AICSImage) -> List[str]:
@@ -323,7 +467,6 @@ class NumpyEncoder(json.JSONEncoder):
                 np.uint64,
             ),
         ):
-
             return int(obj)
 
         elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
@@ -555,7 +698,6 @@ def cell_cluster(
         options.pop("texture_flag", None)
         cluster_score = []
     else:
-
         if cluster_method == "silhouette":
             cluster_list = []
             cluster_score = []
@@ -849,7 +991,6 @@ def nb_CheckAdjacency(cellCoords_control, cellCoords_cur, thr):
 
 
 def cell_check(cc, cell):
-
     d = {}
     d[cell.tobytes()] = None
     if cc.tobytes() in d.keys():
@@ -872,7 +1013,6 @@ def CheckAdjacency_Distance(cell_center, cell, cellids, idx, adjmatrix, cellGrap
         if bool or boole:
             continue
         else:
-
             sub = cell_center[k] - cell_center[j]
             distance = LA.norm(sub)
             adjmatrix[k, j] = distance
@@ -1108,7 +1248,6 @@ def AdjacencyMatrix(
         if cellids[i].size == 0:
             continue
         else:
-
             # for avg dist
             CheckAdjacency_Distance(
                 cell_center,
@@ -1162,7 +1301,6 @@ def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
     windowRange_xy = []
 
     for i in range(1, numCells):
-
         # get window ranges
         xmin, xmax, ymin, ymax, zmin, zmax = (
             np.min(cellEdgeList[i][2]),
@@ -1644,7 +1782,6 @@ def plotprincomp(
         print("After Transpose: ", plotim.shape)
 
     for i in range(0, 3):
-
         cmin = plotim[..., i].min()
         cmax = plotim[..., i].max()
         if options.get("debug"):
@@ -1878,8 +2015,19 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
 
     # check cc and variance is not NaNs
     if np.isnan(cc).any():
-        markerlist = list(np.argsort(-clustercenters.ravel())[:markergoal])
-        return markerlist
+        markerlist = list(np.argsort(-clustercenters.ravel()))
+        # remap back to original feature length
+        markerlist = [np.unravel_index(i, clustercenters.shape)[0] for i in markerlist]
+        markerlist_markergoal = markerlist[:markergoal]
+        # check to see if index is identical or not
+        if len(markerlist_markergoal) != len(set(markerlist_markergoal)):
+            markerlist_markergoal = set()
+            idx = 0
+            while len(set(markerlist_markergoal)) < markergoal:
+                markerlist_markergoal.add(markerlist[idx])
+                idx += 1
+
+        return list(markerlist_markergoal)
 
     thresh = 0.9
     increment = 0.1
@@ -2043,7 +2191,6 @@ def cell_cluster_IDs(
 
 
 def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Path, options: dict):
-
     cluster_im = get_last2d(cluster_im, bestz, options)
 
     save_image(cluster_im, output_dir / filename, options)
@@ -2202,7 +2349,6 @@ def make_legends(
     print("Legend for mask channel: " + str(i))
 
     for j in range(len(argv)):
-
         # hard coded for argv idx and - psuedo switch -- might be a more efficient way
         if j == 0:
             print("Finding mean cluster markers...")
@@ -2734,7 +2880,6 @@ def find_locations(arr: np.ndarray) -> (np.ndarray, List[np.ndarray]):
 
 
 def get_last2d(data: np.ndarray, bestz: list, options: dict) -> np.ndarray:
-
     if options.get("image_dimension") == "3D" or data.ndim <= 2:
         return data
 
@@ -3360,18 +3505,40 @@ def quality_control(mask: MaskStruct, img: IMGstruct, ROI_coords: List, options:
     # find cells on edge
     find_edge_cells(mask)
 
+    # check to see if image is normalized aka no negative values
+    normalize_image(img)
+
     # normalize bg intensities
     if options.get("normalize_bg"):
         normalize_background(img, mask, ROI_coords)
 
 
+def normalize_image(img):
+    """
+    basic normalization of averaging negative values and setting that as background
+    """
+    if (img.data < 0).any():
+        # find a boolean matrix of negative values
+        nbool = img.data < 0
+
+        # get average of negative and set that as the background or 0
+        n_avg = -np.average(img.data[nbool])
+        img.data = img.data + n_avg
+
+        # everything that is < 0 is background
+        img.data[img.data < 0] = 0
+        return
+    else:
+        return
+
+
 def normalize_background(im, mask, ROI_coords):
     # pass
-    img = im.get_data()
+    img = im.get_data().copy()
+    # img = img.astype("int64")
     dims = mask.get_data().shape
 
     if dims[3] > 1:  # 3D
-
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
             bg_img_ch = img_ch[
@@ -3382,6 +3549,8 @@ def normalize_background(im, mask, ROI_coords):
 
             if avg == 0:
                 continue
+            elif avg < 1:
+                avg = 1
 
             img[0, 0, i, :, :, :] = img_ch / avg
     else:
@@ -3393,6 +3562,8 @@ def normalize_background(im, mask, ROI_coords):
 
             if avg == 0:
                 continue
+            elif avg < 1:
+                avg = 1
 
             img[0, 0, i, 0, :, :] = img_ch / avg
 
@@ -3602,7 +3773,6 @@ def glcm(
             # l = abc(imga, cl, curROI, xmax, xmin, ymax, ymin)
 
             for j in range(len(im.channel_labels)):  # For each channel
-
                 # filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
                 # continue
 
