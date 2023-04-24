@@ -2000,12 +2000,12 @@ def cell_cluster_IDs(
         write_2_csv(
             list(
                 [
+                    "K-Means [Texture]",
                     "K-Means [Mean] Expression",
                     "K-Means [Covariance] Expression",
                     "K-Means [Total] Expression",
                     "K-Means [Mean-All-SubRegions] Expression",
                     "K-Means [Shape-Vectors]",
-                    "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
                     "K-Means [Shape-Vectors Normalized]",
                     "K-Means [UMAP_All_Features]",
@@ -2021,11 +2021,11 @@ def cell_cluster_IDs(
         write_2_csv(
             list(
                 [
+                    "K-Means [Texture]",
                     "K-Means [Mean] Expression",
                     "K-Means [Covariance] Expression",
                     "K-Means [Total] Expression",
                     "K-Means [Mean-All-SubRegions] Expression",
-                    "K-Means [Texture]",
                     "K-Means [tSNE_All_Features]",
                     "K-Means [UMAP_All_Features]",
                 ]
@@ -2037,10 +2037,65 @@ def cell_cluster_IDs(
             options,
         )
 
+    return allClusters
+
     # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
     #                   'K-Means [Mean-All-SubRegions] Expression']), allClusters,
     #             filename + '-cell_cluster', output_dir, options)
 
+def most_frequent_term(arr):
+    counts = {}
+    for col in range(arr.shape[1]):
+        col_data = arr[:, col]
+        unique, counts_per_value = np.unique(col_data, return_counts=True)
+        most_frequent_idx = np.argmax(counts_per_value)
+        most_frequent_term = unique[most_frequent_idx]
+        counts[col] = [counts_per_value[most_frequent_idx], most_frequent_term]
+
+    counts = np.array(list(counts.value()))
+
+    return counts
+def reindex_by_cell_cluster(clusterids, options, *argv):
+
+    if options.get('skip_texture'):
+        argv = argv[1:]
+        #texture is index 5
+        clusterids = np.delete(clusterids, 0, 1)
+
+    tot_num_clusters = np.unique(clusterids)
+    counts_idx = most_frequent_term(clusterids)
+    largest_cluster_feature = np.argmax(counts_idx[:, 0])
+    #find the largest cluster size
+    for i in range(len(argv)):
+        if i == largest_cluster_feature:
+            continue
+
+        match_idx = find_best_match(argv[largest_cluster_feature], argv[i], counts_idx[largest_cluster_feature, 1])
+
+
+
+
+def jaccard_index(a, b):
+    intersection = np.sum(np.logical_and(a, b))
+    union = np.sum(np.logical_or(a, b))
+    return intersection / union if union > 0 else 0
+
+def find_best_match(ref_array, match_array, ref_value):
+    ref_mask = (ref_array == ref_value)
+    unique_match_values = np.unique(match_array)
+
+    best_match_value = None
+    best_jaccard_index = -1
+
+    for value in unique_match_values:
+        match_mask = (match_array == value)
+        current_jaccard_index = jaccard_index(ref_mask, match_mask)
+
+        if current_jaccard_index > best_jaccard_index:
+            best_jaccard_index = current_jaccard_index
+            best_match_value = value
+
+    return best_match_value
 
 def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Path, options: dict):
 
@@ -2532,23 +2587,38 @@ def cell_analysis(
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
-            cell_cluster_IDs(
+            clusterids = cell_cluster_IDs(
                 filename,
                 output_dir,
                 i,
                 maskchs,
                 cellidx,
                 options,
+                clustercells_texture,
                 clustercells_uv,
                 clustercells_cov,
                 clustercells_total,
                 clustercells_uvall,
                 clustercells_shapevectors,
-                clustercells_texture,
                 clustercells_tsneAll,
                 clustercells_norm_shapevectors,
                 clustercells_umapAll,
             )
+
+            reindex_by_cell_cluster(
+                clusterids,
+                options,
+                cluster_cell_texture,
+                cluster_cell_imgu,
+                cluster_cell_imgcov,
+                cluster_cell_imguall,
+                cluster_cell_imgtotal,
+                cluster_cell_imgtsneAll,
+                cluster_cell_imgumapAll,
+                clustercells_shape,
+                clustercells_norm_shape
+            )
+
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
             plot_imgs(
@@ -2588,21 +2658,35 @@ def cell_analysis(
             )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
-            cell_cluster_IDs(
+            clusterids = cell_cluster_IDs(
                 filename,
                 output_dir,
                 i,
                 maskchs,
                 cellidx,
                 options,
+                clustercells_texture,
                 clustercells_uv,
                 clustercells_cov,
                 clustercells_total,
                 clustercells_uvall,
-                clustercells_texture,
                 clustercells_tsneAll,
                 clustercells_umapAll,
             )
+
+            reindex_by_cell_cluster(
+                clusterids,
+                options,
+                cluster_cell_texture,
+                cluster_cell_imgu,
+                cluster_cell_imgcov,
+                cluster_cell_imguall,
+                cluster_cell_imgtotal,
+                cluster_cell_imgtsneAll,
+                cluster_cell_imgtsneAll,
+                cluster_cell_imgumapAll
+            )
+
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
             plot_imgs(
