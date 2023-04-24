@@ -568,7 +568,6 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # not process specific channel if the threshold is surpassed
     chidx = []
     for iter in range(0, maxiter):
-
         print("IN ITR LOOP: " + str(iter) + "   time:" + str(datetime.now()))
         # calculate the mean intensity for the contribution of each pixel
         # to each cell

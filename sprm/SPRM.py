@@ -172,7 +172,6 @@ def analysis(
     cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
 
     # signal to noise ratio of the image
-
     SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
     bestz = mask.get_bestz()
@@ -186,6 +185,9 @@ def analysis(
     # check for whether there are accompanying images of the same field
     # TODO: don't require empty list if no other file
     opt_img_file = optional_img_file or []
+
+    # NMF calculation
+    NMF_calc(im, baseoutputfilename, output_dir, options)
 
     # do superpixel and PCA analysis before reallocating images to conserve memory
     # these are done on the whole image, not the individual cells
@@ -230,7 +232,6 @@ def analysis(
 
     # time point loop (don't expect multiple time points)
     for t in range(0, im.get_data().shape[1]):
-
         seg_n = mask.get_labels("cell")
         # debug of cell_coordinates
         # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
@@ -390,17 +391,15 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    for i in range(len(img_files)):
-        im, mask, cc, segm = analysis(img_files[i],
-                 mask_files[i],
-                 opt_img_files[0],
-                 output_dir,
-                 options)
-
-        im_list.append(im)
-        mask_list.append(mask)
-        cell_total.append(cc)
-        seg_metric_list.append(segm)
+    # for i in range(len(img_files)):
+    #     im, mask, cc, segm = analysis(
+    #         img_files[i], mask_files[i], opt_img_files[0], output_dir, options
+    #     )
+    #
+    #     im_list.append(im)
+    #     mask_list.append(mask)
+    #     cell_total.append(cc)
+    #     seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
