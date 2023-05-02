@@ -1,4 +1,4 @@
-debug 1
+debug 0
 num_cellclusters silhouette 3 10
 num_voxelclusters 3
 num_markers 3
@@ -28,9 +28,9 @@ tSNE_all_perplexity 35
 tSNE_all_tSNEInitialization pca
 tsne_all_svdsolver4pca full
 cell_adj_parallel 0
-cell_graph 0
+cell_graph 1
 cell_adj_dilation_itr 3
-sprm_segeval_both 0
+sprm_segeval_both 2
 tSNE_texture_calculation_skip 1
 tSNE_num_components 2
 adj_matrix_delta 3

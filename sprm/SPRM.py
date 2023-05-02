@@ -391,15 +391,15 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    # for i in range(len(img_files)):
-    #     im, mask, cc, segm = analysis(
-    #         img_files[i], mask_files[i], opt_img_files[0], output_dir, options
-    #     )
-    #
-    #     im_list.append(im)
-    #     mask_list.append(mask)
-    #     cell_total.append(cc)
-    #     seg_metric_list.append(segm)
+    for i in range(len(img_files)):
+        im, mask, cc, segm = analysis(
+            img_files[i], mask_files[i], opt_img_files[0], output_dir, options
+        )
+
+        im_list.append(im)
+        mask_list.append(mask)
+        cell_total.append(cc)
+        seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
