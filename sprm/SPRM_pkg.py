@@ -754,10 +754,8 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
 
     mask_img = mask.get_data()
     mask_img = mask_img[0, 0, seg_n, :, :, :]
-    # temp = mask_img.copy()
-    temp = np.zeros(mask_img.shape)
-    # cluster_img = np.zeros(mask_img.shape)
-    # start_time = time.monotonic()
+    # temp = np.zeros(mask_img.shape)
+
     inCells = np.asarray(mask.get_interior_cells())
 
     list_of_cluster_imgs = []
@@ -765,6 +763,8 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
     print("Mapping...")
     stime = time.monotonic() if options.get("debug") else None
     for i in cc_v.columns:
+
+        temp = np.zeros(mask_img.shape) # reinitiate the mask
         feature = cc_v.loc[:, i].to_numpy()
         clusters = np.unique(feature)
 
