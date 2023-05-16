@@ -1,15 +1,13 @@
 import io
 import json
 import math
-import sys
 import time
 from bisect import bisect
-from collections import defaultdict
+from collections import ChainMap, defaultdict
 from contextlib import contextmanager
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
-from pprint import pprint
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import aicsimageio
@@ -2998,7 +2996,7 @@ def powerset(iterable: List[int]):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
-def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
+def read_options_single(options_path: Path) -> Dict[str, Union[int, str]]:
     # read in options
     options = {}
     with open(options_path) as f:
@@ -3015,6 +3013,10 @@ def read_options(options_path: Path) -> Dict[str, Union[int, str]]:
                     value[i] = is_number(value[i])
                 options[key] = value
     return options
+
+
+def read_options(*options_paths: Path) -> Dict[str, Union[int, str]]:
+    return ChainMap(*(read_options_single(path) for path in options_paths))
 
 
 def is_number(val: Any) -> Any:
