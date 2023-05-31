@@ -34,3 +34,5 @@ sprm_segeval_both 2
 tSNE_texture_calculation_skip 1
 tSNE_num_components 2
 adj_matrix_delta 3
+image_dimension 3D
+apng_delay 100
