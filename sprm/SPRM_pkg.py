@@ -534,7 +534,7 @@ unlimited_colormap = "gist_rainbow"
 colormap_lengths = [len(matplotlib.cm.get_cmap(c).colors) for c in colormap_choices]
 
 
-def choose_colormap(a: np.ndarray) -> np.ndarray:
+def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
     """
     Choose a color map for an integer-valued array denoting categorical
     values for each pixel. Returns a np.ndarray with three columns corresponding
@@ -561,11 +561,12 @@ def choose_colormap(a: np.ndarray) -> np.ndarray:
     # We add dark gray as the first color, so we can handle one more
     # color than the original color map -- handle this by subtracting
     # 1 from the maximum categorical value
-    max_value = a.max() - 1
-    choice = bisect(colormap_lengths, max_value)
+    if "max_cluster" in options:
+        max_value = options.get("max_cluster") - 1
+    else:
+        max_value = a.max() - 1
 
-    # force choice to be tab20
-    choice = 1
+    choice = bisect(colormap_lengths, max_value)
 
     if choice in range(len(colormap_choices)):
         cmap = matplotlib.cm.get_cmap(colormap_choices[choice])
@@ -602,14 +603,11 @@ def save_image(
         raise ValueError("need integral values for categorical plots")
     a = a.astype(np.uint)
 
-    if a.ndim <= 3:
-        # cmap = choose_colormap_new(a)
-        cmap = choose_colormap(a)
-        adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
-        image_rgb = adjusted_cmap[a]
-        image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
-    else:
-        image_rgb_8bit = a.copy()
+    # cmap = choose_colormap_new(a)
+    cmap = choose_colormap(a, options)
+    adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
+    image_rgb = adjusted_cmap[a]
+    image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
 
     # find out if input image is 2D or 3D
     if image_rgb_8bit.ndim <= 3:
@@ -783,7 +781,7 @@ def cell_cluster(
 
 
 # def map: cell index to cluster index. Mask indexed img changes that to cluster number (mask,cellbycluster)
-def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) -> list[ndarray]:
+def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) -> List[np.ndarray]:
     """
     Maps the cells to indexed img
     """
@@ -804,7 +802,7 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
         clusters = np.unique(feature)
 
         for j in range(0, len(clusters)):
-            cell_num = np.where(cc_v == clusters[j])[0]
+            cell_num = np.where(feature == clusters[j])[0]
             cell_num = inCells[cell_num]
             bit_mask = np.isin(mask_img, cell_num)
             temp[bit_mask] = clusters[j]
@@ -2362,6 +2360,9 @@ def plot_imgs(
     clusters_df,
     cluster_img_list: List,
 ):
+    # find the max cluster
+    options["max_cluster"] = clusters_df.values.max() - 1
+
     # UPDATE: NEED TO AUTOMATE AND NOT HARDCODE
 
     plot_img(
@@ -2432,6 +2433,9 @@ def plot_imgs(
             plot_img(
                 cluster_img_list[6], [0], filename + "-clusterbyUMAP.png", output_dir, options
             )
+
+    # remove options max cluster
+    options.pop("max_cluster")
 
 
 def make_legends(
