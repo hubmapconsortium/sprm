@@ -2325,9 +2325,9 @@ def transform_df(df, ignore_column=None):
 
     if ignore_column != None:
         # merge the dropped column back to the new one
-        df = pd.concat([ignore_column_df, df], axis=1)
+        df_copy = pd.concat([ignore_column_df, df_copy], axis=1)
 
-    return df
+    return df_copy
 
 
 def find_max_value_drop_rows(df, drop_rows):
