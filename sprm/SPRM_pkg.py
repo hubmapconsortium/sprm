@@ -2297,7 +2297,7 @@ def transform_df(df, ignore_column=None):
     drop_rows = []
     df_copy = df.copy()
 
-    for _ in clusters:
+    for i in clusters:
         # Count all unique values across all columns
         values_counter = df_copy.apply(lambda x: x.value_counts()).fillna(0).astype("int")
 
@@ -2306,23 +2306,22 @@ def transform_df(df, ignore_column=None):
         indices = df_copy[df_copy[column] == row].index.tolist()
         match_counter = (
             df_copy.apply(lambda x: x.loc[indices].value_counts())
-            .drop(drop_rows)
+            .drop(drop_rows, errors="ignore")
             .idxmax()
             .dropna()
             .astype("int")
         )
 
-        if (match_counter.values == row).all():
+        if (match_counter.values == i).all():
+            drop_rows.append(i)
             continue
 
-        # Add the row index to the list
-        drop_rows.append(row)
-
         for col in match_counter.index:
-            # for i, value in enumerate(match_counter.values):
-            if row != match_counter[col] and match_counter[col] not in drop_rows:
-                mapping = {row: match_counter[col], match_counter[col]: row}
+            if i != match_counter[col]:
+                mapping = {i: match_counter[col], match_counter[col]: i}
                 df_copy.loc[:, col] = df_copy.loc[:, col].map(lambda x: mapping.get(x, x))
+
+        drop_rows.append(i)
 
     if ignore_column != None:
         # merge the dropped column back to the new one
@@ -2361,7 +2360,7 @@ def plot_imgs(
     cluster_img_list: List,
 ):
     # find the max cluster
-    options["max_cluster"] = clusters_df.values.max() - 1
+    options["max_cluster"] = clusters_df.values.max()
 
     # UPDATE: NEED TO AUTOMATE AND NOT HARDCODE
 
