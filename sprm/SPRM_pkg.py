@@ -28,10 +28,11 @@ from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from apng import APNG, PNG
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
-from matplotlib.colors import Colormap
+from matplotlib.colors import Colormap, ListedColormap, to_rgba
 from numba.typed import Dict as nbDict
 from numba.typed import List as nbList
 from numpy import linalg as LA
+from numpy import ndarray
 from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
@@ -197,9 +198,10 @@ def NMF_calc(im, fname, output_dir, options):
         transformed_plot[..., i] *= 255.0 / transformed_plot[..., i].max()
 
     transformed_plot = transformed_plot.round().astype(np.uint8)
-    img = Image.fromarray(transformed_plot, mode="RGB")
     output_png = output_dir / (fname + "_nmf_top3.png")
     print("Saving NMF-transformed image to", output_png)
+    # save_image(transformed_plot, output_png, options)
+    img = Image.fromarray(transformed_plot, mode="RGB")
     img.save(output_png)
 
 
@@ -501,12 +503,38 @@ class Features:
         self.features = defaultdict()
 
 
+def create_custom_cmap(n_colors=10):
+    # Define first three colors
+    color_names = ["red", "green", "blue"]
+
+    # Convert color names to RGBA
+    colors = [to_rgba(c) for c in color_names]
+
+    # Add other colors from the 'hsv' colormap
+    hsv = plt.cm.get_cmap("hsv", n_colors)
+
+    for i in range(3, n_colors):
+        colors.append(hsv(i))  # Get RGB color and add to list
+
+    # Create and return custom colormap
+    # cmap = LinearSegmentedColormap.from_list('custom_cmap', colors, N=n_colors)
+    cmap = ListedColormap(colors, name="custom_cmap", N=n_colors)
+    return cmap
+
+
+def choose_colormap_new(a: np.ndarray) -> np.ndarray:
+    # max_value = int(a.max() - 1)
+    cmap = create_custom_cmap()
+
+    return np.array(cmap.colors)[:, :3]
+
+
 colormap_choices = ["Set1", "tab20"]
 unlimited_colormap = "gist_rainbow"
 colormap_lengths = [len(matplotlib.cm.get_cmap(c).colors) for c in colormap_choices]
 
 
-def choose_colormap(a: np.ndarray) -> np.ndarray:
+def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
     """
     Choose a color map for an integer-valued array denoting categorical
     values for each pixel. Returns a np.ndarray with three columns corresponding
@@ -533,8 +561,13 @@ def choose_colormap(a: np.ndarray) -> np.ndarray:
     # We add dark gray as the first color, so we can handle one more
     # color than the original color map -- handle this by subtracting
     # 1 from the maximum categorical value
-    max_value = a.max() - 1
+    if "max_cluster" in options:
+        max_value = options.get("max_cluster") - 1
+    else:
+        max_value = a.max() - 1
+
     choice = bisect(colormap_lengths, max_value)
+
     if choice in range(len(colormap_choices)):
         cmap = matplotlib.cm.get_cmap(colormap_choices[choice])
         return np.array(cmap.colors)
@@ -570,7 +603,8 @@ def save_image(
         raise ValueError("need integral values for categorical plots")
     a = a.astype(np.uint)
 
-    cmap = choose_colormap(a)
+    # cmap = choose_colormap_new(a)
+    cmap = choose_colormap(a, options)
     adjusted_cmap = adjust_matplotlib_categorical_cmap(cmap)
     image_rgb = adjusted_cmap[a]
     image_rgb_8bit = (image_rgb * 255).round().astype(np.uint8)
@@ -747,7 +781,7 @@ def cell_cluster(
 
 
 # def map: cell index to cluster index. Mask indexed img changes that to cluster number (mask,cellbycluster)
-def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) -> np.ndarray:
+def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) -> List[np.ndarray]:
     """
     Maps the cells to indexed img
     """
@@ -768,7 +802,7 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
         clusters = np.unique(feature)
 
         for j in range(0, len(clusters)):
-            cell_num = np.where(cc_v == clusters[j])[0]
+            cell_num = np.where(feature == clusters[j])[0]
             cell_num = inCells[cell_num]
             bit_mask = np.isin(mask_img, cell_num)
             temp[bit_mask] = clusters[j]
@@ -1813,6 +1847,8 @@ def plotprincomp(
 
     plotim = plotim.round().astype(np.uint8)
 
+    # save img
+    # save_image(plotim, output_dir / filename, options)
     if plotim.ndim <= 3:
         img = Image.fromarray(plotim, mode="RGB")
         img.save(output_dir / filename)
@@ -2235,10 +2271,9 @@ def cell_cluster_IDs(
     else:
         ignore_col = None
 
-    new_allClusters = match_clusters(new_allClusters, ignore_column=ignore_col)
+    new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
     column_names = new_allClusters.columns.to_list()
     new_allClusters_np = new_allClusters.to_numpy()
-    new_allClusters_np += 1
 
     # convert back to numpy array to be written out
     write_2_csv(
@@ -2253,80 +2288,59 @@ def cell_cluster_IDs(
     return new_allClusters
 
 
-def find_most_frequent_value(df, ignore_values=[]):
-    max_frequency = 0
-    most_frequent_value = None
-    most_frequent_column = None
-
-    for col in df.columns:
-        value_counts = df[col].value_counts().drop(ignore_values, errors="ignore")
-        max_value_count = value_counts.max()
-        if max_value_count > max_frequency:
-            max_frequency = max_value_count
-            most_frequent_value = value_counts.idxmax()
-            most_frequent_column = col
-
-    return most_frequent_column, most_frequent_value
-
-
-def match_clusters(df, ignore_column=None):
-    unique_clusters = list(set(df.values.flatten()))
-    # reidx_ignore_values = [-i for i in range(1, len(unique_clusters) + 1)]
-    ignore_values = []
-    # og_df = df.copy()
-
+def transform_df(df, ignore_column=None):
     if ignore_column != None:
         ignore_column_df = df.loc[:, ignore_column]
         df = df.drop(columns=ignore_column)
 
-    for idx in unique_clusters[:-1]:
-        col, main_cluster = find_most_frequent_value(df, ignore_values)
-        # Find the column with the highest frequency of the main cluster
-        # main_feature = df.apply(lambda col: (col == main_cluster).sum()).idxmax()
+    clusters = np.unique(df.values)
+    drop_rows = []
+    df_copy = df.copy()
 
-        # Relabel the main cluster to the idx
-        if main_cluster != idx and main_cluster is not None:
-            main_feature_mask = df[col] == main_cluster
-            df.loc[main_feature_mask, col] = idx
-        elif main_cluster == idx:
-            main_feature_mask = df[col] == idx
-        else:
+    for i in clusters:
+        # Count all unique values across all columns
+        values_counter = df_copy.apply(lambda x: x.value_counts()).fillna(0).astype("int")
+
+        row, column = find_max_value_drop_rows(values_counter, drop_rows)
+        indices = df_copy[df_copy[column] == row].index.tolist()
+        match_counter = (
+            df_copy.apply(lambda x: x.loc[indices].value_counts())
+            .drop(drop_rows, errors="ignore")
+            .idxmax()
+            .dropna()
+            .astype("int")
+        )
+
+        if (match_counter.values == i).all():
+            drop_rows.append(i)
             continue
 
-        # Loop through the other features and find the cluster that matches best with the main feature
-        for feature in df.columns:
-            if feature != col:
-                # best_matching_cluster = df.loc[main_feature_mask, feature].value_counts()
-                best_matching_cluster = (
-                    df.loc[main_feature_mask, feature]
-                    .value_counts()
-                    .drop(ignore_values, errors="ignore")
-                )
+        for col in match_counter.index:
+            if i != match_counter[col]:
+                mapping = {i: match_counter[col], match_counter[col]: i}
+                df_copy.loc[:, col] = df_copy.loc[:, col].map(lambda x: mapping.get(x, x))
 
-                # check if empty
-                if best_matching_cluster.empty:
-                    continue
-                else:
-                    best_matching_cluster = best_matching_cluster.idxmax()
-
-                # Relabel the best_matching_cluster to the main cluster
-                if best_matching_cluster != idx:
-                    matching_mask = df[feature] == best_matching_cluster
-                    switch_mask = df[feature] == idx
-                    df.loc[matching_mask, feature] = idx
-                    df.loc[switch_mask, feature] = best_matching_cluster
-                    # df.loc[df[feature] == best_matching_cluster, feature] = idx
-
-        ignore_values.append(idx)
-
-    # convert all changed values back to positive values
-    # df = df.applymap(abs)
+        drop_rows.append(i)
 
     if ignore_column != None:
         # merge the dropped column back to the new one
-        df = pd.concat([ignore_column_df, df], axis=1)
+        df_copy = pd.concat([ignore_column_df, df_copy], axis=1)
 
-    return df
+    return df_copy
+
+
+def find_max_value_drop_rows(df, drop_rows):
+    # Drop rows in the list
+    df = df.drop(drop_rows, errors="ignore")
+
+    # Find the location of the largest value
+    max_row = df.stack().idxmax()
+
+    # Extract row index and column name
+    max_row_index = max_row[0]
+    max_column_name = max_row[1]
+
+    return max_row_index, max_column_name
 
 
 def plot_img(cluster_im: np.ndarray, bestz: list, filename: str, output_dir: Path, options: dict):
@@ -2344,6 +2358,9 @@ def plot_imgs(
     clusters_df,
     cluster_img_list: List,
 ):
+    # find the max cluster
+    options["max_cluster"] = clusters_df.values.max()
+
     # UPDATE: NEED TO AUTOMATE AND NOT HARDCODE
 
     plot_img(
@@ -2414,6 +2431,9 @@ def plot_imgs(
             plot_img(
                 cluster_img_list[6], [0], filename + "-clusterbyUMAP.png", output_dir, options
             )
+
+    # remove options max cluster
+    options.pop("max_cluster")
 
 
 def make_legends(
