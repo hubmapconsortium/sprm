@@ -364,7 +364,7 @@ def main(
     print("SPRM", sprm_version)
 
     # read in options.txt
-    options = read_options(options_path)
+    options = read_options(options_path, DEFAULT_OPTIONS_FILE)
 
     # store results in a dir
     check_output_dir(output_dir, options)
