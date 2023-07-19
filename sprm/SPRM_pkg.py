@@ -2191,11 +2191,22 @@ def check_file_exist(paths: Path):
 
 
 def cell_cluster_IDs(
-    filename: str, output_dir: Path, i: int, maskchs: list, inCells: list, options: Dict, *argv
+    filename: str,
+    output_dir: Path,
+    i: int,
+    maskchs: list,
+    inCells: list,
+    options: Dict,
+    celltype_labels: Path,
+    *argv,
 ):
     allClusters = argv[0]
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
+
+    # init
+    ignore_col = []
+
     # hard coded --> find a way to automate the naming
     if not options.get("skip_outlinePCA"):
         # write_2_csv(
@@ -2263,11 +2274,14 @@ def cell_cluster_IDs(
     # index starting by 1
     new_allClusters += 1
 
-    # ignore certain columns
+    # read in celltype labels if exists
+    if celltype_labels:
+        celltype_labels = pd.read_csv(celltype_labels)
+        new_allClusters = pd.merge(new_allClusters, celltype_labels, on="ID")
+        ignore_col.append(celltype_labels.columns[1])
+
     if options.get("skip_texture"):
-        ignore_col = ["K-Means [Texture]"]
-    else:
-        ignore_col = None
+        ignore_col.append("K-Means [Texture]")
 
     new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
     column_names = new_allClusters.columns.to_list()
@@ -2692,6 +2706,7 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
+    celltype_labels: Path,
     *argv,
 ):
     """
@@ -2869,6 +2884,7 @@ def cell_analysis(
                 maskchs,
                 cellidx,
                 options,
+                celltype_labels,
                 clustercells_texture,
                 clustercells_uv,
                 clustercells_cov,
