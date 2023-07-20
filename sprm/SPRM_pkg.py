@@ -795,6 +795,9 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
     print("Mapping...")
     stime = time.monotonic() if options.get("debug") else None
     for i in cc_v.columns:
+        # for now skip cell types until one hot encoded
+        if i == "DeepCell Type":
+            continue
         temp = np.zeros(mask_img.shape)  # reinitiate the mask
         feature = cc_v.loc[:, i].to_numpy()
         clusters = np.unique(feature)
@@ -2277,7 +2280,11 @@ def cell_cluster_IDs(
     # read in celltype labels if exists
     if celltype_labels:
         celltype_labels = pd.read_csv(celltype_labels)
-        new_allClusters = pd.merge(new_allClusters, celltype_labels, on="ID")
+        new_allClusters = pd.merge(
+            new_allClusters, celltype_labels, left_index=True, right_on="ID"
+        )
+        new_allClusters.index = inCells  # index starting at 1
+        new_allClusters = new_allClusters.drop(columns="ID")
         ignore_col.append(celltype_labels.columns[1])
 
     if options.get("skip_texture"):
@@ -2371,7 +2378,10 @@ def plot_imgs(
     cluster_img_list: List,
 ):
     # find the max cluster
-    options["max_cluster"] = clusters_df.values.max()
+    if "DeepCell Type" in clusters_df.columns:
+        options["max_cluster"] = clusters_df.iloc[:, 1:].values.max()
+    else:
+        options["max_cluster"] = clusters_df.values.max()
 
     # UPDATE: NEED TO AUTOMATE AND NOT HARDCODE
 
@@ -2954,6 +2964,7 @@ def cell_analysis(
                 maskchs,
                 cellidx,
                 options,
+                celltype_labels,
                 clustercells_texture,
                 clustercells_uv,
                 clustercells_cov,

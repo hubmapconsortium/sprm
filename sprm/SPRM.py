@@ -340,6 +340,7 @@ def analysis(
                 seg_n,
                 cellidx,
                 options,
+                celltype_labels,
                 mean_vector,
                 covar_matrix,
                 total_vector,
