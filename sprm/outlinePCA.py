@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
+import pandas as pd
 import scipy.ndimage as ndimage
 from matplotlib import pyplot as plt
 from scipy import interpolate, stats
