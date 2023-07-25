@@ -784,9 +784,9 @@ def cell_cluster(
     # write out that cluster ids
     if keep:
         all_labels = [x.labels_ for x in cluster_list]
-        df = pd.DataFrame(all_labels, index=inCells).T
-        df.columns = [s + str(i) for i in range(min_cluster, max_cluster)]
-        df.to_csv(output_dir / (s + "_all_clusters.png"))
+        df = pd.DataFrame(all_labels).T
+        df.columns = [s + ":" + str(i) for i in range(min_cluster, max_cluster + 1)]
+        df.to_csv(output_dir / (s + "_all_clusters.csv"))
 
     return cellbycluster_labels, clustercenters
 
