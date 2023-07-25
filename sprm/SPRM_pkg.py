@@ -782,7 +782,7 @@ def cell_cluster(
     all_clusters.append(cluster_score)
 
     # write out that cluster ids
-    if keep:
+    if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
         df = pd.DataFrame(all_labels).T
         df.columns = [s + ":" + str(i) for i in range(min_cluster, max_cluster + 1)]
