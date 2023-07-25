@@ -28,8 +28,8 @@ Version: 1.00
 """
 
 
-def shape_cluster(cell_matrix, typelist, all_clusters, options):
-    cluster_method, min_clusters, max_clusters = options.get("num_shapeclusters")
+def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, inCells):
+    cluster_method, min_clusters, max_clusters, keep = options.get("num_shapeclusters")
     if max_clusters > cell_matrix.shape[0]:
         print("reducing shape clusters to ", cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
@@ -65,6 +65,13 @@ def shape_cluster(cell_matrix, typelist, all_clusters, options):
     # save cluster info
     typelist.append("cellshapes")
     all_clusters.append(cluster_score)
+
+    # write out that cluster ids
+    if keep:
+        all_labels = [x.labels_ for x in cluster_list]
+        df = pd.DataFrame(all_labels, index=inCells).T
+        df.columns = [s + str(i) for i in range(min_cluster, max_cluster)]
+        df.to_csv(output_dir / (s + "_all_clusters.png"))
 
     return cellbycluster_labels, clustercenters
 

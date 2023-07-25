@@ -719,12 +719,18 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
+    cell_matrix: np.ndarray,
+    typelist: List,
+    all_clusters: List,
+    s: str,
+    options: Dict,
+    output_dir: Path,
+    inCells: list,
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
     # check of clusters vs. n_sample wanted
-    cluster_method, min_cluster, max_cluster = options.get("num_cellclusters")
+    cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -774,6 +780,13 @@ def cell_cluster(
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
+
+    # write out that cluster ids
+    if keep:
+        all_labels = [x.labels_ for x in cluster_list]
+        df = pd.DataFrame(all_labels, index=inCells).T
+        df.columns = [s + str(i) for i in range(min_cluster, max_cluster)]
+        df.to_csv(output_dir / (s + "_all_clusters.png"))
 
     return cellbycluster_labels, clustercenters
 
@@ -2759,7 +2772,7 @@ def cell_analysis(
     # features only clustered once
     meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
     clustercells_uvall, clustercells_uvallcenters = cell_cluster(
-        meanAll_vector_f, types_list, all_clusters, "mean-all", options
+        meanAll_vector_f, types_list, all_clusters, "mean-all", options, output_dir, cellidx
     )  # -1 means use all segmentations
 
     if options.get("skip_texture"):
@@ -2767,7 +2780,7 @@ def cell_analysis(
 
     texture_matrix = cell_cluster_format(texture_vectors, -1, options)
     clustercells_texture, clustercells_texturecenters = cell_cluster(
-        texture_matrix, types_list, all_clusters, "texture", options
+        texture_matrix, types_list, all_clusters, "texture", options, output_dir, cellidx
     )
 
     # mean all map
@@ -2780,12 +2793,18 @@ def cell_analysis(
 
     if not options.get("skip_outlinePCA"):
         clustercells_shapevectors, shapeclcenters = shape_cluster(
-            shape_vectors, types_list, all_clusters, options
+            shape_vectors, types_list, all_clusters, "shape-unnorm", options, output_dir, cellidx
         )
         # clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
         clustercells_norm_shapevectors, normshapeclcenters = shape_cluster(
-            norm_shape_vectors, types_list, all_clusters, options
+            norm_shape_vectors,
+            types_list,
+            all_clusters,
+            "shape-norm",
+            options,
+            output_dir,
+            cellidx,
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
@@ -2847,13 +2866,31 @@ def cell_analysis(
         # cluster by mean and covar using just cell segmentation mask
         print("Clustering cells and getting back labels and centers...")
         clustercells_uv, clustercells_uvcenters = cell_cluster(
-            mean_vector_f, types_list, all_clusters, "mean-" + maskchs[i], options
+            mean_vector_f,
+            types_list,
+            all_clusters,
+            "mean-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
-            covar_matrix_f, types_list, all_clusters, "covar-" + maskchs[i], options
+            covar_matrix_f,
+            types_list,
+            all_clusters,
+            "covar-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
-            total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
+            total_vector_f,
+            types_list,
+            all_clusters,
+            "total-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
 
         # map back to the mask segmentation of indexed cell region
@@ -4227,7 +4264,13 @@ def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, opti
     )
 
     clustercells_all, clustercells_allcenters = cell_cluster(
-        tsne_all_OnlyCell, types_list, all_clusters, "tSNE_allfeatures", options
+        tsne_all_OnlyCell,
+        types_list,
+        all_clusters,
+        "tSNE_allfeatures",
+        options,
+        output_dir,
+        cellidx,
     )
     # clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
     # for i in range(len(clustercells_all)):
@@ -4250,7 +4293,7 @@ def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, opti
     )
 
     clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
-        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options
+        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options, output_dir, cellidx
     )
 
     return (
