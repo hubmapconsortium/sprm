@@ -304,7 +304,6 @@ def analysis(
             cell_analysis(
                 im,
                 mask,
-                options,
                 baseoutputfilename,
                 bestz,
                 output_dir,
