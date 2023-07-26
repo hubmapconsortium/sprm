@@ -31,14 +31,14 @@ Version: 1.00
 
 def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, inCells):
     cluster_method, min_cluster, max_cluster, keep = options.get("num_shapeclusters")
-    if max_clusters > cell_matrix.shape[0]:
+    if max_cluster > cell_matrix.shape[0]:
         print("reducing shape clusters to ", cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
 
     if cluster_method == "silhouette":
         cluster_list = []
         cluster_score = []
-        for i in range(min_clusters, max_clusters + 1):
+        for i in range(min_cluster, max_cluster + 1):
             cellbycluster = KMeans(n_clusters=i, random_state=0)
             preds = cellbycluster.fit_predict(cell_matrix)
             cluster_list.append(cellbycluster)
