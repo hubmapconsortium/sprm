@@ -30,7 +30,7 @@ Version: 1.00
 
 
 def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, inCells):
-    cluster_method, min_clusters, max_clusters, keep = options.get("num_shapeclusters")
+    cluster_method, min_cluster, max_cluster, keep = options.get("num_shapeclusters")
     if max_clusters > cell_matrix.shape[0]:
         print("reducing shape clusters to ", cell_matrix.shape[0])
         num_shapeclusters = cell_matrix.shape[0]
