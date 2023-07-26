@@ -785,6 +785,7 @@ def cell_cluster(
     if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
         df = pd.DataFrame(all_labels).T
+        df.index = inCells
         df.columns = [s + ":" + str(i) for i in range(min_cluster, max_cluster + 1)]
         df.to_csv(output_dir / (s + "_all_clusters.csv"))
 
