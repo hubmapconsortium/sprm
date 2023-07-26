@@ -3046,8 +3046,8 @@ def cell_analysis(
 
     # post process
     # find max len - for now only two cluster methods
-    min1, max1 = options.get("num_cellclusters")[1:]
-    min2, max2 = options.get("num_shapeclusters")[1:]
+    min1, max1 = options.get("num_cellclusters")[1:-1]
+    min2, max2 = options.get("num_shapeclusters")[1:-1]
     a = max1 - min1
     b = max2 - min2
     d = max(a, b) + 1
