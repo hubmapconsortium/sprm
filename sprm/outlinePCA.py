@@ -73,7 +73,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
         df = pd.DataFrame(all_labels).T
         df.index = inCells
         df.columns = [s + str(i) for i in range(min_cluster, max_cluster + 1)]
-        df.to_csv(output_dir / (s + "_all_clusters.png"))
+        df.to_csv(output_dir / (s + "_all_clusters.csv"))
 
     return cellbycluster_labels, clustercenters
 
