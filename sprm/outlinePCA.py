@@ -68,7 +68,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
     all_clusters.append(cluster_score)
 
     # write out that cluster ids
-    if keep:
+    if keep and options.get("debug"):
         all_labels = [x.labels_ for x in cluster_list]
         df = pd.DataFrame(all_labels).T
         df.index = inCells

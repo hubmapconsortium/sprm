@@ -782,7 +782,7 @@ def cell_cluster(
     all_clusters.append(cluster_score)
 
     # write out that cluster ids
-    if keep and "cluster_list" in locals():
+    if keep and "cluster_list" in locals() and options.get("debug"):
         all_labels = [x.labels_ for x in cluster_list]
         df = pd.DataFrame(all_labels).T
         df.index = inCells
@@ -1641,9 +1641,10 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     else:
         if len(cellidx) == sub_matrix.shape[0]:
             df = pd.DataFrame(sub_matrix, index=cellidx, columns=header)
-        df = pd.DataFrame(
-            sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)), columns=header
-        )
+        else:
+            df = pd.DataFrame(
+                sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)), columns=header
+            )
 
     if options.get("debug"):
         print(df)
