@@ -1645,6 +1645,10 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             df = pd.DataFrame(
                 sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)), columns=header
             )
+            df_2 = pd.DataFrame(cellidx)
+            df_2.to_csv(output_dir / ("inCells.csv"))
+            print("index not incells")
+            print(s)
 
     if options.get("debug"):
         print(df)
