@@ -2,7 +2,8 @@
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_AdjacencyGraph.pdf",
 		"description": "Spatial adjacency graph of cells and their connected neighbors.",
-		"edam_ontology_term": "EDAM_1.24.format_3508"
+		"edam_ontology_term": "EDAM_1.24.format_3508",
+		"is_data_product":  true
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-normalized_cell_outlines.csv",
@@ -12,7 +13,8 @@
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_AdjacencyMatrix.mtx",
 		"description": "Sparse matrix output of cell adjacency matrix for minimal distance.",
-		"edam_ontology_term": "EDAM_1.24.format_3916"
+		"edam_ontology_term": "EDAM_1.24.format_3916",
+		"is_data_product":  true
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_AdjacencyMatrix_avg.mtx",
@@ -22,7 +24,8 @@
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_AdjacencyMatrixRowColLabels.txt",
 		"description": "text file of row and column label for adjacency matrix.",
-		"edam_ontology_term": "EDAM_1.24.data_3671"
+		"edam_ontology_term": "EDAM_1.24.data_3671",
+		"is_data_product":  true
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-cell_1_texture.csv",
@@ -403,7 +406,8 @@
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-SPRM_Image_Quality_Measures.json",
 		"description": "Image Quality Measures.",
 		"edam_ontology_term": "EDAM_1.24.format_3464",
-		"is_qa_qc": true
+		"is_qa_qc": true,
+		"is_data_product":  true
 	},
 	{
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff-superpixel.ome.tiff",
@@ -459,6 +463,13 @@
 		"pattern": "sprm_outputs/(?P<region>.+)\\.ome\\.tiff_nmf_components.pdf",
 		"description": "dimensionality reduction by NMF (Non-Negative Matrix Factorization) on image and heat map visualization of their components",
 		"edam_ontology_term": "EDAM_1.24.format_3752"
-	}
+	},
+        {
+                "pattern": "out.hdf5",
+                "description": "hdf5 file containing DataFrames for each of SPRM's CSV outputs, including expression values, cluster assignments",
+                "edam_ontology_term": "EDAM_1.24.format_3590",
+		"is_data_product":  true
+        }
+
 ]
 
