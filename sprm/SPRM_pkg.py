@@ -2388,8 +2388,6 @@ def cell_cluster_IDs(
 
     # convert to a dataframe
     new_allClusters = pd.DataFrame(data=allClusters, index=inCells, columns=column_names)
-    # index starting by 1
-    new_allClusters += 1
 
     # read in celltype labels if exists
     if celltype_labels and i == 0:
@@ -2412,6 +2410,9 @@ def cell_cluster_IDs(
         ignore_col.append("K-Means [Texture]")
 
     new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
+
+    # index starting by 1
+    new_allClusters += 1
 
     if options.get("skip_texture"):
         ignore_col.remove("K-Means [Texture]")
