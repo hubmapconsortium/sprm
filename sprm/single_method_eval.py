@@ -134,7 +134,7 @@ def background_uniformity(img_bi, channels):
     background_loc_fraction = 1
     fraction = None
 
-    if foreground_pixel_num < 1:
+    if background_pixel_num < 1:
         print("no pixels in the background")
         return CV, None
 
