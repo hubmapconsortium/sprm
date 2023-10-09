@@ -892,7 +892,8 @@ def cell_map(
         )
 
         # remove options
-        options.pop("ignore_4cell")
+        options.pop("ignore_4cellmap")
+        options.pop("subtype_columns")
 
         # if debug:
         #     list_of_cluster_imgs = list_of_cluster_imgs + subtype_arr
