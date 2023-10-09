@@ -2397,7 +2397,7 @@ def cell_cluster_IDs(
         new_allClusters = pd.merge(
             new_allClusters, celltype_labels, left_index=True, right_on="ID"
         )
-        new_allClusters.index = inCells  # index starting at 1
+        new_allClusters.index = inCells  
         new_allClusters = new_allClusters.drop(columns="ID")
         ignore_col.append(celltype_labels.columns[1])
 
@@ -2412,8 +2412,9 @@ def cell_cluster_IDs(
 
     new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
 
-    # index starting by 1
-    new_allClusters += 1
+    # index starting by 1 only numerics
+    numeric_cols = new_allClusters.select_dtypes(include=['number']).columns
+    new_allClusters[numeric_cols] += 1git stat
 
     if options.get("skip_texture"):
         ignore_col.remove("K-Means [Texture]")
