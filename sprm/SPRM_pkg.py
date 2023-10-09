@@ -891,6 +891,9 @@ def cell_map(
             options,
         )
 
+        # remove options
+        options.pop("ignore_4cell")
+
         # if debug:
         #     list_of_cluster_imgs = list_of_cluster_imgs + subtype_arr
 
@@ -2389,7 +2392,7 @@ def cell_cluster_IDs(
     new_allClusters += 1
 
     # read in celltype labels if exists
-    if celltype_labels:
+    if celltype_labels and i == 0:
         celltype_labels = pd.read_csv(celltype_labels)
 
         new_allClusters = pd.merge(
