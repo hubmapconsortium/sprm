@@ -2391,9 +2391,13 @@ def cell_cluster_IDs(
     # read in celltype labels if exists
     if celltype_labels:
         celltype_labels = pd.read_csv(celltype_labels)
-        new_allClusters = pd.merge(
-            new_allClusters, celltype_labels, left_index=True, right_on="ID"
-        )
+
+        if "ID" in celltype_labels.columns:
+            new_allClusters = pd.merge(new_allClusters, celltype_labels, on="ID")
+        else:
+            new_allClusters = pd.merge(
+                new_allClusters, celltype_labels, left_index=True, right_on="ID"
+            )
         new_allClusters.index = inCells  # index starting at 1
         new_allClusters = new_allClusters.drop(columns="ID")
         ignore_col.append(celltype_labels.columns[1])

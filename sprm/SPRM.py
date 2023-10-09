@@ -79,7 +79,7 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
-    celltype_labels: Path,
+    celltype_labels: Path = None,
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
@@ -380,11 +380,18 @@ def main(
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
+    celltype_files = get_paths(celltype_labels)
 
     if optional_img_dir:
         opt_img_files = get_paths(optional_img_dir)
     else:
         opt_img_files = [None] * len(img_files)
+
+    # subtype
+    if celltype_labels:
+        celltype_files = get_paths(celltype_labels)
+    else:
+        celltype_files = [None] * len(celltype_files)
 
     # init list of saved
     im_list = []
@@ -396,50 +403,53 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    for i in range(len(img_files)):
-        im, mask, cc, segm = analysis(
-            img_files[i],
-            mask_files[i],
-            opt_img_files[0],
-            output_dir,
-            options,
-            celltype_labels,
-        )
+    # for i in range(len(img_files)):
+    #     im, mask, cc, segm = analysis(
+    #         img_files[i],
+    #         mask_files[i],
+    #         opt_img_files[0],
+    #         output_dir,
+    #         options,
+    #         celltype_files[i],
+    #     )
+    #
+    #     im_list.append(im)
+    #     mask_list.append(mask)
+    #     cell_total.append(cc)
+    #     seg_metric_list.append(segm)
 
-        im_list.append(im)
-        mask_list.append(mask)
-        cell_total.append(cc)
-        seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
-    # use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    # executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    # print("Using", processes, "worker(s) with executor", executor.__name__)
-    # with executor(max_workers=processes) as executor:
-    #     futures = []
-    #     for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
-    #         futures.append(
-    #             executor.submit(
-    #                 analysis,
-    #                 img_file,
-    #                 mask_file,
-    #                 opt_img_file,
-    #                 output_dir,
-    #                 options,
-    #                 celltype_labels,
-    #             )
-    #         )
-    #
-    #     for future in futures:
-    #         maybe_result = future.result()
-    #         if maybe_result is not None:
-    #             im, mask, cell_count, seg_metrics = maybe_result
-    #
-    #             im_list.append(im)
-    #             mask_list.append(mask)
-    #             cell_total.append(cell_count)
-    #             seg_metric_list.append(seg_metrics)
+    use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
+    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
+    print("Using", processes, "worker(s) with executor", executor.__name__)
+    with executor(max_workers=processes) as executor:
+        futures = []
+        for img_file, mask_file, opt_img_file, celltype_labels in zip(
+            img_files, mask_files, opt_img_files, celltype_files
+        ):
+            futures.append(
+                executor.submit(
+                    analysis,
+                    img_file,
+                    mask_file,
+                    opt_img_file,
+                    output_dir,
+                    options,
+                    celltype_labels,
+                )
+            )
+
+        for future in futures:
+            maybe_result = future.result()
+            if maybe_result is not None:
+                im, mask, cell_count, seg_metrics = maybe_result
+
+                im_list.append(im)
+                mask_list.append(mask)
+                cell_total.append(cell_count)
+                seg_metric_list.append(seg_metrics)
 
     ### CWL END ###
 
