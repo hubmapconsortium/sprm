@@ -891,10 +891,6 @@ def cell_map(
             options,
         )
 
-        # remove options
-        options.pop("ignore_4cellmap")
-        options.pop("subtype_columns")
-
         # if debug:
         #     list_of_cluster_imgs = list_of_cluster_imgs + subtype_arr
 
@@ -2716,8 +2712,10 @@ def plot_imgs(
                 cluster_img_list[6], [0], filename + "-clusterbyUMAP.png", output_dir, options
             )
 
-    # remove options max cluster
+    # remove extra options
     options.pop("max_cluster")
+    options.pop("ignore_4cellmap")
+    options.pop("subtype_columns")
 
 
 def make_legends(
