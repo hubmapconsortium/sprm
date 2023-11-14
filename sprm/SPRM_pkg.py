@@ -24,6 +24,7 @@ import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from apng import APNG, PNG
+from lxml import etree
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
 from matplotlib.colors import Colormap, ListedColormap, to_rgba
@@ -47,7 +48,8 @@ from sklearn.metrics import silhouette_score
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
-from .outlinePCA import shape_cluster
+
+# from .outlinePCA import shape_cluster
 
 """
 
@@ -59,6 +61,15 @@ Version: 1.03
 
 
 """
+
+###########################################
+########## GLOABL VARIABLES ###############
+###########################################
+
+df_all_cluster_list = []
+
+###########################################
+###########################################
 
 
 @contextmanager
@@ -719,12 +730,18 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
+    cell_matrix: np.ndarray,
+    typelist: List,
+    all_clusters: List,
+    s: str,
+    options: Dict,
+    output_dir: Path,
+    inCells: list,
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
     # check of clusters vs. n_sample wanted
-    cluster_method, min_cluster, max_cluster = options.get("num_cellclusters")
+    cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -775,14 +792,32 @@ def cell_cluster(
     typelist.append(s)
     all_clusters.append(cluster_score)
 
+    # write out that cluster ids
+    if keep and "cluster_list" in locals():
+        all_labels = [x.labels_ for x in cluster_list]
+        df = pd.DataFrame(all_labels).T
+        df.index = inCells
+        df.columns = [s + ":" + str(i) for i in range(min_cluster, max_cluster + 1)]
+        df.name = s
+
+        if options.get("debug"):
+            df.to_csv(output_dir / (s + "_all_clusters.csv"))
+
+        df_all_cluster_list.append(df)
+
     return cellbycluster_labels, clustercenters
 
 
 # def map: cell index to cluster index. Mask indexed img changes that to cluster number (mask,cellbycluster)
-def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) -> List[np.ndarray]:
+def cell_map(
+    mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict, output_dir
+) -> List[np.ndarray]:
     """
     Maps the cells to indexed img
     """
+
+    ignore_cols = options.get("ignore_4cellmap")
+    subtype_columns = options.get("subtype_columns")
 
     mask_img = mask.get_data()
     mask_img = mask_img[0, 0, seg_n, :, :, :]
@@ -792,12 +827,10 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
 
     list_of_cluster_imgs = []
     # loop through all features or columns
+    valid_columns = [col for col in cc_v.columns if col not in ignore_cols]
     print("Mapping...")
     stime = time.monotonic() if options.get("debug") else None
-    for i in cc_v.columns:
-        # for now skip cell types until one hot encoded
-        if i == "DeepCell Type":
-            continue
+    for i in valid_columns:
         temp = np.zeros(mask_img.shape)  # reinitiate the mask
         feature = cc_v.loc[:, i].to_numpy()
         clusters = np.unique(feature)
@@ -812,6 +845,54 @@ def cell_map(mask: MaskStruct, cc_v: pd.DataFrame, seg_n: int, options: Dict) ->
 
     if options.get("debug"):
         print("Elapsed time for cell mapping <vectorized>: ", time.monotonic() - stime)
+
+    if subtype_columns:
+        print("Writing out index image for celltypes")
+
+        subtype_arr = []
+        map_legend = []
+        subtypes = cc_v[subtype_columns]
+
+        for i in subtypes:
+            fi, labels = pd.factorize(subtypes[i])
+            clusters = np.unique(fi)
+            temp = np.zeros(mask_img.shape)
+
+            for j in range(len(clusters)):
+                cell_num = np.where(fi == clusters[j])[0]
+                cell_num = inCells[cell_num]
+                bit_mask = np.isin(mask_img, cell_num)
+                temp[bit_mask] = clusters[j]
+
+            subtype_arr.append(temp)
+            map_legend.append(labels.to_list())
+
+            # save the labels
+            map_legend = pd.DataFrame(map_legend).T
+            write_2_csv(
+                subtype_columns,
+                map_legend,
+                mask.get_name() + "_subtype_labels",
+                output_dir,
+                map_legend.index.to_list(),
+                options,
+            )
+
+        subtype_arr_np = np.asarray(subtype_arr)
+        # xml_string = generate_ome_xml_for_channels(map_legend)
+
+        # convert to array C Z Y X
+        writer = OmeTiffWriter()
+        writer.save(
+            subtype_arr_np,
+            output_dir / (mask.get_name() + "_subtype.ome.tiff"),
+            image_name=mask.get_name(),
+            dim_order="CZYX",
+            channel_names=subtype_columns,
+        )
+
+        # if debug:
+        #     list_of_cluster_imgs = list_of_cluster_imgs + subtype_arr
 
     return list_of_cluster_imgs
 
@@ -1627,9 +1708,14 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     else:
         if len(cellidx) == sub_matrix.shape[0]:
             df = pd.DataFrame(sub_matrix, index=cellidx, columns=header)
-        df = pd.DataFrame(
-            sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)), columns=header
-        )
+        else:
+            df = pd.DataFrame(
+                sub_matrix, index=list(range(1, sub_matrix.shape[0] + 1)), columns=header
+            )
+            df_2 = pd.DataFrame(cellidx)
+            df_2.to_csv(output_dir / ("inCells.csv"))
+            print("index not incells")
+            print(s)
 
     if options.get("debug"):
         print(df)
@@ -2185,6 +2271,30 @@ def write_ometiff(im: IMGstruct, output_dir: Path, options: Dict, *argv):
     writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 
+def generate_ome_xml_for_channels(channel_strings):
+    # Define the OME XML namespace
+    NS = "http://www.openmicroscopy.org/Schemas/OME/2016-06"
+    NSMAP = {"ome": NS}
+
+    # Create the root OME element
+    root = etree.Element("{%s}OME" % NS, nsmap=NSMAP)
+
+    # Create an Image element
+    image_element = etree.SubElement(root, "{%s}Image" % NS, ID="Image:0")
+
+    # Create a Pixels element with a size for each channel
+    pixels = etree.SubElement(image_element, "{%s}Pixels" % NS, SizeC=str(len(channel_strings)))
+
+    # For each inner list of strings, create a Channel element and add each string as a child element
+    for idx, strings in enumerate(channel_strings):
+        channel = etree.SubElement(pixels, "{%s}Channel" % NS, ID=f"Channel:{idx}")
+        for string in strings:
+            etree.SubElement(channel, "{%s}String" % NS).text = string
+
+    # Serialize the XML structure to a string
+    return etree.tostring(root, pretty_print=True, encoding="unicode")
+
+
 def check_file_exist(paths: Path):
     for i in paths:
         if i.is_file():
@@ -2209,6 +2319,7 @@ def cell_cluster_IDs(
 
     # init
     ignore_col = []
+    subtype_columns = None
 
     # hard coded --> find a way to automate the naming
     if not options.get("skip_outlinePCA"):
@@ -2274,23 +2385,36 @@ def cell_cluster_IDs(
 
     # convert to a dataframe
     new_allClusters = pd.DataFrame(data=allClusters, index=inCells, columns=column_names)
-    # index starting by 1
-    new_allClusters += 1
 
     # read in celltype labels if exists
-    if celltype_labels:
+    if celltype_labels and i == 0:
         celltype_labels = pd.read_csv(celltype_labels)
+
         new_allClusters = pd.merge(
             new_allClusters, celltype_labels, left_index=True, right_on="ID"
         )
-        new_allClusters.index = inCells  # index starting at 1
+        new_allClusters.index = inCells
         new_allClusters = new_allClusters.drop(columns="ID")
         ignore_col.append(celltype_labels.columns[1])
+
+        # cell subtype
+        new_allClusters, subtype_columns = cell_subtype_assignment(
+            new_allClusters.copy(), options, output_dir, ignore_col[0], filename
+        )
+        ignore_col = ignore_col + subtype_columns
 
     if options.get("skip_texture"):
         ignore_col.append("K-Means [Texture]")
 
     new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
+
+    # index starting by 1 only numerics
+    numeric_cols = new_allClusters.select_dtypes(include=["number"]).columns
+    new_allClusters[numeric_cols] += 1
+
+    if options.get("skip_texture"):
+        ignore_col.remove("K-Means [Texture]")
+
     column_names = new_allClusters.columns.to_list()
     new_allClusters_np = new_allClusters.to_numpy()
 
@@ -2304,7 +2428,139 @@ def cell_cluster_IDs(
         options,
     )
 
+    # add to options
+    options["ignore_4cellmap"] = ignore_col
+    options["subtype_columns"] = subtype_columns
+
     return new_allClusters
+
+
+def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column, filename):
+    clusters_df["Cell Type Factorized"], label = pd.factorize(clusters_df[celltype_column])
+    dict_track = {}
+
+    _, min_c, max_c, _ = options.get("num_cellclusters")
+    if options.get("skip_texture"):
+        scores = np.zeros((clusters_df.shape[1] - 3, max_c - min_c + 1))
+    else:
+        scores = np.zeros((clusters_df.shape[1] - 2, max_c - min_c + 1))
+
+    for i, feature in enumerate(df_all_cluster_list):
+        df = pd.merge(
+            feature, clusters_df["Cell Type Factorized"], left_index=True, right_index=True
+        )
+
+        for j, cluster in enumerate(feature.columns):
+            grouped = (
+                df.groupby("Cell Type Factorized")[cluster]
+                .value_counts()
+                .unstack()
+                .fillna(0)
+                .astype("int")
+            )
+            grouped_indices = df.groupby(["Cell Type Factorized", cluster]).apply(
+                lambda group: group.index.tolist()
+            )
+            results = get_best_match(grouped)
+            scores[i, j] = results["Value"].sum()
+            dict_track[cluster] = (grouped, grouped_indices)
+
+    scores_df = pd.DataFrame(scores, index=[x.name for x in df_all_cluster_list])
+    scores_df = scores_df.astype("int")
+
+    # save the scores_df
+    scores_df.to_csv(output_dir / (filename + "_subtype_scores.csv"))
+
+    # map
+    r = np.arange(options.get("num_cellclusters")[1], options.get("num_cellclusters")[2] + 1)
+    options.get("num_cellclusters")
+    idx_max = scores_df.idxmax(axis=1)
+    key = [str(x) + ":" + str(r[y]) for x, y in zip(idx_max.index, idx_max.values)]
+    prefix = unique_shortest_prefixes(label)
+    subtype_columns = []
+
+    for i, k in enumerate(key):
+        # grouped_indices = d[k].groupby(['Cluster', k]).apply(lambda group: group.index.tolist())
+        matched = dict_track[k][0]
+        idxs = dict_track[k][1]
+
+        thresh = matched.sum(axis=1) * options.get("subtype_thresh")
+        thresh = thresh.values
+
+        cn = scores_df.index[i] + "-subtypes"
+        subtype_columns.append(cn)
+
+        # add to cell_cluster csv
+        clusters_df[cn] = 0
+        mask = (matched.T > thresh).T
+
+        for j, indices in enumerate(idxs):
+            r, c = idxs.index[j]
+
+            if mask.iloc[r, c]:
+                clusters_df.loc[indices, cn] = prefix[r] + ":" + str(c + 1)
+            else:
+                clusters_df.loc[indices, cn] = prefix[r] + ":others"
+
+    return clusters_df, subtype_columns
+
+
+def unique_shortest_prefixes(strings):
+    # Sort the strings based on lowercase representation for consistent ordering
+    sorted_strings = sorted(strings, key=lambda s: s.lower())
+
+    # Function to find shortest unique prefix between two strings (case-insensitive comparison)
+    def find_prefix(s1, s2):
+        i = 0
+        while i < len(s1) and i < len(s2) and s1[i].lower() == s2[i].lower():
+            i += 1
+        return s1[: i + 1]
+
+    # Iterate over the sorted strings
+    prefixes = []
+    for i, s in enumerate(sorted_strings):
+        # Check the string with its previous and next neighbors to determine the prefix
+        prefix_with_prev = find_prefix(s, sorted_strings[i - 1]) if i > 0 else s
+        prefix_with_next = (
+            find_prefix(s, sorted_strings[i + 1]) if i < len(sorted_strings) - 1 else s
+        )
+
+        # Choose the longer of the two prefixes as the unique representation
+        prefix = max(prefix_with_prev, prefix_with_next, key=len)
+
+        # Ensure the prefix is not the same as the full string unless there's no other option
+        if prefix == s and prefix_with_prev != s:
+            prefix = prefix_with_prev
+        elif prefix == s and prefix_with_next != s:
+            prefix = prefix_with_next
+
+        prefixes.append(prefix)
+
+    # Map the prefixes back to the original order of strings
+    prefix_dict = dict(zip(sorted_strings, prefixes))
+    return [prefix_dict[s] for s in strings]
+
+
+def get_best_match(df):
+    result = []
+    used_rows = []
+    used_columns = []
+
+    for _ in range(min(len(df), len(df.columns))):
+        max_val = -np.inf
+        max_index = None
+
+        for i, row in df.iterrows():
+            for j, val in row.iteritems():
+                if i not in used_rows and j not in used_columns and val > max_val:
+                    max_val = val
+                    max_index = (i, j)
+
+        used_rows.append(max_index[0])
+        used_columns.append(max_index[1])
+        result.append((max_index[0], max_index[1], max_val))
+
+    return pd.DataFrame(result, columns=["Row", "Column", "Value"])
 
 
 def transform_df(df, ignore_column=None):
@@ -2378,8 +2634,10 @@ def plot_imgs(
     cluster_img_list: List,
 ):
     # find the max cluster
-    if "DeepCell Type" in clusters_df.columns:
-        options["max_cluster"] = clusters_df.iloc[:, 1:].values.max()
+    if options.get("subtype_columns"):
+        options["max_cluster"] = clusters_df.drop(
+            columns=options.get("ignore_4cellmap")
+        ).values.max()
     else:
         options["max_cluster"] = clusters_df.values.max()
 
@@ -2454,8 +2712,10 @@ def plot_imgs(
                 cluster_img_list[6], [0], filename + "-clusterbyUMAP.png", output_dir, options
             )
 
-    # remove options max cluster
+    # remove extra options
     options.pop("max_cluster")
+    options.pop("ignore_4cellmap")
+    options.pop("subtype_columns")
 
 
 def make_legends(
@@ -2759,7 +3019,7 @@ def cell_analysis(
     # features only clustered once
     meanAll_vector_f = cell_cluster_format(mean_vector, -1, options)
     clustercells_uvall, clustercells_uvallcenters = cell_cluster(
-        meanAll_vector_f, types_list, all_clusters, "mean-all", options
+        meanAll_vector_f, types_list, all_clusters, "mean-all", options, output_dir, cellidx
     )  # -1 means use all segmentations
 
     if options.get("skip_texture"):
@@ -2767,7 +3027,7 @@ def cell_analysis(
 
     texture_matrix = cell_cluster_format(texture_vectors, -1, options)
     clustercells_texture, clustercells_texturecenters = cell_cluster(
-        texture_matrix, types_list, all_clusters, "texture", options
+        texture_matrix, types_list, all_clusters, "texture", options, output_dir, cellidx
     )
 
     # mean all map
@@ -2779,13 +3039,19 @@ def cell_analysis(
     # cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
 
     if not options.get("skip_outlinePCA"):
-        clustercells_shapevectors, shapeclcenters = shape_cluster(
-            shape_vectors, types_list, all_clusters, options
+        clustercells_shapevectors, shapeclcenters = cell_cluster(
+            shape_vectors, types_list, all_clusters, "shape-unnorm", options, output_dir, cellidx
         )
         # clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
-        clustercells_norm_shapevectors, normshapeclcenters = shape_cluster(
-            norm_shape_vectors, types_list, all_clusters, options
+        clustercells_norm_shapevectors, normshapeclcenters = cell_cluster(
+            norm_shape_vectors,
+            types_list,
+            all_clusters,
+            "shape-norm",
+            options,
+            output_dir,
+            cellidx,
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
@@ -2847,13 +3113,31 @@ def cell_analysis(
         # cluster by mean and covar using just cell segmentation mask
         print("Clustering cells and getting back labels and centers...")
         clustercells_uv, clustercells_uvcenters = cell_cluster(
-            mean_vector_f, types_list, all_clusters, "mean-" + maskchs[i], options
+            mean_vector_f,
+            types_list,
+            all_clusters,
+            "mean-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
-            covar_matrix_f, types_list, all_clusters, "covar-" + maskchs[i], options
+            covar_matrix_f,
+            types_list,
+            all_clusters,
+            "covar-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
-            total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
+            total_vector_f,
+            types_list,
+            all_clusters,
+            "total-" + maskchs[i],
+            options,
+            output_dir,
+            cellidx,
         )
 
         # map back to the mask segmentation of indexed cell region
@@ -2885,6 +3169,7 @@ def cell_analysis(
                 normshapeclcenters,
                 [clustercells_umapAllcenters, tsneAll_header],
             )
+
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
             clusterids_df = cell_cluster_IDs(
@@ -2907,7 +3192,7 @@ def cell_analysis(
             )
 
             # get images of cluster ids mapped to mask
-            list_of_cluster_imgs = cell_map(mask, clusterids_df, seg_n, options)
+            list_of_cluster_imgs = cell_map(mask, clusterids_df, seg_n, options, output_dir)
 
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -2975,7 +3260,7 @@ def cell_analysis(
             )
 
             # get images of cluster ids mapped to mask
-            list_of_cluster_imgs = cell_map(mask, clusterids_df, seg_n, options)
+            list_of_cluster_imgs = cell_map(mask, clusterids_df, seg_n, options, output_dir)
 
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
@@ -3008,8 +3293,8 @@ def cell_analysis(
 
     # post process
     # find max len - for now only two cluster methods
-    min1, max1 = options.get("num_cellclusters")[1:]
-    min2, max2 = options.get("num_shapeclusters")[1:]
+    min1, max1 = options.get("num_cellclusters")[1:-1]
+    min2, max2 = options.get("num_shapeclusters")[1:-1]
     a = max1 - min1
     b = max2 - min2
     d = max(a, b) + 1
@@ -4227,7 +4512,13 @@ def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, opti
     )
 
     clustercells_all, clustercells_allcenters = cell_cluster(
-        tsne_all_OnlyCell, types_list, all_clusters, "tSNE_allfeatures", options
+        tsne_all_OnlyCell,
+        types_list,
+        all_clusters,
+        "tSNE_allfeatures",
+        options,
+        output_dir,
+        cellidx,
     )
     # clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
     # for i in range(len(clustercells_all)):
@@ -4250,7 +4541,7 @@ def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, opti
     )
 
     clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
-        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options
+        umap_embed, types_list, all_clusters, "UMAP_allfeatures", options, output_dir, cellidx
     )
 
     return (

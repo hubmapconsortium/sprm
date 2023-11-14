@@ -79,7 +79,7 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
-    celltype_labels: Path,
+    celltype_labels: Path = None,
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
@@ -187,23 +187,24 @@ def analysis(
     # TODO: don't require empty list if no other file
     opt_img_file = optional_img_file or []
 
-    # NMF calculation
-    NMF_calc(im, baseoutputfilename, output_dir, options)
+    if options.get("image_analysis"):
+        # NMF calculation
+        NMF_calc(im, baseoutputfilename, output_dir, options)
 
-    # do superpixel and PCA analysis before reallocating images to conserve memory
-    # these are done on the whole image, not the individual cells
-    # do clustering on the individual pixels to find 'pixel types'
-    superpixels = voxel_cluster(im, options)
-    plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
+        # do superpixel and PCA analysis before reallocating images to conserve memory
+        # these are done on the whole image, not the individual cells
+        # do clustering on the individual pixels to find 'pixel types'
+        superpixels = voxel_cluster(im, options)
+        plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
 
-    # do PCA on the channel values to find channel components
-    reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
-    PCA_img = plotprincomp(
-        reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
-    )
+        # do PCA on the channel values to find channel components
+        reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
+        PCA_img = plotprincomp(
+            reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
+        )
 
-    # writing out as a ometiff file of visualizations by channels
-    write_ometiff(im, output_dir, options, PCA_img, superpixels[bestz])
+        # writing out as a ometiff file of visualizations by channels
+        write_ometiff(im, output_dir, options, PCA_img, superpixels[bestz])
 
     # check if the image and mask spatial resolutions match
     # and reallocate intensity to the mask resolution if not
@@ -379,11 +380,18 @@ def main(
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
+    celltype_files = get_paths(celltype_labels)
 
     if optional_img_dir:
         opt_img_files = get_paths(optional_img_dir)
     else:
         opt_img_files = [None] * len(img_files)
+
+    # subtype
+    if celltype_labels:
+        celltype_files = get_paths(celltype_labels)
+    else:
+        celltype_files = [None] * len(celltype_files)
 
     # init list of saved
     im_list = []
@@ -402,7 +410,7 @@ def main(
     #         opt_img_files[0],
     #         output_dir,
     #         options,
-    #         celltype_labels,
+    #         celltype_files[i],
     #     )
     #
     #     im_list.append(im)
@@ -417,7 +425,9 @@ def main(
     print("Using", processes, "worker(s) with executor", executor.__name__)
     with executor(max_workers=processes) as executor:
         futures = []
-        for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
+        for img_file, mask_file, opt_img_file, celltype_labels in zip(
+            img_files, mask_files, opt_img_files, celltype_files
+        ):
             futures.append(
                 executor.submit(
                     analysis,
