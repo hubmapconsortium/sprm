@@ -867,6 +867,17 @@ def cell_map(
             subtype_arr.append(temp)
             map_legend.append(labels.to_list())
 
+            # save the labels
+            map_legend = pd.DataFrame(map_legend).T
+            write_2_csv(
+                subtype_columns,
+                map_legend,
+                mask.get_name() + "_subtype_labels.csv",
+                output_dir,
+                map_legend.index.to_list(),
+                options,
+            )
+
         subtype_arr_np = np.asarray(subtype_arr)
         # xml_string = generate_ome_xml_for_channels(map_legend)
 
@@ -878,17 +889,6 @@ def cell_map(
             image_name=mask.get_name(),
             dim_order="CZYX",
             channel_names=subtype_columns,
-        )
-
-        # save the labels
-        map_legend = pd.DataFrame(map_legend).T
-        write_2_csv(
-            subtype_columns,
-            map_legend,
-            mask.get_name() + "_subtype_labels.csv",
-            output_dir,
-            map_legend.index.to_list(),
-            options,
         )
 
         # if debug:
@@ -2399,7 +2399,7 @@ def cell_cluster_IDs(
 
         # cell subtype
         new_allClusters, subtype_columns = cell_subtype_assignment(
-            new_allClusters.copy(), options, output_dir, ignore_col[0]
+            new_allClusters.copy(), options, output_dir, ignore_col[0], filename
         )
         ignore_col = ignore_col + subtype_columns
 
@@ -2435,7 +2435,7 @@ def cell_cluster_IDs(
     return new_allClusters
 
 
-def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column):
+def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column, filename):
     clusters_df["Cell Type Factorized"], label = pd.factorize(clusters_df[celltype_column])
     dict_track = {}
 
@@ -2469,7 +2469,7 @@ def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column):
     scores_df = scores_df.astype("int")
 
     # save the scores_df
-    scores_df.to_csv(output_dir / "subtype_scores.csv")
+    scores_df.to_csv(output_dir / (filename + "_subtype_scores.csv"))
 
     # map
     r = np.arange(options.get("num_cellclusters")[1], options.get("num_cellclusters")[2] + 1)
