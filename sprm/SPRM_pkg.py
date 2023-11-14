@@ -847,7 +847,7 @@ def cell_map(
         print("Elapsed time for cell mapping <vectorized>: ", time.monotonic() - stime)
 
     if subtype_columns:
-        print("Writting out index image for celltypes")
+        print("Writing out index image for celltypes")
 
         subtype_arr = []
         map_legend = []
@@ -872,7 +872,7 @@ def cell_map(
             write_2_csv(
                 subtype_columns,
                 map_legend,
-                mask.get_name() + "_subtype_labels.csv",
+                mask.get_name() + "_subtype_labels",
                 output_dir,
                 map_legend.index.to_list(),
                 options,
