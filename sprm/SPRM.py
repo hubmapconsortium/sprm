@@ -114,11 +114,11 @@ def analysis(
     # if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
     # data = im.get_data()[0, 0, :, :, :, :]
     # data = data[np.newaxis, np.newaxis, :, :, :, :]
-    data = mask.get_data()
-    s, t, c, z, y, x = data.shape
-    data = data.reshape(s, t, z, c, y, x)
-    mask.set_data(data)
-    mask.channel_labels = ["cell", "nucleus"]
+    # data = mask.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # mask.set_data(data)
+    # mask.channel_labels = ["cell", "nucleus"]
 
     # switch channels and z dims
     ##############################

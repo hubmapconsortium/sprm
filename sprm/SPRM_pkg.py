@@ -324,12 +324,12 @@ class IMGstruct:
         print(cn)
 
         # hot fix to channel names expected
-        # if cn[0] == "cells":
-        #     cn[0] = "cell"
-        # if cn[2] == "cell_boundary":
-        #     cn[2] = "cell_boundaries"
-        # if cn[3] == "nucleus_boundary":
-        #     cn[3] = "nucleus_boundaries"
+        if cn[0] == "cells":
+            cn[0] = "cell"
+        if cn[2] == "cell_boundary":
+            cn[2] = "cell_boundaries"
+        if cn[3] == "nucleus_boundary":
+            cn[3] = "nucleus_boundaries"
 
         return cn
 
@@ -3005,11 +3005,12 @@ def cell_analysis(
     feature_covar = options.get("channel_label_combo")
 
     # make unique channel names
-    d = int(len(feature_names) * 4 / len(maskchs))
+    # d = int(len(feature_names) * 4 / len(maskchs))
+    d = int(len(feature_names))
     new_list = [entry for entry in maskchs for _ in range(d)]
     add_list = ["-"] * len(new_list)
     feature_meanall = [a + b for a, b in zip(new_list, add_list)]
-    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * d)]
+    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * len(maskchs))]
     # feature_meanall = feature_names + feature_names + feature_names + feature_names
 
     # all clusters List with scores
