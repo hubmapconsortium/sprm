@@ -40,6 +40,11 @@ inputs:
     inputBinding:
       position: 5
       prefix: "--verbose"
+  cell_types_file:
+    type: File?
+    inputBinding:
+      position: 127
+      prefix: "--celltype-labels"
   options_file:
     type: File?
     inputBinding:

@@ -105,6 +105,12 @@ def foreground_uniformity(img_bi, mask, channels):
     CV = uniformity_CV(foreground_loc, channels)
     foreground_pixel_num = foreground_loc.shape[0]
     foreground_loc_fraction = 1
+    fraction = None
+
+    if foreground_pixel_num < 1:
+        print("no pixels in the foreground")
+        return CV, None
+
     while foreground_loc_fraction > 0:
         try:
             foreground_loc_sampled = foreground_loc[
@@ -126,6 +132,12 @@ def background_uniformity(img_bi, channels):
     CV = uniformity_CV(background_loc, channels)
     background_pixel_num = background_loc.shape[0]
     background_loc_fraction = 1
+    fraction = None
+
+    if background_pixel_num < 1:
+        print("no pixels in the background")
+        return CV, None
+
     while background_loc_fraction > 0:
         try:
             background_loc_sampled = background_loc[
