@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.2.1
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
@@ -40,6 +40,11 @@ inputs:
     inputBinding:
       position: 5
       prefix: "--verbose"
+  cell_types_file:
+    type: File?
+    inputBinding:
+      position: 127
+      prefix: "--celltype-labels"
   options_file:
     type: File?
     inputBinding:

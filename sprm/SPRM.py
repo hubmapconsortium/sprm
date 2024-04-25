@@ -79,6 +79,7 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
+    celltype_labels: Path = None,
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
@@ -186,23 +187,24 @@ def analysis(
     # TODO: don't require empty list if no other file
     opt_img_file = optional_img_file or []
 
-    # NMF calculation
-    NMF_calc(im, baseoutputfilename, output_dir, options)
+    if options.get("image_analysis"):
+        # NMF calculation
+        NMF_calc(im, baseoutputfilename, output_dir, options)
 
-    # do superpixel and PCA analysis before reallocating images to conserve memory
-    # these are done on the whole image, not the individual cells
-    # do clustering on the individual pixels to find 'pixel types'
-    superpixels = voxel_cluster(im, options)
-    plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
+        # do superpixel and PCA analysis before reallocating images to conserve memory
+        # these are done on the whole image, not the individual cells
+        # do clustering on the individual pixels to find 'pixel types'
+        superpixels = voxel_cluster(im, options)
+        plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
 
-    # do PCA on the channel values to find channel components
-    reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
-    PCA_img = plotprincomp(
-        reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
-    )
+        # do PCA on the channel values to find channel components
+        reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
+        PCA_img = plotprincomp(
+            reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
+        )
 
-    # writing out as a ometiff file of visualizations by channels
-    write_ometiff(im, output_dir, options, PCA_img, superpixels[bestz])
+        # writing out as a ometiff file of visualizations by channels
+        write_ometiff(im, output_dir, options, PCA_img, superpixels[bestz])
 
     # check if the image and mask spatial resolutions match
     # and reallocate intensity to the mask resolution if not
@@ -308,6 +310,7 @@ def analysis(
                 seg_n,
                 cellidx,
                 options,
+                celltype_labels,
                 mean_vector,
                 covar_matrix,
                 total_vector,
@@ -337,6 +340,7 @@ def analysis(
                 seg_n,
                 cellidx,
                 options,
+                celltype_labels,
                 mean_vector,
                 covar_matrix,
                 total_vector,
@@ -359,12 +363,13 @@ def main(
     output_dir: Path = DEFAULT_OUTPUT_PATH,
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
+    celltype_labels: Path = None,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
 
     # read in options.txt
-    options = read_options(options_path)
+    options = read_options(options_path, DEFAULT_OPTIONS_FILE)
 
     # store results in a dir
     check_output_dir(output_dir, options)
@@ -375,11 +380,18 @@ def main(
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
+    celltype_files = get_paths(celltype_labels)
 
     if optional_img_dir:
         opt_img_files = get_paths(optional_img_dir)
     else:
         opt_img_files = [None] * len(img_files)
+
+    # subtype
+    if celltype_labels:
+        celltype_files = get_paths(celltype_labels)
+    else:
+        celltype_files = [None] * len(celltype_files)
 
     # init list of saved
     im_list = []
@@ -393,7 +405,12 @@ def main(
     ### LOCAL TESTING ###
     # for i in range(len(img_files)):
     #     im, mask, cc, segm = analysis(
-    #         img_files[i], mask_files[i], opt_img_files[0], output_dir, options
+    #         img_files[i],
+    #         mask_files[i],
+    #         opt_img_files[0],
+    #         output_dir,
+    #         options,
+    #         celltype_files[i],
     #     )
     #
     #     im_list.append(im)
@@ -408,7 +425,9 @@ def main(
     print("Using", processes, "worker(s) with executor", executor.__name__)
     with executor(max_workers=processes) as executor:
         futures = []
-        for img_file, mask_file, opt_img_file in zip(img_files, mask_files, opt_img_files):
+        for img_file, mask_file, opt_img_file, celltype_labels in zip(
+            img_files, mask_files, opt_img_files, celltype_files
+        ):
             futures.append(
                 executor.submit(
                     analysis,
@@ -417,6 +436,7 @@ def main(
                     opt_img_file,
                     output_dir,
                     options,
+                    celltype_labels,
                 )
             )
 
@@ -457,6 +477,7 @@ def argparse_wrapper():
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
+    p.add_argument("--celltype-labels", type=Path, default=None)
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
@@ -482,4 +503,5 @@ def argparse_wrapper():
         output_dir=argss.output_dir,
         options_path=argss.options_file,
         optional_img_dir=argss.optional_img_dir,
+        celltype_labels=argss.celltype_labels,
     )
