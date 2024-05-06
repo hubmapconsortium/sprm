@@ -1740,11 +1740,11 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
         df.to_csv(f, header=header, index_label=df.index.name)
 
     # Sean Donahue - 11/12/20
-    # key_parts = s.replace("-", "_").split("_")
-    # key_parts.reverse()
-    # hdf_key = "/".join(key_parts)
-    # with pd.HDFStore(output_dir / Path("out.hdf5")) as store:
-    #     store.put(hdf_key, df)
+    key_parts = s.replace("-", "_").split("_")
+    key_parts.reverse()
+    hdf_key = "/".join(key_parts)
+    with pd.HDFStore(output_dir / Path("out.hdf5")) as store:
+        store.put(hdf_key, df)
 
 
 def write_cell_polygs(
