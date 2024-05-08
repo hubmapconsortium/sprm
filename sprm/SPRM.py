@@ -97,12 +97,12 @@ def analysis(
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
     # if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
-    #     # data = im.get_data()[0, 0, :, :, :, :]
-    #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
-    #     data = im.get_data()
-    #     s, t, c, z, y, x = data.shape
-    #     data = data.reshape(c, t, s, z, y, x)
-    #     im.set_data(data)
+    # data = im.get_data()[0, 0, :, :, :, :]
+    # data = data[np.newaxis, np.newaxis, :, :, :, :]
+    # data = im.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # im.set_data(data)
 
     # get base file name for all output files
     baseoutputfilename = im.get_name()
@@ -112,12 +112,13 @@ def analysis(
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
     # if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
-    #     # data = im.get_data()[0, 0, :, :, :, :]
-    #     # data = data[np.newaxis, np.newaxis, :, :, :, :]
-    #     data = mask.get_data()
-    #     s, t, c, z, y, x = data.shape
-    #     data = data.reshape(c, t, s, z, y, x)
-    #     mask.set_data(data)
+    # data = im.get_data()[0, 0, :, :, :, :]
+    # data = data[np.newaxis, np.newaxis, :, :, :, :]
+    # data = mask.get_data()
+    # s, t, c, z, y, x = data.shape
+    # data = data.reshape(s, t, z, c, y, x)
+    # mask.set_data(data)
+    # mask.channel_labels = ["cell", "nucleus"]
 
     # switch channels and z dims
     ##############################
@@ -380,7 +381,6 @@ def main(
     # get_imgs sorts to ensure the order of images and masks matches
     img_files = get_paths(img_dir)
     mask_files = get_paths(mask_dir)
-    celltype_files = get_paths(celltype_labels)
 
     if optional_img_dir:
         opt_img_files = get_paths(optional_img_dir)
@@ -391,7 +391,7 @@ def main(
     if celltype_labels:
         celltype_files = get_paths(celltype_labels)
     else:
-        celltype_files = [None] * len(celltype_files)
+        celltype_files = [None] * len(img_files)
 
     # init list of saved
     im_list = []
