@@ -1,7 +1,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # SPRM - Spatial Process & Relationship Modeling
 Ted Zhang and Bob Murphy, Carnegie Mellon University
-V1.0 March 1, 2021
+V1.4.1 May 8, 2024
 
 ## Description
 SPRM is a statistical modeling program used to calculate a range of descriptors/features from multichannel cell images.  It uses these descriptors for clustering of cells and saves them for use for comparison and content-based search of the images.  It can be used with any type of multichannel 2D or 3D image (e.g., CODEX, IMS).

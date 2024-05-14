@@ -3005,11 +3005,12 @@ def cell_analysis(
     feature_covar = options.get("channel_label_combo")
 
     # make unique channel names
-    d = int(len(feature_names) * 4 / len(maskchs))
+    # d = int(len(feature_names) * 4 / len(maskchs))
+    d = int(len(feature_names))
     new_list = [entry for entry in maskchs for _ in range(d)]
     add_list = ["-"] * len(new_list)
     feature_meanall = [a + b for a, b in zip(new_list, add_list)]
-    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * d)]
+    feature_meanall = [a + b for a, b in zip(feature_meanall, feature_names * len(maskchs))]
     # feature_meanall = feature_names + feature_names + feature_names + feature_names
 
     # all clusters List with scores
@@ -3759,11 +3760,15 @@ def quality_measures_3D(
 
         # nuc_cyto_avgR = total_intensity_nuclei_per_chan / total_cytoplasm
         nuc_cell_avgR = total_intensity_nuclei_per_chan / total_intensity_per_chancell
-        cell_bg_avgR = (
-            total_intensity_per_chancell
-            / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total[i]
-        )
+
+        if options.get("normalize_bg"):
+            cell_bg_avgR = (
+                total_intensity_per_chancell
+                / (total_intensity_per_chanbg / bgpixels.shape[1])
+                / cell_total[i]
+            )
+        else:
+            cell_bg_avgR = total_intensity_per_chancell / cell_total[i]
 
         # read in silhouette scores
         sscore_path = output_dir / (img_name + "clusteringsilhouetteScores.csv")
