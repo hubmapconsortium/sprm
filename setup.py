@@ -40,7 +40,7 @@ setup(
         "opencv-python",
         "pandas",
         "pint",
-        "scikit-image",
+        "scikit-image==0.18.3",
         "scikit-learn",
         "shapely",
         "tables",
@@ -48,6 +48,7 @@ setup(
         "xmltodict",
         "umap-learn",
         "apng",
+        "threadpoolctl>3",
     ],
     python_requires=">=3.8",
     entry_points={
