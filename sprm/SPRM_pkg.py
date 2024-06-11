@@ -36,9 +36,7 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
-
-# from skimage.feature.texture import greycomatrix, greycoprops
-from skimage.feature import greycomatrix, greycoprops
+from skimage.feature.texture import graycomatrix, graycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, PCA
@@ -4320,7 +4318,7 @@ def glcm(
                 img = img.astype(np.uint8)
 
                 for d in range(len(distances)):
-                    result = greycomatrix(
+                    result = graycomatrix(
                         img, [distances[d]], [angle], levels=256
                     )  # Calculate GLCM
                     result = result[
@@ -4328,7 +4326,7 @@ def glcm(
                     ]  # Remove background influence by delete first row & column
 
                     for ls in range(len(colIndex)):  # Get properties
-                        texture_all[i, idx, j, d + ls] = greycoprops(
+                        texture_all[i, idx, j, d + ls] = graycoprops(
                             result, colIndex[ls]
                         ).flatten()[0]
 
