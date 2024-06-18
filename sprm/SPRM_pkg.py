@@ -538,7 +538,7 @@ def choose_colormap_new(a: np.ndarray) -> np.ndarray:
 
 colormap_choices = ["Set1", "tab20"]
 unlimited_colormap = "gist_rainbow"
-colormap_lengths = [len(matplotlib.cm.get_cmap(c).colors) for c in colormap_choices]
+colormap_lengths = [len(matplotlib.colormaps.get_cmap(c).colors) for c in colormap_choices]
 
 
 def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
@@ -576,7 +576,7 @@ def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
     choice = bisect(colormap_lengths, max_value)
 
     if choice in range(len(colormap_choices)):
-        cmap = matplotlib.cm.get_cmap(colormap_choices[choice])
+        cmap = matplotlib.colormaps.get_cmap(colormap_choices[choice])
         return np.array(cmap.colors)
 
     # else fall back to unlimited colormap
