@@ -40,7 +40,7 @@ setup(
         "opencv-python",
         "pandas",
         "pint",
-        "scikit-image==0.22.0",
+        "scikit-image",
         "scikit-learn",
         "shapely",
         "tables",
