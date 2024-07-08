@@ -595,12 +595,24 @@ def linear_interpolation(x, y, npoints):
     distance = np.cumsum(np.sqrt(np.sum(np.diff(points, axis=0) ** 2, axis=1)))
     distance = np.insert(distance, 0, 0)
 
-    alpha = np.linspace(distance.min(), int(distance.max()), npoints)
-    interpolator = interpolate.interp1d(distance, points, kind="slinear", axis=0)
-    interpolated_points = interpolator(alpha)
+    # alpha = np.linspace(distance.min(), int(distance.max()), npoints)
+    # interpolator = interpolate.interp1d(distance, points, kind="slinear", axis=0)
 
-    out_x = interpolated_points.T[0]
-    out_y = interpolated_points.T[1]
+
+    # interpolated_points = interpolator(alpha)
+
+    # out_x = interpolated_points.T[0]
+    # out_y = interpolated_points.T[1]
+
+    # Create evenly spaced points for interpolation
+    alpha = np.linspace(0, distance[-1], npoints)
+
+    # Interpolate x and y coordinates separately
+    out_x = np.interp(alpha, distance, points[:, 0])
+    out_y = np.interp(alpha, distance, points[:, 1])
+
+    # Combine interpolated coordinates
+    # interpolated_points = np.column_stack((interpolated_x, interpolated_y))
 
     return out_x, out_y
 
