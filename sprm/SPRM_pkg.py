@@ -322,12 +322,17 @@ class IMGstruct:
         print(cn)
 
         # hot fix to channel names expected
-        if cn[0] == "cells":
-            cn[0] = "cell"
-        if cn[2] == "cell_boundary":
-            cn[2] = "cell_boundaries"
-        if cn[3] == "nucleus_boundary":
-            cn[3] = "nucleus_boundaries"
+        expected_names = ['cell', 'nuclei', 'cell_boundaries', 'nucleus_boundaries']
+
+        for i in range(len(cn)):
+            cn[i] = expected_names[i]
+            
+        # if cn[0] == "cells":
+        #     cn[0] = "cell"
+        # if cn[2] == "cell_boundary":
+        #     cn[2] = "cell_boundaries"
+        # if cn[3] == "nucleus_boundary":
+        #     cn[3] = "nucleus_boundaries"
 
         return cn
 
@@ -518,7 +523,8 @@ def create_custom_cmap(n_colors=10):
     colors = [to_rgba(c) for c in color_names]
 
     # Add other colors from the 'hsv' colormap
-    hsv = plt.cm.get_cmap("hsv", n_colors)
+    # hsv = plt.cm.get_cmap("hsv", n_colors)
+    hsv = plt.colormaps['hsv'].resampled(n_colors)
 
     for i in range(3, n_colors):
         colors.append(hsv(i))  # Get RGB color and add to list
@@ -538,7 +544,7 @@ def choose_colormap_new(a: np.ndarray) -> np.ndarray:
 
 colormap_choices = ["Set1", "tab20"]
 unlimited_colormap = "gist_rainbow"
-colormap_lengths = [len(matplotlib.colormaps.get_cmap(c).colors) for c in colormap_choices]
+colormap_lengths = [len(plt.colormaps[c].colors) for c in colormap_choices]
 
 
 def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
