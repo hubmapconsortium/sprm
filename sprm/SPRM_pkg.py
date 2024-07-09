@@ -359,7 +359,8 @@ class MaskStruct(IMGstruct):
 
         for i in range(len(cn)):
             cn[i] = expected_names[i]
-            
+        
+        return cn
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -382,7 +383,7 @@ class MaskStruct(IMGstruct):
 
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
-        if check_sum == 0:  # assumes the best z is not the first slice
+        if check_sum == 0 and options.get('image_dimensions') == '2D':  # assumes the best z is not the first slice
             print("Duplicating best z to all z dimensions...")
             for i in range(0, data.shape[3]):
                 x = data[:, :, :, i, :, :]
@@ -1094,7 +1095,7 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if ROI_coords[2][0].shape[0] == 2:
+        if options.get('image_dimension') == '2D':
             AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
