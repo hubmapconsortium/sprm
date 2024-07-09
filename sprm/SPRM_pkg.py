@@ -321,19 +321,6 @@ class IMGstruct:
         print("Channel names:")
         print(cn)
 
-        # hot fix to channel names expected
-        expected_names = ['cell', 'nuclei', 'cell_boundaries', 'nucleus_boundaries']
-
-        for i in range(len(cn)):
-            cn[i] = expected_names[i]
-            
-        # if cn[0] == "cells":
-        #     cn[0] = "cell"
-        # if cn[2] == "cell_boundary":
-        #     cn[2] = "cell_boundaries"
-        # if cn[3] == "nucleus_boundary":
-        #     cn[3] = "nucleus_boundaries"
-
         return cn
 
     def get_name(self):
@@ -359,6 +346,20 @@ class MaskStruct(IMGstruct):
         self.cell_index = []
         self.bad_cells = []
         self.ROI = []
+
+    def read_channel_names(self):
+        img: AICSImage = self.img
+        # cn = get_channel_names(img)
+        cn = img.channel_names
+        print("Channel names:")
+        print(cn)
+
+        # hot fix to channel names expected
+        expected_names = ['cell', 'nuclei', 'cell_boundaries', 'nucleus_boundaries']
+
+        for i in range(len(cn)):
+            cn[i] = expected_names[i]
+            
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
