@@ -334,7 +334,9 @@ def get_physical_dimension_func(
 
         sizes: List[Quantity] = []
         for _, dimension in zip(range(dimensions), dimension_names):
-            unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+            # unit = reg[pixel_node_attrib[f"PhysicalSize{dimension}Unit"]]
+            unit = reg[pixel_node_attrib.get(f"PhysicalSize{dimension}Unit", "um")]
+            # value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
             value = float(pixel_node_attrib[f"PhysicalSize{dimension}"])
             sizes.append(value * unit)
 

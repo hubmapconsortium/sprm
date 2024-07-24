@@ -1,4 +1,4 @@
-FROM continuumio/anaconda3:2022.05
+FROM continuumio/anaconda3:2024.02-1
 
 ENV DEBIAN_FRONTEND=noninteractive
 
