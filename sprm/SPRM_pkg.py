@@ -36,9 +36,7 @@ from PIL import Image
 from scipy import stats
 from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
-
-# from skimage.feature.texture import greycomatrix, greycoprops
-from skimage.feature import greycomatrix, greycoprops
+from skimage.feature.texture import graycomatrix, graycoprops
 from skimage.filters import threshold_otsu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, PCA
@@ -323,14 +321,6 @@ class IMGstruct:
         print("Channel names:")
         print(cn)
 
-        # hot fix to channel names expected
-        if cn[0] == "cells":
-            cn[0] = "cell"
-        if cn[2] == "cell_boundary":
-            cn[2] = "cell_boundaries"
-        if cn[3] == "nucleus_boundary":
-            cn[3] = "nucleus_boundaries"
-
         return cn
 
     def get_name(self):
@@ -357,6 +347,21 @@ class MaskStruct(IMGstruct):
         self.bad_cells = []
         self.ROI = []
 
+    def read_channel_names(self):
+        img: AICSImage = self.img
+        # cn = get_channel_names(img)
+        cn = img.channel_names
+        print("Channel names:")
+        print(cn)
+
+        # hot fix to channel names expected
+        expected_names = ['cell', 'nuclei', 'cell_boundaries', 'nucleus_boundaries']
+
+        for i in range(len(cn)):
+            cn[i] = expected_names[i]
+        
+        return cn
+
     def get_labels(self, label):
         return self.channel_labels.index(label)
 
@@ -378,7 +383,7 @@ class MaskStruct(IMGstruct):
 
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
-        if check_sum == 0:  # assumes the best z is not the first slice
+        if check_sum == 0 and options.get('image_dimensions') == '2D':  # assumes the best z is not the first slice
             print("Duplicating best z to all z dimensions...")
             for i in range(0, data.shape[3]):
                 x = data[:, :, :, i, :, :]
@@ -520,7 +525,8 @@ def create_custom_cmap(n_colors=10):
     colors = [to_rgba(c) for c in color_names]
 
     # Add other colors from the 'hsv' colormap
-    hsv = plt.cm.get_cmap("hsv", n_colors)
+    # hsv = plt.cm.get_cmap("hsv", n_colors)
+    hsv = plt.colormaps['hsv'].resampled(n_colors)
 
     for i in range(3, n_colors):
         colors.append(hsv(i))  # Get RGB color and add to list
@@ -540,7 +546,7 @@ def choose_colormap_new(a: np.ndarray) -> np.ndarray:
 
 colormap_choices = ["Set1", "tab20"]
 unlimited_colormap = "gist_rainbow"
-colormap_lengths = [len(matplotlib.cm.get_cmap(c).colors) for c in colormap_choices]
+colormap_lengths = [len(plt.colormaps[c].colors) for c in colormap_choices]
 
 
 def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
@@ -578,7 +584,7 @@ def choose_colormap(a: np.ndarray, options: Dict) -> np.ndarray:
     choice = bisect(colormap_lengths, max_value)
 
     if choice in range(len(colormap_choices)):
-        cmap = matplotlib.cm.get_cmap(colormap_choices[choice])
+        cmap = matplotlib.colormaps.get_cmap(colormap_choices[choice])
         return np.array(cmap.colors)
 
     # else fall back to unlimited colormap
@@ -1089,7 +1095,7 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if ROI_coords[2][0].shape[0] == 2:
+        if options.get('image_dimension') == '2D':
             AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
@@ -4320,7 +4326,7 @@ def glcm(
                 img = img.astype(np.uint8)
 
                 for d in range(len(distances)):
-                    result = greycomatrix(
+                    result = graycomatrix(
                         img, [distances[d]], [angle], levels=256
                     )  # Calculate GLCM
                     result = result[
@@ -4328,7 +4334,7 @@ def glcm(
                     ]  # Remove background influence by delete first row & column
 
                     for ls in range(len(colIndex)):  # Get properties
-                        texture_all[i, idx, j, d + ls] = greycoprops(
+                        texture_all[i, idx, j, d + ls] = graycoprops(
                             result, colIndex[ls]
                         ).flatten()[0]
 
