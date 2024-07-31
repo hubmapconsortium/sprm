@@ -40,7 +40,7 @@ Options image file path
 
 For more information on specific analytical tools and outputs of SPRM: 
 
-[Documentation](https://docs.google.com/document/d/1ZSH9Ek8C4Ucvaytwxyg8LdrgLU6EHmgAsJ5z7Tcc8HQ/edit#heading=h.5y17kqj4hpjb)
+[Documentation]([https://docs.google.com/document/d/1ZSH9Ek8C4Ucvaytwxyg8LdrgLU6EHmgAsJ5z7Tcc8HQ/edit#heading=h.5y17kqj4hpjb](https://docs.google.com/document/d/1aysD_yRmk_5Lmm2fXIUGCeWnxICpxrJt0Osym99FfWA/edit?usp=sharing))
 
 ## Development information
 
