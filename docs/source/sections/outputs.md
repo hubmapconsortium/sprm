@@ -8,7 +8,6 @@ The outputs can be grouped into x types
 
 - xxx-channel_pca.ome.tiff
 - xxx-superpixel.ome.tiff
-- xxx-nmf_calculation.ome.tiff
 
 ### CSV showing interpolated cell outlines & polygons [2 per input image]
  - xxx-cell_shape.csv
@@ -35,7 +34,7 @@ The outputs can be grouped into x types
  - xxx-clustercells_cellshape_legend.csv 
  - xxx-clustercells_celltotal_legend.csv
 
-### PNGs showing coloring by cluster [7 per input image]
+### PNGs showing coloring by cluster [10 per input image]
  - xxx-ClusterByCovarPerCell.png
  - xxx-ClusterByMeansAllMasks.png 
  - xxx-ClusterByMeansPerCell.png
@@ -43,6 +42,9 @@ The outputs can be grouped into x types
  - xxx-ClusterByTotalPerCell.png 
  - xxx-Superpixels.png 
  - xxx-Top3ChannelPCA.png
+ - xxx_nmf_top3.png
+ - xxx-ClusterBytSNEAllFeatures.png
+ - xxx-ClusterByUMAP.png
 
 ### CSV containing the signal to noise ratios of the image per channel [1 per input image]
  - xxx-SNR.csv
