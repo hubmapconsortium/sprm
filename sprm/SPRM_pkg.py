@@ -207,9 +207,47 @@ def NMF_calc(im, fname, output_dir, options):
     transformed_plot = transformed_plot.round().astype(np.uint8)
     output_png = output_dir / (fname + "_nmf_top3.png")
     print("Saving NMF-transformed image to", output_png)
-    # save_image(transformed_plot, output_png, options)
-    img = Image.fromarray(transformed_plot, mode="RGB")
-    img.save(output_png)
+
+    if options.get("image_dimension") == "3D":
+        transformed_plot = transformed_plot.transpose(2, 0, 1)
+        transformed_plot = transformed_plot[:, :, :, np.newaxis, :, :]
+        transformed_plot = np.repeat(transformed_plot, channel_data.shape[0], axis=3)
+        transformed_plot = transformed_plot.reshape(
+            (
+                channel_data.shape[0],
+                transformed_plot.shape[1],
+                transformed_plot.shape[2],
+                transformed_plot.shape[3],
+                transformed_plot.shape[4],
+            )
+        )
+
+        apng = APNG()
+        # forward
+        for j in range(len(transformed_plot)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(transformed_plot[j], mode="RGBA")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        # backward
+        for j in range(len(transformed_plot)):
+            in_mem_file = io.BytesIO()
+            i = Image.fromarray(transformed_plot[-j], mode="RGBA")
+            i.save(in_mem_file, format="PNG")
+            in_mem_file.seek(0)
+            img_bytes = in_mem_file.read()
+            png = PNG.from_bytes(img_bytes)
+            apng.append(png, delay=options.get("apng_delay"))
+
+        apng.save(transformed_plot)
+    else:
+        # save_image(transformed_plot, output_png, options)
+        img = Image.fromarray(transformed_plot, mode="RGB")
+        img.save(output_png)
 
 
 # for aicsimageio<4
@@ -355,11 +393,11 @@ class MaskStruct(IMGstruct):
         print(cn)
 
         # hot fix to channel names expected
-        expected_names = ['cell', 'nuclei', 'cell_boundaries', 'nucleus_boundaries']
+        expected_names = ["cell", "nuclei", "cell_boundaries", "nucleus_boundaries"]
 
         for i in range(len(cn)):
             cn[i] = expected_names[i]
-        
+
         return cn
 
     def get_labels(self, label):
@@ -383,7 +421,9 @@ class MaskStruct(IMGstruct):
 
         check = data[:, :, :, 0, :, :]
         check_sum = np.sum(check)
-        if check_sum == 0 and options.get('image_dimensions') == '2D':  # assumes the best z is not the first slice
+        if (
+            check_sum == 0 and options.get("image_dimensions") == "2D"
+        ):  # assumes the best z is not the first slice
             print("Duplicating best z to all z dimensions...")
             for i in range(0, data.shape[3]):
                 x = data[:, :, :, i, :, :]
@@ -526,7 +566,7 @@ def create_custom_cmap(n_colors=10):
 
     # Add other colors from the 'hsv' colormap
     # hsv = plt.cm.get_cmap("hsv", n_colors)
-    hsv = plt.colormaps['hsv'].resampled(n_colors)
+    hsv = plt.colormaps["hsv"].resampled(n_colors)
 
     for i in range(3, n_colors):
         colors.append(hsv(i))  # Get RGB color and add to list
@@ -1095,7 +1135,7 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if options.get('image_dimension') == '2D':
+        if options.get("image_dimension") == "2D":
             AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
