@@ -243,7 +243,7 @@ def NMF_calc(im, fname, output_dir, options):
             png = PNG.from_bytes(img_bytes)
             apng.append(png, delay=options.get("apng_delay"))
 
-        apng.save(transformed_plot)
+        apng.save(output_png)
     else:
         # save_image(transformed_plot, output_png, options)
         img = Image.fromarray(transformed_plot, mode="RGB")
