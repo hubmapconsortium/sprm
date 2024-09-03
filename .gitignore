@@ -1,3 +1,5 @@
 .idea
 __pycache__
 sprm-git-revision.json
+.DS_Store
+demo/sprm_demo_outputs
