@@ -1,26 +1,37 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # SPRM - Spatial Process & Relationship Modeling
-Ted Zhang and Bob Murphy, Carnegie Mellon University
-V1.4.1 May 8, 2024
+Ted Zhang, Haoran Chen, Matt Ruffalo, and Bob Murphy 
+Ray and Stephanie Lane Computational Biology Department
+School of Computer Science
+Carnegie Mellon University
+V1.4 February 23, 2024
 
 ## Description
-SPRM is a statistical modeling program used to calculate a range of descriptors/features from multichannel cell images.  It uses these descriptors for clustering of cells and saves them for use for comparison and content-based search of the images.  It can be used with any type of multichannel 2D or 3D image (e.g., CODEX, IMS).
+SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  
+
+SPRM can be used standalone with any type of multichannel 2D or 3D image (e.g., CODEX, IMS) for which a cell segmentation is available.
 
 ## Inputs
 
-Two OMETIFF files from the output of CytoKit -
-4D Multiplexed intensity Image (3D for multiple channels)
-4D Indexed Image (3D for multiple segmentations) containing one channel for each type of segmentation (currently “cells”, “nucleus”, “cell membrane” and “nuclear membrane”).
+Primary: Two OMETIFF files -
+1) a 3D or 4D multichannel intensity Image (2D or 3D for multiple channels)
+2) a corresponding 3D or 4D Indexed Image containing one channel for each component of cell segmentation (currently “cells”, “nucleus”, “cell membrane” and “nuclear membrane”).
 
 ## Execution: (assuming SPRM.py is in working directory)
 ```bash
-[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path]
+[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path] --output_dir [output_dir_path] --options_path [options_file_path] --celltype_labels [labels_file] --processes [number_of_processes_to_use]
 ```
-
-SPRM takes in three command line arguments that specify the path in the following order:\
-Image directory path\
-Mask directory path\
-Options image file path
+## Outputs
+OME-TIFFs showing pixel level results (remapping of channels) [3 per input image]
+CSV containing interpolated cell outlines & polygons [2 per input image]
+CSVs containing features for each cell [4 per image]
+CSVs containing features for subcellular components segmentation [12 per image]
+CSV containing clustering results for each cell (row) for different methods (column) [1 per input image]
+CSVs containing mean values of “markers” for each cluster for each clustering method [5 per input image]
+PNGs showing each cell colored by cluster for each clustering method [7 per input image]
+CSV containing the signal to noise ratios of the image per channel [1 per input image]
+CSV containing PCA and Silhouette analysis of the image [2 per input image]
+JSON containing all features and cluster assignments
 
 ## Prerequisites
 
