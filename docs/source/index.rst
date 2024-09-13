@@ -12,7 +12,7 @@ Spatial Process & Relationship Modeling Documentation
 
    ./sections/introduction
    ./sections/release_notes
-   ./section/analysis_sequence
+   ./sections/analysis_sequence
    ./sections/outputs.md
 
 Indices and tables
