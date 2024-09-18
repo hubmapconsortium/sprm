@@ -35,7 +35,7 @@ JSON containing all features and cluster assignments
 
 ## Simple illustration
 
-The demo folder contains two simple ways to run SPRM.  For both, begin by downloading the demo image files from 
+The demo folder contains two simple ways to run SPRM.  For both, begin by downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing).
 
 * The shell script `run_sprm.sh` will just run SPRM and place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  Run the command 
 ```bash
