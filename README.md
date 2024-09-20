@@ -1,10 +1,10 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # SPRM - Spatial Process & Relationship Modeling
-Ted Zhang, Haoran Chen, Matt Ruffalo, and Bob Murphy 
+Ted Zhang, Haoran Chen, Matt Ruffalo, and Bob Murphy
 Ray and Stephanie Lane Computational Biology Department
 School of Computer Science
 Carnegie Mellon University
-V1.4 February 23, 2024
+V1.4.6 September 18, 2024
 
 ## Description
 SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  
@@ -32,6 +32,18 @@ PNGs showing each cell colored by cluster for each clustering method [7 per inpu
 CSV containing the signal to noise ratios of the image per channel [1 per input image]
 CSV containing PCA and Silhouette analysis of the image [2 per input image]
 JSON containing all features and cluster assignments
+
+## Simple illustration
+
+The demo folder contains two simple ways to run SPRM.  For both, begin by downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing).
+
+* The shell script `run_sprm.sh` will just run SPRM and place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  Run the command 
+```bash
+python ../setup.py install
+```
+beforehand.
+
+*The jupyter notebook sprm_demo.ipynb will run `run_sprm.hs` on the example files and then display the outputs in the notebook. It will run setup.py inside the notebook.
 
 ## Prerequisites
 
