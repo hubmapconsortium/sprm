@@ -441,7 +441,21 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # print(sindices)
         x_v1, y_v1 = eigenvecs[:, sindices[0]]  # eigenvector with largest eigenvalue
         # x_v2, y_v2 = eigenvecs[:, sindices[1]]
-        theta = np.arctan((x_v1) / (y_v1))
+
+        try:
+            theta = np.arctan((x_v1) / (y_v1))
+        except e as Exception:
+            # print(e)
+            # print(x_v1, y_v1)
+            # print(eigenvecs)
+            # print(eigenvals)
+            # print(ptscov)
+            # print(interiorCells[i])
+            # print(ROI_coords)
+            # print(cw)
+            # print("---")
+            continue
+
         # print(x_v1,y_v1,theta)
         # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
         #                             [np.sin(theta), np.cos(theta)]])
@@ -597,7 +611,6 @@ def linear_interpolation(x, y, npoints):
 
     # alpha = np.linspace(distance.min(), int(distance.max()), npoints)
     # interpolator = interpolate.interp1d(distance, points, kind="slinear", axis=0)
-
 
     # interpolated_points = interpolator(alpha)
 
