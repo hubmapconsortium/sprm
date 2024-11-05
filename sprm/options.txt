@@ -38,4 +38,3 @@ adj_matrix_delta 3
 image_dimension 2D
 apng_delay 100
 subtype_thresh 0.1
-cell_area_threshold 3
