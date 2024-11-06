@@ -404,6 +404,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # loop to see if cell is a line - 2020
 
         # simple method from https://alyssaq.github.io/2015/computing-the-axes-or-orientation-of-a-blob/
+
         ptsx = ROI_coords[1] - round(np.mean(ROI_coords[1]))
         ptsy = ROI_coords[0] - round(np.mean(ROI_coords[0]))
         ptscentered = np.stack([ptsx, ptsy])
@@ -433,15 +434,39 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
                 print("---")
                 print(ROI_coords)
+                print("Skipping cell...")
             continue
 
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
+
         # print(eigenvals,eigenvecs)
         sindices = np.argsort(eigenvals)[::-1]
         # print(sindices)
+
         x_v1, y_v1 = eigenvecs[:, sindices[0]]  # eigenvector with largest eigenvalue
         # x_v2, y_v2 = eigenvecs[:, sindices[1]]
+
+        # check if x_v1 or y_v1 is 0
+        if y_v1 == 0:
+            if options.get("debug"):
+                print(interiorCells[i])
+                print(x_v1, y_v1)
+                print("Eigenvalues:")
+                print(eigenvals)
+                print("Eigenvectors:")
+                print(eigenvecs)
+                print("Covariance matrix:")
+                print(ptscov)
+                print("Centered points:")
+                print(ptscentered)
+                print("ROI coordinates:")
+                print(ROI_coords)
+                print("---")
+                print("Skipping cell...")
+            continue
+
         theta = np.arctan((x_v1) / (y_v1))
+
         # print(x_v1,y_v1,theta)
         # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
         #                             [np.sin(theta), np.cos(theta)]])
@@ -597,7 +622,6 @@ def linear_interpolation(x, y, npoints):
 
     # alpha = np.linspace(distance.min(), int(distance.max()), npoints)
     # interpolator = interpolate.interp1d(distance, points, kind="slinear", axis=0)
-
 
     # interpolated_points = interpolator(alpha)
 
