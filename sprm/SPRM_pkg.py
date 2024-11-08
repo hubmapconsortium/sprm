@@ -6,6 +6,7 @@ from bisect import bisect
 from collections import ChainMap, defaultdict
 from contextlib import contextmanager
 from itertools import chain, combinations, product
+from multiprocessing import Lock
 from os import walk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -61,10 +62,11 @@ Version: 1.03
 """
 
 ###########################################
-########## GLOABL VARIABLES ###############
+########## GLOBAL VARIABLES ###############
 ###########################################
 
 df_all_cluster_list = []
+hdf5_lock = Lock()
 
 ###########################################
 ###########################################
@@ -1789,8 +1791,9 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     key_parts = s.replace("-", "_").split("_")
     key_parts.reverse()
     hdf_key = "/".join(key_parts)
-    with pd.HDFStore(output_dir / Path("out.hdf5")) as store:
-        store.put(hdf_key, df)
+    with hdf5_lock:
+        with pd.HDFStore(output_dir / "out.hdf5") as store:
+            store.put(hdf_key, df)
 
 
 def write_cell_polygs(
