@@ -2440,10 +2440,10 @@ def cell_cluster_IDs(
         celltype_labels = pd.read_csv(celltype_labels)
 
         new_allClusters = pd.merge(
-            new_allClusters, celltype_labels, left_index=True, right_on="ID"
+            new_allClusters, celltype_labels, left_index=True, right_index=True
         )
         new_allClusters.index = inCells
-        new_allClusters = new_allClusters.drop(columns="ID")
+        # TODO: fix from here
         ignore_col.append(celltype_labels.columns[1])
 
         # cell subtype
@@ -3025,7 +3025,7 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
-    celltype_labels: Path,
+    celltype_labels: Optional[pd.DataFrame],
     *argv,
 ):
     """
@@ -4612,3 +4612,19 @@ def BlockwiseZscore(data):
     data_zscored_nanRemoved = data_zscored[:, ~np.isnan(data_zscored).any(axis=0)]
     data_zscored = data_zscored_nanRemoved * (1 / len(data_zscored_nanRemoved[0]))
     return data_zscored
+
+
+def collect_parse_cell_types(paths: list[Path]) -> list[pd.DataFrame]:
+    """
+    `paths` has one entry per cell type annotation method, representing
+    a directory containing one or more CSV files. CSV files in each
+    directory correspond directly to the results of `get_paths(img_dir)`
+    """
+    dfs_by_method: list[list[pd.DataFrame]] = []
+    for directory in paths:
+        method_dfs = [pd.read_csv(f, index_col=0) for f in get_paths(directory)]
+        dfs_by_method.append(method_dfs)
+
+    dfs_by_image = list(zip(*dfs_by_method))
+    concatenated_dfs = [pd.concat(dfs, sort=True, axis=1) for dfs in dfs_by_image]
+    return concatenated_dfs
