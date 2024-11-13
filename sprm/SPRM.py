@@ -364,7 +364,7 @@ def main(
     output_dir: Path = DEFAULT_OUTPUT_PATH,
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
-    celltype_labels: Path = None,
+    celltype_labels: Optional[list[Path]] = None,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
