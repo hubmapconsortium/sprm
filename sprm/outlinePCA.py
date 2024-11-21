@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
 
 from .constants import figure_save_params
+from .data_structures import MaskStruct
 
 """
 
@@ -292,7 +293,7 @@ def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
     plt.close(fig)
 
 
-def create_polygons(mask, bestz: int) -> List[str]:
+def create_polygons(mask: MaskStruct, bestz: int) -> List[str]:
     """
     Adapted from Maria Keays's original create_roi_polygon's method.
 
@@ -314,7 +315,7 @@ def create_polygons(mask, bestz: int) -> List[str]:
     return allroi
 
 
-def cell_coord_debug(mask, nseg, npoints):
+def cell_coord_debug(mask: MaskStruct, nseg, npoints):
     polyg_list = []
     temp_list = []
     cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
@@ -356,7 +357,7 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def get_parametric_outline(mask, nseg, ROI_by_CH, options):
+def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     print("Getting parametric outlines...")
 
     polygon_outlines = []
