@@ -435,6 +435,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
                 print("---")
                 print(ROI_coords)
                 print("Skipping cell...")
+            mask.add_bad_cell(interiorCells[i])
             continue
 
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
@@ -463,6 +464,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
                 print(ROI_coords)
                 print("---")
                 print("Skipping cell...")
+            mask.add_bad_cell(interiorCells[i])
             continue
 
         theta = np.arctan((x_v1) / (y_v1))
