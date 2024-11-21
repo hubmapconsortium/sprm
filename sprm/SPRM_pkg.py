@@ -384,7 +384,7 @@ class MaskStruct(IMGstruct):
         self.interior_cells = []
         self.edge_cells = []
         self.cell_index = []
-        self.bad_cells = []
+        self.bad_cells = set()
         self.ROI = []
 
     def read_channel_names(self):
@@ -489,6 +489,12 @@ class MaskStruct(IMGstruct):
 
     def get_bad_cells(self):
         return self.bad_cells
+
+    def add_bad_cell(self, cell_index):
+        self.bad_cells.add(cell_index)
+
+    def add_bad_cells(self, cell_indexes):
+        self.bad_cells.update(cell_indexes)
 
     def set_ROI(self, ROI):
         self.ROI = ROI
@@ -1055,7 +1061,7 @@ def get_coordinates(mask, options):
     # post-process for edge case cell coordinates - only 1 point
     freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
-    mask.set_bad_cells(idx)
+    mask.add_bad_cells(idx)
 
     mask_4D = mask_data[0, 0, :, :, :, :]
 
