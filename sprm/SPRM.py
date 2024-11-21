@@ -5,8 +5,8 @@ from subprocess import CalledProcessError, check_output
 
 from .outlinePCA import (
     bin_pca,
+    get_parametric_outline,
     getcellshapefeatures,
-    getparametricoutline,
     kmeans_cluster_shape,
     pca_recon,
 )
@@ -241,7 +241,12 @@ def analysis(
 
         # get normalized shape representation of each cell
         if not options.get("skip_outlinePCA"):
-            outline_vectors, cell_polygons = getparametricoutline(mask, seg_n, ROI_coords, options)
+            outline_vectors, cell_polygons = get_parametric_outline(
+                mask,
+                seg_n,
+                ROI_coords,
+                options,
+            )
             shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
             if options.get("debug"):
                 # just for testing

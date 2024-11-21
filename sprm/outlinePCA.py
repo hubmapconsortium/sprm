@@ -356,7 +356,7 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def getparametricoutline(mask, nseg, ROI_by_CH, options):
+def get_parametric_outline(mask, nseg, ROI_by_CH, options):
     print("Getting parametric outlines...")
 
     polygon_outlines = []
