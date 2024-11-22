@@ -165,6 +165,37 @@ def analysis(
     # quality control of image and mask for edge cells and best z slices +- n options
     quality_control(mask, im, ROI_coords, options)
 
+    # debug of cell_coordinates
+    # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
+
+    seg_n = mask.get_labels("cell")
+
+    # get normalized shape representation of each cell
+    if not options.get("skip_outlinePCA"):
+        outline_vectors, cell_polygons = get_parametric_outline(
+            mask,
+            seg_n,
+            ROI_coords,
+            options,
+        )
+        shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
+        if options.get("debug"):
+            # just for testing
+            kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
+            bin_pca(norm_shape_vectors, 1, outline_vectors, baseoutputfilename, output_dir)
+            pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
+            # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
+        write_cell_polygs(
+            cell_polygons,
+            outline_vectors,
+            cellidx,
+            baseoutputfilename,
+            output_dir,
+            options,
+        )
+    else:
+        print("Skipping outlinePCA...")
+
     # get cells to be processed
     inCells = mask.get_interior_cells()
     cellidx = mask.get_cell_index()
@@ -235,35 +266,6 @@ def analysis(
 
     # time point loop (don't expect multiple time points)
     for t in range(0, im.get_data().shape[1]):
-        seg_n = mask.get_labels("cell")
-        # debug of cell_coordinates
-        # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
-
-        # get normalized shape representation of each cell
-        if not options.get("skip_outlinePCA"):
-            outline_vectors, cell_polygons = get_parametric_outline(
-                mask,
-                seg_n,
-                ROI_coords,
-                options,
-            )
-            shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
-            if options.get("debug"):
-                # just for testing
-                kmeans_cluster_shape(shape_vectors, outline_vectors, output_dir, options)
-                bin_pca(norm_shape_vectors, 1, outline_vectors, baseoutputfilename, output_dir)
-                pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
-                # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
-            write_cell_polygs(
-                cell_polygons,
-                outline_vectors,
-                cellidx,
-                baseoutputfilename,
-                output_dir,
-                options,
-            )
-        else:
-            print("Skipping outlinePCA...")
         # loop of types of segmentation (channels in the mask img)
         for j in range(0, mask.get_data().shape[2]):
             # get the mask for this particular segmentation

@@ -360,6 +360,9 @@ def cell_coord_debug(mask: MaskStruct, nseg, npoints):
 def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     print("Getting parametric outlines...")
 
+    # if bad cells have been updated
+    bad_cell_found = False
+
     polygon_outlines = []
     # polygon_outlines1 = []
     cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
@@ -437,6 +440,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
                 print(ROI_coords)
                 print("Skipping cell...")
             mask.add_bad_cell(interiorCells[i])
+            bad_cell_found = True
             continue
 
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
@@ -466,6 +470,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
                 print("---")
                 print("Skipping cell...")
             mask.add_bad_cell(interiorCells[i])
+            bad_cell_found = True
             continue
 
         theta = np.arctan((x_v1) / (y_v1))
@@ -569,7 +574,17 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
 
+    if bad_cell_found:
+        update_mask_struct(mask)
+
     return pts, polygon_outlines
+
+
+def update_mask_struct(mask: MaskStruct):
+    # update the interior cells to not include the bad cells
+    new_interior_cells = [x for x in mask.get_interior_cells() if x not in mask.get_bad_cells()]
+    mask.set_interior_cells(new_interior_cells)
+    mask.set_cell_index(mask.get_cell_index() - len(mask.get_bad_cells()))
 
 
 def remove_island_pixels(img):

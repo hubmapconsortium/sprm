@@ -812,7 +812,7 @@ def get_coordinates(mask, options):
 
     assert (maxvalue - 1) == np.max(mask_data)
 
-    # post-process for edge case cell coordinates - only 1 point
+    # post-process for edge case cell coordinates - filter out cells that have less than specified pixel area threshold
     freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.add_bad_cells(idx)
