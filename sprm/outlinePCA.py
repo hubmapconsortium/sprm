@@ -584,7 +584,7 @@ def update_mask_struct(mask: MaskStruct):
     # update the interior cells to not include the bad cells
     new_interior_cells = [x for x in mask.get_interior_cells() if x not in mask.get_bad_cells()]
     mask.set_interior_cells(new_interior_cells)
-    mask.set_cell_index(mask.get_cell_index() - len(mask.get_bad_cells()))
+    mask.set_cell_index(new_interior_cells)
 
 
 def remove_island_pixels(img):
