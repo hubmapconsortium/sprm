@@ -185,6 +185,9 @@ def analysis(
             bin_pca(norm_shape_vectors, 1, outline_vectors, baseoutputfilename, output_dir)
             pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
             # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
+
+        cellidx = mask.get_cell_index()
+
         write_cell_polygs(
             cell_polygons,
             outline_vectors,
