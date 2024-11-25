@@ -453,7 +453,8 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
         # x_v2, y_v2 = eigenvecs[:, sindices[1]]
 
         # check if x_v1 or y_v1 is 0
-        if y_v1 == 0:
+        # no rotation is needed
+        if y_v1 == 0 or x_v1 == 0:
             if options.get("debug"):
                 print(interiorCells[i])
                 print(x_v1, y_v1)
@@ -469,26 +470,29 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
                 print(ROI_coords)
                 print("---")
                 print("Skipping cell...")
-            mask.add_bad_cell(interiorCells[i])
-            bad_cell_found = True
-            continue
+            # mask.add_bad_cell(interiorCells[i])
+            # bad_cell_found = True
+            # continue
+            xrotated, yrotated = ptscentered
+        else:
+            theta = np.arctan((x_v1) / (y_v1))
 
-        theta = np.arctan((x_v1) / (y_v1))
+            # print(x_v1,y_v1,theta)
+            # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
+            #                             [np.sin(theta), np.cos(theta)]])
+            # tmat = rotationmatrix * ptscentered
+            # xrotated, yrotated = tmat.A
 
-        # print(x_v1,y_v1,theta)
-        # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
-        #                             [np.sin(theta), np.cos(theta)]])
-        # tmat = rotationmatrix * ptscentered
-        # xrotated, yrotated = tmat.A
+            rotationmatrix = np.array(
+                [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+            )
+            tmat = rotationmatrix @ ptscentered
+            xrotated, yrotated = np.asarray(tmat)
+            # plt.plot(xrotated,yrotated,'b+')
+            # plt.show()
+            # need to flip over minor axis if necessary
 
-        rotationmatrix = np.array(
-            [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
-        )
-        tmat = rotationmatrix @ ptscentered
-        xrotated, yrotated = np.asarray(tmat)
-        # plt.plot(xrotated,yrotated,'b+')
-        # plt.show()
-        # need to flip over minor axis if necessary
+        
 
         tminx = min(xrotated)
         # print(tminx)
