@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
 
 from .constants import figure_save_params
+from .data_structures import MaskStruct
 
 """
 
@@ -292,7 +293,7 @@ def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
     plt.close(fig)
 
 
-def create_polygons(mask, bestz: int) -> List[str]:
+def create_polygons(mask: MaskStruct, bestz: int) -> List[str]:
     """
     Adapted from Maria Keays's original create_roi_polygon's method.
 
@@ -314,7 +315,7 @@ def create_polygons(mask, bestz: int) -> List[str]:
     return allroi
 
 
-def cell_coord_debug(mask, nseg, npoints):
+def cell_coord_debug(mask: MaskStruct, nseg, npoints):
     polyg_list = []
     temp_list = []
     cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
@@ -356,8 +357,11 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def getparametricoutline(mask, nseg, ROI_by_CH, options):
+def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     print("Getting parametric outlines...")
+
+    # if bad cells have been updated
+    bad_cell_found = False
 
     polygon_outlines = []
     # polygon_outlines1 = []
@@ -435,6 +439,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
                 print("---")
                 print(ROI_coords)
                 print("Skipping cell...")
+            mask.add_bad_cell(interiorCells[i])
+            bad_cell_found = True
             continue
 
         eigenvals, eigenvecs = np.linalg.eig(ptscov)
@@ -447,7 +453,8 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         # x_v2, y_v2 = eigenvecs[:, sindices[1]]
 
         # check if x_v1 or y_v1 is 0
-        if y_v1 == 0:
+        # no rotation is needed
+        if y_v1 == 0 or x_v1 == 0:
             if options.get("debug"):
                 print(interiorCells[i])
                 print(x_v1, y_v1)
@@ -463,24 +470,29 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
                 print(ROI_coords)
                 print("---")
                 print("Skipping cell...")
-            continue
+            # mask.add_bad_cell(interiorCells[i])
+            # bad_cell_found = True
+            # continue
+            xrotated, yrotated = ptscentered
+        else:
+            theta = np.arctan((x_v1) / (y_v1))
 
-        theta = np.arctan((x_v1) / (y_v1))
+            # print(x_v1,y_v1,theta)
+            # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
+            #                             [np.sin(theta), np.cos(theta)]])
+            # tmat = rotationmatrix * ptscentered
+            # xrotated, yrotated = tmat.A
 
-        # print(x_v1,y_v1,theta)
-        # rotationmatrix = np.matrix([[np.cos(theta), -np.sin(theta)],
-        #                             [np.sin(theta), np.cos(theta)]])
-        # tmat = rotationmatrix * ptscentered
-        # xrotated, yrotated = tmat.A
+            rotationmatrix = np.array(
+                [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+            )
+            tmat = rotationmatrix @ ptscentered
+            xrotated, yrotated = np.asarray(tmat)
+            # plt.plot(xrotated,yrotated,'b+')
+            # plt.show()
+            # need to flip over minor axis if necessary
 
-        rotationmatrix = np.array(
-            [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
-        )
-        tmat = rotationmatrix @ ptscentered
-        xrotated, yrotated = np.asarray(tmat)
-        # plt.plot(xrotated,yrotated,'b+')
-        # plt.show()
-        # need to flip over minor axis if necessary
+        
 
         tminx = min(xrotated)
         # print(tminx)
@@ -566,7 +578,17 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
 
+    if bad_cell_found:
+        update_mask_struct(mask)
+
     return pts, polygon_outlines
+
+
+def update_mask_struct(mask: MaskStruct):
+    # update the interior cells to not include the bad cells
+    new_interior_cells = [x for x in mask.get_interior_cells() if x not in mask.get_bad_cells()]
+    mask.set_interior_cells(new_interior_cells)
+    mask.set_cell_index(new_interior_cells)
 
 
 def remove_island_pixels(img):
