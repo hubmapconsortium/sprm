@@ -79,7 +79,7 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
-    celltype_labels: Path = None,
+    celltype_labels: Optional[pd.DataFrame],
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
@@ -374,7 +374,7 @@ def main(
     output_dir: Path = DEFAULT_OUTPUT_PATH,
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
-    celltype_labels: Path = None,
+    celltype_labels: Optional[list[Path]] = None,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -398,10 +398,10 @@ def main(
         opt_img_files = [None] * len(img_files)
 
     # subtype
-    if celltype_labels:
-        celltype_files = get_paths(celltype_labels)
+    if celltype_labels is None:
+        cell_types_by_image = [None] * len(img_files)
     else:
-        celltype_files = [None] * len(img_files)
+        cell_types_by_image = collect_parse_cell_types(celltype_labels)
 
     # init list of saved
     im_list = []
@@ -435,8 +435,8 @@ def main(
     print("Using", processes, "worker(s) with executor", executor.__name__)
     with executor(max_workers=processes) as executor:
         futures = []
-        for img_file, mask_file, opt_img_file, celltype_labels in zip(
-            img_files, mask_files, opt_img_files, celltype_files
+        for img_file, mask_file, opt_img_file, cell_types in zip(
+            img_files, mask_files, opt_img_files, cell_types_by_image
         ):
             futures.append(
                 executor.submit(
@@ -446,7 +446,7 @@ def main(
                     opt_img_file,
                     output_dir,
                     options,
-                    celltype_labels,
+                    cell_types,
                 )
             )
 
@@ -487,7 +487,7 @@ def argparse_wrapper():
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
-    p.add_argument("--celltype-labels", type=Path, default=None)
+    p.add_argument("--celltype-labels", type=Path, action="append")
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
