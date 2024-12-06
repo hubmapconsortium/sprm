@@ -13,9 +13,9 @@ inputs:
   options_file:
     label: "SPRM options file"
     type: File?
-  cell_types_file:
+  cell_types_directory:
     label: "Cell type annotations file"
-    type: File?
+    type: Directory[]?
   options_preset:
     label: "SPRM options preset (alternate options file bundled with the package)"
     type: string?
@@ -59,8 +59,8 @@ steps:
         source: ome_tiff_normalize_mask/output_dir
       options_file:
         source: options_file
-      cell_types_file:
-        source: cell_types_file
+      cell_types_directory:
+        source: cell_types_directory
       options_preset:
         source: options_preset
       enable_manhole:
