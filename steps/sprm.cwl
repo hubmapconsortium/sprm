@@ -40,11 +40,13 @@ inputs:
     inputBinding:
       position: 5
       prefix: "--verbose"
-  cell_types_file:
-    type: File?
-    inputBinding:
-      position: 127
-      prefix: "--celltype-labels"
+  cell_types_directory:
+    type:
+      - "null"
+      - type: array
+        items: Directory
+        inputBinding:
+          prefix: "--celltype-labels"
   options_file:
     type: File?
     inputBinding:

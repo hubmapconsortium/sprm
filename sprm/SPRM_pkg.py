@@ -676,16 +676,16 @@ def cell_map(
             subtype_arr.append(temp)
             map_legend.append(labels.to_list())
 
-            # save the labels
-            map_legend = pd.DataFrame(map_legend).T
-            write_2_csv(
-                subtype_columns,
-                map_legend,
-                mask.get_name() + "_subtype_labels",
-                output_dir,
-                map_legend.index.to_list(),
-                options,
-            )
+        # save the labels
+        map_legend = pd.DataFrame(map_legend).T
+        write_2_csv(
+            subtype_columns,
+            map_legend,
+            mask.get_name() + "_subtype_labels",
+            output_dir,
+            map_legend.index.to_list(),
+            options,
+        )
 
         subtype_arr_np = np.asarray(subtype_arr)
         # xml_string = generate_ome_xml_for_channels(map_legend)
@@ -2127,10 +2127,6 @@ def cell_cluster_IDs(
     for idx in range(1, len(argv)):
         allClusters = np.column_stack((allClusters, argv[idx]))
 
-    # init
-    ignore_col = []
-    subtype_columns = None
-
     # hard coded --> find a way to automate the naming
     if not options.get("skip_outlinePCA"):
         # write_2_csv(
@@ -2165,24 +2161,6 @@ def cell_cluster_IDs(
             "K-Means [UMAP_All_Features]",
         ]
     else:
-        # write_2_csv(
-        #     list(
-        #         [
-        #             "K-Means [Texture]",
-        #             "K-Means [Mean] Expression",
-        #             "K-Means [Covariance] Expression",
-        #             "K-Means [Total] Expression",
-        #             "K-Means [Mean-All-SubRegions] Expression",
-        #             "K-Means [tSNE_All_Features]",
-        #             "K-Means [UMAP_All_Features]",
-        #         ]
-        #     ),
-        #     allClusters,
-        #     filename + "-" + maskchs[i] + "_cluster",
-        #     output_dir,
-        #     inCells,
-        #     options,
-        # )
         column_names = [
             "K-Means [Texture]",
             "K-Means [Mean] Expression",
@@ -2194,44 +2172,72 @@ def cell_cluster_IDs(
         ]
 
     # convert to a dataframe
-    new_allClusters = pd.DataFrame(data=allClusters, index=inCells, columns=column_names)
+    master_allClusters = pd.DataFrame(data=allClusters, index=inCells, columns=column_names)
+
+    # init
+    ignore_col = []
+    # subtype_columns = None
+    allsubtype_columns = None
 
     # read in celltype labels if exists
-    if celltype_labels and i == 0:
-        celltype_labels = pd.read_csv(celltype_labels)
+    if celltype_labels is not None and i == 0:
+        # celltype_labels = pd.read_csv(celltype_labels)
+        celltype_labels = clean_dataframe(celltype_labels)
+        og_allClusters = master_allClusters.copy()
 
-        new_allClusters = pd.merge(
-            new_allClusters, celltype_labels, left_index=True, right_on="ID"
-        )
-        new_allClusters.index = inCells
-        new_allClusters = new_allClusters.drop(columns="ID")
-        ignore_col.append(celltype_labels.columns[1])
+        for j, labels in enumerate(celltype_labels):
+            merged_allClusters = pd.merge(
+                og_allClusters, celltype_labels[labels], left_index=True, right_index=True
+            )
+            merged_allClusters.index = inCells
 
-        # cell subtype
-        new_allClusters, subtype_columns = cell_subtype_assignment(
-            new_allClusters.copy(), options, output_dir, ignore_col[0], filename
-        )
-        ignore_col = ignore_col + subtype_columns
+            ignore_col.append(labels)
+
+            # cell subtype
+            new_allClusters, subtype_columns = cell_subtype_assignment(
+                merged_allClusters.copy(), options, output_dir, labels, filename
+            )
+
+            # add prefix of the name to subtypes
+            new_allClusters = new_allClusters.rename(
+                columns={col: f"{labels}-{col}" for col in subtype_columns}
+            )
+            subtype_columns = [f"{labels}-{col}" for col in subtype_columns]
+            ignore_col = ignore_col + subtype_columns
+            ignore_col.append(labels + " Factorized")
+
+            # subtype_list.append(new_allClusters)
+            if j == 0:
+                master_allClusters = new_allClusters.copy()
+                allsubtype_columns = subtype_columns.copy()
+                allsubtype_columns.append(labels + " Factorized")
+            else:
+                allsubtype_columns = allsubtype_columns + subtype_columns
+                allsubtype_columns.append(labels + " Factorized")
+                subtype_columns = subtype_columns + [labels, f"{labels} Factorized"]
+                master_allClusters = pd.concat(
+                    [master_allClusters, new_allClusters[subtype_columns]], axis=1
+                )
 
     if options.get("skip_texture"):
         ignore_col.append("K-Means [Texture]")
 
-    new_allClusters = transform_df(new_allClusters, ignore_column=ignore_col)
+    master_allClusters = transform_df(master_allClusters, ignore_column=ignore_col)
 
     # index starting by 1 only numerics
-    numeric_cols = new_allClusters.select_dtypes(include=["number"]).columns
-    new_allClusters[numeric_cols] += 1
+    numeric_cols = master_allClusters.select_dtypes(include=["number"]).columns
+    master_allClusters[numeric_cols] += 1
 
     if options.get("skip_texture"):
         ignore_col.remove("K-Means [Texture]")
 
-    column_names = new_allClusters.columns.to_list()
-    new_allClusters_np = new_allClusters.to_numpy()
+    column_names = master_allClusters.columns.to_list()
+    master_allClusters_np = master_allClusters.to_numpy()
 
     # convert back to numpy array to be written out
     write_2_csv(
         column_names,
-        new_allClusters_np,
+        master_allClusters_np,
         filename + "-" + maskchs[i] + "_cluster",
         output_dir,
         inCells,
@@ -2240,13 +2246,35 @@ def cell_cluster_IDs(
 
     # add to options
     options["ignore_4cellmap"] = ignore_col
-    options["subtype_columns"] = subtype_columns
+    options["subtype_columns"] = allsubtype_columns
 
-    return new_allClusters
+    return master_allClusters
+
+
+def clean_dataframe(df):
+    """
+    Cleans a pandas DataFrame to ensure:
+    1. No columns contain only NaN values.
+    2. No cells are NaN or empty (replace with 'unknown').
+
+    Args:
+    df (pd.DataFrame): Input pandas DataFrame.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    # Drop columns that are entirely NaN or empty
+    df_cleaned = df.dropna(axis=1, how="all")
+
+    # Replace NaN or empty values in the DataFrame with 'unknown'
+    df_cleaned = df_cleaned.fillna("unknown")
+
+    return df_cleaned
 
 
 def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column, filename):
-    clusters_df["Cell Type Factorized"], label = pd.factorize(clusters_df[celltype_column])
+    celltype_f = celltype_column + " Factorized"
+    clusters_df[celltype_f], label = pd.factorize(clusters_df[celltype_column])
     dict_track = {}
 
     _, min_c, max_c, _ = options.get("num_cellclusters")
@@ -2256,19 +2284,13 @@ def cell_subtype_assignment(clusters_df, options, output_dir, celltype_column, f
         scores = np.zeros((clusters_df.shape[1] - 2, max_c - min_c + 1))
 
     for i, feature in enumerate(df_all_cluster_list):
-        df = pd.merge(
-            feature, clusters_df["Cell Type Factorized"], left_index=True, right_index=True
-        )
+        df = pd.merge(feature, clusters_df[celltype_f], left_index=True, right_index=True)
 
         for j, cluster in enumerate(feature.columns):
             grouped = (
-                df.groupby("Cell Type Factorized")[cluster]
-                .value_counts()
-                .unstack()
-                .fillna(0)
-                .astype("int")
+                df.groupby(celltype_f)[cluster].value_counts().unstack().fillna(0).astype("int")
             )
-            grouped_indices = df.groupby(["Cell Type Factorized", cluster]).apply(
+            grouped_indices = df.groupby([celltype_f, cluster]).apply(
                 lambda group: group.index.tolist()
             )
             results = get_best_match(grouped)
@@ -2361,7 +2383,7 @@ def get_best_match(df):
         max_index = None
 
         for i, row in df.iterrows():
-            for j, val in row.iteritems():
+            for j, val in row.items():
                 if i not in used_rows and j not in used_columns and val > max_val:
                     max_val = val
                     max_index = (i, j)
@@ -2786,7 +2808,7 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
-    celltype_labels: Path,
+    celltype_labels: Optional[pd.DataFrame],
     *argv,
 ):
     """
@@ -4373,3 +4395,19 @@ def BlockwiseZscore(data):
     data_zscored_nanRemoved = data_zscored[:, ~np.isnan(data_zscored).any(axis=0)]
     data_zscored = data_zscored_nanRemoved * (1 / len(data_zscored_nanRemoved[0]))
     return data_zscored
+
+
+def collect_parse_cell_types(paths: list[Path]) -> list[pd.DataFrame]:
+    """
+    `paths` has one entry per cell type annotation method, representing
+    a directory containing one or more CSV files. CSV files in each
+    directory correspond directly to the results of `get_paths(img_dir)`
+    """
+    dfs_by_method: list[list[pd.DataFrame]] = []
+    for directory in paths:
+        method_dfs = [pd.read_csv(f, index_col=0) for f in get_paths(directory)]
+        dfs_by_method.append(method_dfs)
+
+    dfs_by_image = list(zip(*dfs_by_method))
+    concatenated_dfs = [pd.concat(dfs, sort=True, axis=1) for dfs in dfs_by_image]
+    return concatenated_dfs
