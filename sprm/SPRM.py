@@ -79,7 +79,7 @@ def analysis(
     optional_img_file: Optional[Path],
     output_dir: Path,
     options: Dict[str, Any],
-    celltype_labels: Path = None,
+    celltype_labels: Optional[pd.DataFrame],
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
@@ -374,7 +374,7 @@ def main(
     output_dir: Path = DEFAULT_OUTPUT_PATH,
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
-    celltype_labels: Path = None,
+    celltype_labels: Optional[list[Path]] = None,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -398,10 +398,10 @@ def main(
         opt_img_files = [None] * len(img_files)
 
     # subtype
-    if celltype_labels:
-        celltype_files = get_paths(celltype_labels)
+    if celltype_labels is None:
+        cell_types_by_image = [None] * len(img_files)
     else:
-        celltype_files = [None] * len(img_files)
+        cell_types_by_image = collect_parse_cell_types(celltype_labels)
 
     # init list of saved
     im_list = []
@@ -413,52 +413,52 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    # for i in range(len(img_files)):
-    #     im, mask, cc, segm = analysis(
-    #         img_files[i],
-    #         mask_files[i],
-    #         opt_img_files[0],
-    #         output_dir,
-    #         options,
-    #         celltype_files[i],
-    #     )
-    #
-    #     im_list.append(im)
-    #     mask_list.append(mask)
-    #     cell_total.append(cc)
-    #     seg_metric_list.append(segm)
+    for i in range(len(img_files)):
+        im, mask, cc, segm = analysis(
+            img_files[i],
+            mask_files[i],
+            opt_img_files[0],
+            output_dir,
+            options,
+            cell_types_by_image[i],
+        )
+
+        im_list.append(im)
+        mask_list.append(mask)
+        cell_total.append(cc)
+        seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
-    use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    print("Using", processes, "worker(s) with executor", executor.__name__)
-    with executor(max_workers=processes) as executor:
-        futures = []
-        for img_file, mask_file, opt_img_file, celltype_labels in zip(
-            img_files, mask_files, opt_img_files, celltype_files
-        ):
-            futures.append(
-                executor.submit(
-                    analysis,
-                    img_file,
-                    mask_file,
-                    opt_img_file,
-                    output_dir,
-                    options,
-                    celltype_labels,
-                )
-            )
-
-        for future in futures:
-            maybe_result = future.result()
-            if maybe_result is not None:
-                im, mask, cell_count, seg_metrics = maybe_result
-
-                im_list.append(im)
-                mask_list.append(mask)
-                cell_total.append(cell_count)
-                seg_metric_list.append(seg_metrics)
+    # use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
+    # executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
+    # print("Using", processes, "worker(s) with executor", executor.__name__)
+    # with executor(max_workers=processes) as executor:
+    #     futures = []
+    #     for img_file, mask_file, opt_img_file, cell_types in zip(
+    #         img_files, mask_files, opt_img_files, cell_types_by_image
+    #     ):
+    #         futures.append(
+    #             executor.submit(
+    #                 analysis,
+    #                 img_file,
+    #                 mask_file,
+    #                 opt_img_file,
+    #                 output_dir,
+    #                 options,
+    #                 cell_types,
+    #             )
+    #         )
+    #
+    #     for future in futures:
+    #         maybe_result = future.result()
+    #         if maybe_result is not None:
+    #             im, mask, cell_count, seg_metrics = maybe_result
+    #
+    #             im_list.append(im)
+    #             mask_list.append(mask)
+    #             cell_total.append(cell_count)
+    #             seg_metric_list.append(seg_metrics)
 
     ### CWL END ###
 
@@ -487,7 +487,7 @@ def argparse_wrapper():
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
-    p.add_argument("--celltype-labels", type=Path, default=None)
+    p.add_argument("--celltype-labels", type=Path, action="append")
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
