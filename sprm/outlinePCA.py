@@ -79,7 +79,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
     return cellbycluster_labels, clustercenters
 
 
-def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, PCA]:
+def getcellshapefeatures(outls: np.ndarray, options: Dict) -> Tuple[np.ndarray, np.ndarray, PCA]:
     print("Getting cell shape features...")
     numpoints = options.get("num_outlinepoints")
     # check to make sure n_components is the min of (num_outlinepoints, outls[0], outls[1])
@@ -491,8 +491,6 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
             # plt.plot(xrotated,yrotated,'b+')
             # plt.show()
             # need to flip over minor axis if necessary
-
-        
 
         tminx = min(xrotated)
         # print(tminx)
