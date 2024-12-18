@@ -2747,10 +2747,17 @@ def save_all(
 ):
     # hard coded for now
     print("Writing to csv all matrices...")
-    if not options.get("skip_outlinePCA"):
-        write_2_file(outline_vectors, filename + "-cell_shape", im, output_dir, cellidx, options)
+    if outline_vectors is not None:
+        write_2_file(
+            outline_vectors,
+            filename + "-cell_shape",
+            im,
+            output_dir,
+            cellidx,
+            options,
+        )
 
-        # normalize shape vectors
+    if norm_shape_vectors is not None:
         write_2_file(
             norm_shape_vectors,
             filename + "-cell_shape_normalized",
