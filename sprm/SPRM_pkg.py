@@ -2049,13 +2049,17 @@ def matchNShow_markers(
     return table, markers
 
 
-def write_ometiff(im: IMGstruct, output_dir: Path, options: Dict, *argv):
+def write_ometiff(
+    im: IMGstruct,
+    output_dir: Path,
+    options: Dict,
+    pcaimg,
+    superpixel,
+):
     print("Writing out ometiffs for visualizations...")
-    pcaimg = argv[0]
     # pcaimg = pcaimg.astype(np.int32)
 
-    superpixel = argv[1]
-    # superpixel = get_last2d(argv[1], bestz[0])
+    # superpixel = get_last2d(superpixel, bestz[0])
     # superpixel = superpixel.astype(np.int32)
     # superpixel = superpixel[np.newaxis, :, :]
 
