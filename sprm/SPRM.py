@@ -93,7 +93,7 @@ def analysis(
     covar_matrix = []
     mean_vector = []
     total_vector = []
-    # df_all_cluster_list = []
+    df_all_cluster_list = []
 
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
@@ -324,7 +324,7 @@ def analysis(
             cellidx=cellidx,
             options=options,
             celltype_labels=celltype_labels,
-            # df_all_cluster_list=df_all_cluster_list,
+            df_all_cluster_list=df_all_cluster_list,
             mean_vector=mean_vector,
             covar_matrix=covar_matrix,
             total_vector=total_vector,

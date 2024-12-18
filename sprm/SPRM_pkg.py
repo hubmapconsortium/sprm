@@ -64,7 +64,6 @@ Version: 1.03
 ########## GLOBAL VARIABLES ###############
 ###########################################
 
-df_all_cluster_list = []
 hdf5_lock = Lock()
 row_index = 0
 
@@ -546,7 +545,7 @@ def cell_cluster(
     options: Dict,
     output_dir: Path,
     inCells: list,
-    # df_all_cluster_list: list[pd.DataFrame],
+    df_all_cluster_list: list[pd.DataFrame],
 ) -> np.ndarray:
     # kmeans clustering
     print("Clustering cells...")
@@ -2122,7 +2121,7 @@ def cell_cluster_IDs(
     inCells: list,
     options: Dict,
     celltype_labels: Path,
-    # df_all_cluster_list: list[pd.DataFrame],
+    df_all_cluster_list: list[pd.DataFrame],
     allClusters: pd.DataFrame,
 ):
     # init
@@ -2151,7 +2150,7 @@ def cell_cluster_IDs(
                 output_dir,
                 labels,
                 filename,
-                # df_all_cluster_list,
+                df_all_cluster_list,
             )
 
             # add prefix of the name to subtypes
@@ -2234,7 +2233,7 @@ def cell_subtype_assignment(
     output_dir,
     celltype_column,
     filename,
-    # df_all_cluster_list: list[pd.DataFrame],
+    df_all_cluster_list: list[pd.DataFrame],
 ):
     celltype_f = celltype_column + " Factorized"
     clusters_df[celltype_f], label = pd.factorize(clusters_df[celltype_column])
@@ -2765,7 +2764,7 @@ def cell_analysis(
     cellidx: list,
     options: Dict,
     celltype_labels: Optional[pd.DataFrame],
-    # df_all_cluster_list: list[pd.DataFrame],
+    df_all_cluster_list: list[pd.DataFrame],
     mean_vector,
     covar_matrix,
     total_vector,
@@ -2808,7 +2807,7 @@ def cell_analysis(
         options,
         output_dir,
         cellidx,
-        # df_all_cluster_list,
+        df_all_cluster_list,
     )  # -1 means use all segmentations
 
     if options.get("skip_texture"):
@@ -2823,7 +2822,7 @@ def cell_analysis(
         options,
         output_dir,
         cellidx,
-        # df_all_cluster_list,
+        df_all_cluster_list,
     )
 
     # mean all map
@@ -2847,7 +2846,7 @@ def cell_analysis(
             options,
             output_dir,
             cellidx,
-            # df_all_cluster_list,
+            df_all_cluster_list,
         )
         # clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
@@ -2859,7 +2858,7 @@ def cell_analysis(
             options,
             output_dir,
             cellidx,
-            # df_all_cluster_list,
+            df_all_cluster_list,
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
@@ -2876,7 +2875,7 @@ def cell_analysis(
         cellidx=cellidx,
         output_dir=output_dir,
         options=options,
-        # df_all_cluster_list=df_all_cluster_list,
+        df_all_cluster_list=df_all_cluster_list,
         matrix_cov=covar_matrix,
         matrix_total=total_vector,
         matrix_meanAll=meanAll_vector_f,
@@ -2909,7 +2908,7 @@ def cell_analysis(
             options,
             output_dir,
             cellidx,
-            # df_all_cluster_list,
+            df_all_cluster_list,
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
             covar_matrix_f,
@@ -2919,7 +2918,7 @@ def cell_analysis(
             options,
             output_dir,
             cellidx,
-            # df_all_cluster_list,
+            df_all_cluster_list,
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
             total_vector_f,
@@ -2929,7 +2928,7 @@ def cell_analysis(
             options,
             output_dir,
             cellidx,
-            # df_all_cluster_list,
+            df_all_cluster_list,
         )
 
         # map back to the mask segmentation of indexed cell region
@@ -2993,7 +2992,7 @@ def cell_analysis(
             inCells=cellidx,
             options=options,
             celltype_labels=celltype_labels,
-            # df_all_cluster_list=df_all_cluster_list,
+            df_all_cluster_list=df_all_cluster_list,
             allClusters=all_cluster_df,
         )
 
@@ -4111,7 +4110,7 @@ def DR_AllFeatures(
     cellidx,
     output_dir,
     options,
-    # df_all_cluster_list,
+    df_all_cluster_list,
     matrix_cov,
     matrix_total,
     matrix_meanAll,
@@ -4263,7 +4262,7 @@ def DR_AllFeatures(
         options,
         output_dir,
         cellidx,
-        # df_all_cluster_list
+        df_all_cluster_list,
     )
     # clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
     # for i in range(len(clustercells_all)):
@@ -4293,7 +4292,7 @@ def DR_AllFeatures(
         options,
         output_dir,
         cellidx,
-        # df_all_cluster_list,
+        df_all_cluster_list,
     )
 
     return (
