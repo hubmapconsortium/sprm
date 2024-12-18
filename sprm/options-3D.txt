@@ -1,2 +1,2 @@
-skip_outlinePCA 1
+run_outlinePCA 0
 image_dimension 3D

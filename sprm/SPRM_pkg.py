@@ -2464,7 +2464,7 @@ def plot_imgs(
     )
 
     if i == 0:
-        if not options.get("skip_outlinePCA"):
+        if options.get("run_outlinePCA"):
             plot_img(
                 cluster_img_list[5], [0], filename + "-Cluster_Shape.png", output_dir, options
             )
@@ -2841,7 +2841,7 @@ def cell_analysis(
     shapeclcenters = None
     clustercells_norm_shapevectors = None
     normshapeclcenters = None
-    if not options.get("skip_outlinePCA"):
+    if options.get("run_outlinePCA"):
         clustercells_shapevectors, shapeclcenters = cell_cluster(
             shape_vectors,
             types_list,

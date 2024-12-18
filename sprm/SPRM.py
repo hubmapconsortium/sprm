@@ -174,7 +174,7 @@ def analysis(
     shape_vectors = None
     norm_shape_vectors = None
     # get normalized shape representation of each cell
-    if not options.get("skip_outlinePCA"):
+    if options.get("run_outlinePCA"):
         outline_vectors, cell_polygons = get_parametric_outline(
             mask,
             seg_n,
