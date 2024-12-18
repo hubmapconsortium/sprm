@@ -297,76 +297,41 @@ def analysis(
                     total_vector[t, j, i, :, :],
                 ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
 
-        if not options.get("skip_outlinePCA"):
-            # save the means, covars, shape and total for each cell
-            save_all(
-                baseoutputfilename,
-                im,
-                mask,
-                output_dir,
-                cellidx,
-                options,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                # these will be None if no outline PCA
-                outline_vectors=shape_vectors,
-                norm_shape_vectors=norm_shape_vectors,
-            )
+        # save the means, covars, shape and total for each cell
+        save_all(
+            filename=baseoutputfilename,
+            im=im,
+            mask=mask,
+            output_dir=output_dir,
+            cellidx=cellidx,
+            options=options,
+            mean_vector=mean_vector,
+            covar_matrix=covar_matrix,
+            total_vector=total_vector,
+            # these will be None if no outline PCA
+            outline_vectors=shape_vectors,
+            norm_shape_vectors=norm_shape_vectors,
+        )
 
-            # do cell analyze
-            cell_analysis(
-                im,
-                mask,
-                baseoutputfilename,
-                bestz,
-                output_dir,
-                seg_n,
-                cellidx,
-                options,
-                celltype_labels,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                texture_vectors=textures[0],
-                texture_channels=textures[1],
-                # these will be None if no outline PCA
-                shape_vectors=shape_vectors,
-                norm_shape_vectors=norm_shape_vectors,
-            )
-        else:
-            # same functions as above just without shape outlines
-            save_all(
-                baseoutputfilename,
-                im,
-                mask,
-                output_dir,
-                cellidx,
-                options,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                outline_vectors=None,
-                norm_shape_vectors=None,
-            )
-            cell_analysis(
-                im,
-                mask,
-                baseoutputfilename,
-                bestz,
-                output_dir,
-                seg_n,
-                cellidx,
-                options,
-                celltype_labels,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                textures,
-            )
-
-    # mask.quit()
-    # im.quit()
+        cell_analysis(
+            im=im,
+            mask=mask,
+            filename=baseoutputfilename,
+            bestz=bestz,
+            output_dir=output_dir,
+            seg_n=seg_n,
+            cellidx=cellidx,
+            options=options,
+            celltype_labels=celltype_labels,
+            mean_vector=mean_vector,
+            covar_matrix=covar_matrix,
+            total_vector=total_vector,
+            texture_vectors=textures[0],
+            texture_channels=textures[1],
+            # these will be None if no outline PCA
+            shape_vectors=shape_vectors,
+            norm_shape_vectors=norm_shape_vectors,
+        )
 
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
