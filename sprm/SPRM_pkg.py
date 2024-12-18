@@ -3766,7 +3766,6 @@ def reallocate_and_merge_intensities(
         stacked_img = np.concatenate((im.get_data(), im2.get_data()), axis=2)
         channel_list = im.get_channel_labels()
         channel_list.extend(im2.get_channel_labels())
-        im2.quit()
 
         im.set_data(stacked_img)
         im.set_channel_labels(channel_list)
