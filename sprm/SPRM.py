@@ -170,6 +170,8 @@ def analysis(
 
     seg_n = mask.get_labels("cell")
 
+    shape_vectors = None
+    norm_shape_vectors = None
     # get normalized shape representation of each cell
     if not options.get("skip_outlinePCA"):
         outline_vectors, cell_polygons = get_parametric_outline(
@@ -307,8 +309,9 @@ def analysis(
                 mean_vector,
                 covar_matrix,
                 total_vector,
-                shape_vectors,
-                norm_shape_vectors,
+                # these will be None if no outline PCA
+                outline_vectors=shape_vectors,
+                norm_shape_vectors=norm_shape_vectors,
             )
 
             # do cell analyze
@@ -325,9 +328,11 @@ def analysis(
                 mean_vector,
                 covar_matrix,
                 total_vector,
-                shape_vectors,
-                textures,
-                norm_shape_vectors,
+                texture_vectors=textures[0],
+                texture_channels=textures[1],
+                # these will be None if no outline PCA
+                shape_vectors=shape_vectors,
+                norm_shape_vectors=norm_shape_vectors,
             )
         else:
             # same functions as above just without shape outlines
@@ -341,6 +346,8 @@ def analysis(
                 mean_vector,
                 covar_matrix,
                 total_vector,
+                outline_vectors=None,
+                norm_shape_vectors=None,
             )
             cell_analysis(
                 im,

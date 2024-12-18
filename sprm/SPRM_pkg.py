@@ -2739,20 +2739,18 @@ def save_all(
     output_dir: Path,
     cellidx: list,
     options: Dict,
-    *argv,
+    mean_vector,
+    covar_matrix,
+    total_vector,
+    outline_vectors=None,
+    norm_shape_vectors=None,
 ):
     # hard coded for now
     print("Writing to csv all matrices...")
-    mean_vector = argv[0]
-    covar_matrix = argv[1]
-    total_vector = argv[2]
-
     if not options.get("skip_outlinePCA"):
-        outline_vectors = argv[3]
         write_2_file(outline_vectors, filename + "-cell_shape", im, output_dir, cellidx, options)
 
         # normalize shape vectors
-        norm_shape_vectors = argv[4]
         write_2_file(
             norm_shape_vectors,
             filename + "-cell_shape_normalized",
@@ -2809,7 +2807,14 @@ def cell_analysis(
     cellidx: list,
     options: Dict,
     celltype_labels: Optional[pd.DataFrame],
-    *argv,
+    df_all_cluster_list: list[pd.DataFrame],
+    mean_vector,
+    covar_matrix,
+    total_vector,
+    texture_vectors,
+    texture_channels,
+    shape_vectors=None,
+    norm_shape_vectors=None,
 ):
     """
     cluster and statisical analysis done on cell:
@@ -2817,20 +2822,6 @@ def cell_analysis(
     """
     # cellidx = mask.get_cell_index()
     stime = time.monotonic() if options.get("debug") else None
-    # hard coded for now
-    mean_vector = argv[0]
-    covar_matrix = argv[1]
-    total_vector = argv[2]
-
-    if not options.get("skip_outlinePCA"):
-        shape_vectors = argv[3]
-        texture_vectors = argv[4][0]
-        texture_channels = argv[4][1]
-        norm_shape_vectors = argv[5]
-    else:
-        texture_vectors = argv[3][0]
-        texture_channels = argv[3][1]
-
     # get channel labels
     maskchs = mask.get_channel_labels()
     feature_names = im.get_channel_labels()
@@ -4195,7 +4186,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     )
     print("GLCM calculations completed: " + str(time.monotonic() - stime))
 
-    return [texture, texture_featureNames]
+    return texture, texture_featureNames
 
 
 def DR_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
