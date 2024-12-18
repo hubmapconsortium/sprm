@@ -2396,7 +2396,7 @@ def get_best_match(df):
 
 
 def transform_df(df, ignore_column=None):
-    if ignore_column != None:
+    if ignore_column is not None:
         ignore_column_df = df.loc[:, ignore_column]
         df = df.drop(columns=ignore_column)
 
@@ -2429,7 +2429,7 @@ def transform_df(df, ignore_column=None):
 
         drop_rows.append(i)
 
-    if ignore_column != None:
+    if ignore_column is not None:
         # merge the dropped column back to the new one
         df_copy = pd.concat([ignore_column_df, df_copy], axis=1)
 
