@@ -2124,7 +2124,7 @@ def cell_cluster_IDs(
     maskchs: list,
     inCells: list,
     options: Dict,
-    celltype_labels: Path,
+    celltype_labels: Optional[pd.DataFrame],
     df_all_cluster_list: list[pd.DataFrame],
     allClusters: pd.DataFrame,
 ):
@@ -2132,6 +2132,8 @@ def cell_cluster_IDs(
     ignore_col = []
     # subtype_columns = None
     allsubtype_columns = None
+    # TODO: refactor this assignment/copy
+    master_allClusters = allClusters.copy()
 
     # read in celltype labels if exists
     if celltype_labels is not None and i == 0:
