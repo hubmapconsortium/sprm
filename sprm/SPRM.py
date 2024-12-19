@@ -93,6 +93,7 @@ def analysis(
     covar_matrix = []
     mean_vector = []
     total_vector = []
+    df_all_cluster_list = []
 
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
@@ -170,8 +171,10 @@ def analysis(
 
     seg_n = mask.get_labels("cell")
 
+    shape_vectors = None
+    norm_shape_vectors = None
     # get normalized shape representation of each cell
-    if not options.get("skip_outlinePCA"):
+    if options.get("run_outlinePCA"):
         outline_vectors, cell_polygons = get_parametric_outline(
             mask,
             seg_n,
@@ -295,71 +298,42 @@ def analysis(
                     total_vector[t, j, i, :, :],
                 ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
 
-        if not options.get("skip_outlinePCA"):
-            # save the means, covars, shape and total for each cell
-            save_all(
-                baseoutputfilename,
-                im,
-                mask,
-                output_dir,
-                cellidx,
-                options,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                shape_vectors,
-                norm_shape_vectors,
-            )
+        # save the means, covars, shape and total for each cell
+        save_all(
+            filename=baseoutputfilename,
+            im=im,
+            mask=mask,
+            output_dir=output_dir,
+            cellidx=cellidx,
+            options=options,
+            mean_vector=mean_vector,
+            covar_matrix=covar_matrix,
+            total_vector=total_vector,
+            # these will be None if no outline PCA
+            outline_vectors=shape_vectors,
+            norm_shape_vectors=norm_shape_vectors,
+        )
 
-            # do cell analyze
-            cell_analysis(
-                im,
-                mask,
-                baseoutputfilename,
-                bestz,
-                output_dir,
-                seg_n,
-                cellidx,
-                options,
-                celltype_labels,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                shape_vectors,
-                textures,
-                norm_shape_vectors,
-            )
-        else:
-            # same functions as above just without shape outlines
-            save_all(
-                baseoutputfilename,
-                im,
-                mask,
-                output_dir,
-                cellidx,
-                options,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-            )
-            cell_analysis(
-                im,
-                mask,
-                baseoutputfilename,
-                bestz,
-                output_dir,
-                seg_n,
-                cellidx,
-                options,
-                celltype_labels,
-                mean_vector,
-                covar_matrix,
-                total_vector,
-                textures,
-            )
-
-    # mask.quit()
-    # im.quit()
+        cell_analysis(
+            im=im,
+            mask=mask,
+            filename=baseoutputfilename,
+            bestz=bestz,
+            output_dir=output_dir,
+            seg_n=seg_n,
+            cellidx=cellidx,
+            options=options,
+            celltype_labels=celltype_labels,
+            df_all_cluster_list=df_all_cluster_list,
+            mean_vector=mean_vector,
+            covar_matrix=covar_matrix,
+            total_vector=total_vector,
+            texture_vectors=textures[0],
+            texture_channels=textures[1],
+            # these will be None if no outline PCA
+            shape_vectors=shape_vectors,
+            norm_shape_vectors=norm_shape_vectors,
+        )
 
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
@@ -413,52 +387,52 @@ def main(
     stime = time.monotonic() if options.get("debug") else None
 
     ### LOCAL TESTING ###
-    for i in range(len(img_files)):
-        im, mask, cc, segm = analysis(
-            img_files[i],
-            mask_files[i],
-            opt_img_files[0],
-            output_dir,
-            options,
-            cell_types_by_image[i],
-        )
-
-        im_list.append(im)
-        mask_list.append(mask)
-        cell_total.append(cc)
-        seg_metric_list.append(segm)
+    # for i in range(len(img_files)):
+    #     im, mask, cc, segm = analysis(
+    #         img_files[i],
+    #         mask_files[i],
+    #         opt_img_files[0],
+    #         output_dir,
+    #         options,
+    #         cell_types_by_image[i],
+    #     )
+    #
+    #     im_list.append(im)
+    #     mask_list.append(mask)
+    #     cell_total.append(cc)
+    #     seg_metric_list.append(segm)
     #### END LOCAL TESTING ###
 
     ### CWL RUNS ###
-    # use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    # executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    # print("Using", processes, "worker(s) with executor", executor.__name__)
-    # with executor(max_workers=processes) as executor:
-    #     futures = []
-    #     for img_file, mask_file, opt_img_file, cell_types in zip(
-    #         img_files, mask_files, opt_img_files, cell_types_by_image
-    #     ):
-    #         futures.append(
-    #             executor.submit(
-    #                 analysis,
-    #                 img_file,
-    #                 mask_file,
-    #                 opt_img_file,
-    #                 output_dir,
-    #                 options,
-    #                 cell_types,
-    #             )
-    #         )
-    #
-    #     for future in futures:
-    #         maybe_result = future.result()
-    #         if maybe_result is not None:
-    #             im, mask, cell_count, seg_metrics = maybe_result
-    #
-    #             im_list.append(im)
-    #             mask_list.append(mask)
-    #             cell_total.append(cell_count)
-    #             seg_metric_list.append(seg_metrics)
+    use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
+    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
+    print("Using", processes, "worker(s) with executor", executor.__name__)
+    with executor(max_workers=processes) as executor:
+        futures = []
+        for img_file, mask_file, opt_img_file, cell_types in zip(
+            img_files, mask_files, opt_img_files, cell_types_by_image
+        ):
+            futures.append(
+                executor.submit(
+                    analysis,
+                    img_file,
+                    mask_file,
+                    opt_img_file,
+                    output_dir,
+                    options,
+                    cell_types,
+                )
+            )
+
+        for future in futures:
+            maybe_result = future.result()
+            if maybe_result is not None:
+                im, mask, cell_count, seg_metrics = maybe_result
+
+                im_list.append(im)
+                mask_list.append(mask)
+                cell_total.append(cell_count)
+                seg_metric_list.append(seg_metrics)
 
     ### CWL END ###
 
