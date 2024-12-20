@@ -1,3 +1,30 @@
+# SPRM v1.5.1
+December 20, 2024 Changes since v1.4.4
+
+## New Features
+
+[SPRM DEMO](https://github.com/murphygroup/SPRM/tree/master/demo)
+
+We now feature a interactive demo that users can use to run SPRM and display it's functionalities. 
+
+## Improvements
+
+SPRM now takes in multiple cell type labels from different vendors/providers(e.g. multiple columns for each that identifies cell types) and will find corresponding subtypes for each representation. 
+
+Example representation:
+| Cell ID | Cell-Types 1| Cell-Types 2 | [Cell-Types 1]-tSNE_allfeatures-subtypes | [Cell-Types 1]-UMAP_allfeatures-subtypes | [Cell-Types 1]-mean-cell-subtypes | [Cell-Types 2]-tSNE_allfeatures-subtypes | [Cell-Types 2]-UMAP_allfeatures-subtypes | [Cell-Types 2]-mean-cell-subtypes |
+| 69 | B Cells | T Cells | B:4 | B:3 | B:1 | T:1 | T:2 | T:3 |
+| 71 | other cells | B Cells | o:1 | o:2 |o:2 | B:1 | B:2 | B:3 |
+| 72 | other cells | B Cells | o:1 | o:2 |o:2 | B:4 | B:3 | B:2 |
+| 74 | CD4-positive T Cells | B Cells | CD:1 | CD:2 | CD:2 | B:4 | B:3 | B:2 |
+
+## Bug Fixes
+
+Fix bug issue in reading 2D/3D images where channels were transformed incorrectly. 
+Fix bug issue in OutlinePCA in which no rotation of cells are needed and therefore would skip rotation step.
+Add edge case detection for cells that are under a specific pixel area - which is now defined in the options.
+
+
 # SPRM v1.4.4
 July 10, 2024 Changes since v1.2.1
 
