@@ -31,6 +31,7 @@ setup(
     },
     install_requires=[
         "aicsimageio==4.8.0",
+        "anndata",
         "frozendict",
         "lxml",
         "manhole",
@@ -43,6 +44,7 @@ setup(
         "scikit-image==0.22.0",
         "scikit-learn",
         "shapely",
+        "spatialdata",
         "tables",
         "tifffile==2022.8.12",
         "xmltodict",
