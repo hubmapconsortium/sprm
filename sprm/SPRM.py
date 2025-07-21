@@ -8,6 +8,8 @@ from math import ceil, log2
 import spatialdata.models
 from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
 from subprocess import CalledProcessError, check_output
+from typing import Iterable
+from pathlib import Path
 
 from .constants import desired_pixel_size_for_pyramid
 from .outlinePCA import (
@@ -39,7 +41,15 @@ DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
 DEFAULT_TEMP_DIRECTORY = Path("temp")
 DOCKER_GIT_VERSION_PATH = Path("/opt/sprm-git-revision.json")
+ome_tiff_pattern = re.compile(r"(?P<basename>.*)\.ome\.tiff(f?)$")
 
+def find_ome_tiff(input_dir: Path) -> Path:
+    for dirpath_str, _, filenames in walk(input_dir):
+        dirpath = Path(dirpath_str)
+        for filename in filenames:
+            if ome_tiff_pattern.match(filename):
+                src_filepath = dirpath / filename
+                return src_filepath
 
 def get_sprm_version() -> str:
     """
@@ -79,8 +89,9 @@ def get_sprm_version() -> str:
 
     return "unknown"
 
-def get_expr_spatialdata(image_file: Path, image_dimension: str):
+def get_expr_spatialdata(img_dir: Path, image_dimension: str):
     print("Loading image data")
+    image_file = find_ome_tiff(img_dir)
     image = AICSImage(image_file)
     image_data_squeezed = image.data.squeeze()
     print("... done. Original shape:", image.data.shape)
@@ -99,8 +110,9 @@ def get_expr_spatialdata(image_file: Path, image_dimension: str):
 
     return img_for_sdata, image_scale_factors
 
-def get_mask_spatialdata(mask_file: Path, image_dimension: str, image_scale_factors):
+def get_mask_spatialdata(mask_dir: Path, image_dimension: str, image_scale_factors):
     print("Loading mask data")
+    mask_file = find_ome_tiff(mask_dir)
     mask = AICSImage(mask_file)
     cell_mask = mask.data[0, mask.channel_names.index("cells"), 0, :, :]
     cell_indexes = sorted(set(cell_mask.flat) - {0})
