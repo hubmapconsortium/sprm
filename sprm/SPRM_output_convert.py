@@ -13,8 +13,14 @@ from aicsimageio import AICSImage
 
 from math import ceil, log2
 
-
 desired_pixel_size_for_pyramid = 250
+
+def sanitize_column_names(df:pd.DataFrame)->pd.DataFrame:
+    for column in df.columns:
+        sanitized_column = column.replace('[]', '').replace(' ', '-')
+        df[sanitized_column] = df[column]
+        df = df.drop(column, axis=1, inplace=False)
+        return df
 
 def find_ome_tiff(directory: Path)->Path:
     return find_file(directory, "*.ome.tif*")
@@ -78,6 +84,8 @@ def read_table(sprm_dir)->TableModel:
     tsne_df = pd.read_csv(tsne_csv)
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
+
+    adata.obs = sanitize_column_names(adata.obs)
 
     return TableModel.parse(adata)
 
