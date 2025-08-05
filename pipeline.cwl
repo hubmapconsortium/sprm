@@ -31,12 +31,18 @@ inputs:
   processes:
     label: "Number of images to process in parallel (default: 1)"
     type: int?
+  num_dims:
+    label: "Number of dimensions associated with the data"
+    type: int?
 
 outputs:
   sprm_output:
     outputSource: sprm/output_dir
     type: Directory
     label: "SPRM output"
+  sdata_zarr:
+    outputSource: create_spatial_data/sdata_zarr
+    type: Directory
 
 steps:
   ome_tiff_normalize_expr:
@@ -74,3 +80,16 @@ steps:
     out: [output_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
+  create_spatial_data:
+    in:
+      image_dir:
+        source: ome_tiff_normalize_expr/output_dir
+      mask_dir:
+        source: ome_tiff_normalize_mask/output_dir
+      sprm_dir:
+        source: sprm/output_dir
+      num_dims:
+        source: num_dims
+    out: [sdata_zarr]
+    run: steps/create-spatial-data.cwl
+    label: "Conversion to spatialdata format"
