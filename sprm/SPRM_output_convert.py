@@ -11,7 +11,6 @@ from os import walk
 from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
 from aicsimageio import AICSImage
 
-from .SPRM_pkg import *
 from math import ceil, log2
 
 
@@ -59,12 +58,12 @@ def read_table(sprm_dir)->TableModel:
     observations = list(mean_df.ID)
     var = pd.DataFrame(index=features)
     obs = pd.DataFrame(index=observations)
-    x = mean_df.drop('ID', inplace=False).to_numpy()
+    x = mean_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata = anndata.AnnData(X=x, obs=obs, var=var)
 
     total_csv = find_file(sprm_dir, '*cell_channel_total.csv')
     total_df = pd.read_csv(total_csv)
-    adata.layers["total"] = total_df.drop("ID", inplace=False).to_numpy()
+    adata.layers["total"] = total_df.drop("ID", axis =1, inplace=False).to_numpy()
     
     cluster_csv = find_file(sprm_dir, '*cell_cluster.csv')
     cluster_df = pd.read_csv(cluster_csv).set_index('ID',drop=True, inplace=False)
@@ -77,7 +76,7 @@ def read_table(sprm_dir)->TableModel:
 
     tsne_csv = find_file(sprm_dir, "*tSNE_allfeatures.csv")
     tsne_df = pd.read_csv(tsne_csv)
-    tsne_coords = tsne_df.drop('ID', inplace=False).to_numpy()
+    tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
     return TableModel.parse(adata)
@@ -109,5 +108,6 @@ main(
     img_dir=args.img_dir,
     mask_dir=args.mask_dir,
     sprm_dir=args.sprm_dir,
+    num_dims=args.num_dims,
 
 )
