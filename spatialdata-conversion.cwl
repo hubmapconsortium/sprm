@@ -26,11 +26,11 @@ steps:
   create_spatial_data:
     in:
       image_dir:
-        source: ome_tiff_normalize_expr/output_dir
+        source: image_dir
       mask_dir:
-        source: ome_tiff_normalize_mask/output_dir
+        source: mask_dir
       sprm_dir:
-        source: sprm/output_dir
+        source: sprm_dir
       num_dims:
         source: num_dims
     out: [sdata_zarr]
