@@ -6,10 +6,10 @@ label: SPRM pipeline
 inputs:
   image_dir:
     label: "Directory containing image files"
-    type: Directory
+    type: Directory[]
   mask_dir:
     label: "Directory containing mask files"
-    type: Directory
+    type: Directory[]
   sprm_dir:
     label: "SPRM output directory"
     type: Directory
