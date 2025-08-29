@@ -6,8 +6,6 @@ RUN apt-get update \
  && apt-get -y install libgl1-mesa-glx \
  && rm -rf /var/cache/apt/*
 
-COPY sprm/SPRM_output_convert.py /opt
-
 WORKDIR /opt
 COPY . /opt/sprm
 RUN cd sprm \

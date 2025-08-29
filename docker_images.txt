@@ -1,1 +1,2 @@
-hubmap/sprm	docker/Dockerfile	base_directory_build,write_git_json=sprm-git-revision.json
+hubmap/sprm	docker/sprm/Dockerfile	base_directory_build,write_git_json=sprm-git-revision.json
+hubmap/sprm-spatialdata-conversion	docker/spatialdata-conversion/Dockerfile	base_directory_build
