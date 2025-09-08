@@ -461,6 +461,11 @@ def argparse_wrapper():
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_PATH)
     p.add_argument("--enable-manhole", action="store_true")
     p.add_argument("--enable-faulthandler", action="store_true")
+    p.add_argument(
+        "--threadpool-limit",
+        type=int,
+        help="Limit the number of threads used by BLAS/OpenMP libraries (e.g., MKL)",
+    )
     p.add_argument("--celltype-labels", type=Path, action="append")
 
     options_file_group = p.add_mutually_exclusive_group()
@@ -476,6 +481,12 @@ def argparse_wrapper():
 
     if argss.enable_faulthandler:
         faulthandler.enable(all_threads=True)
+
+    if argss.threadpool_limit is not None:
+        import threadpoolctl
+
+        threadpoolctl.threadpool_limits(limits=argss.threadpool_limit)
+        print(f"Limited threadpool to {argss.threadpool_limit} threads")
 
     if argss.options_preset is not None:
         argss.options_file = DEFAULT_OPTIONS_FILE.with_name(f"options-{argss.options_preset}.txt")
