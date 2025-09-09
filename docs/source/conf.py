@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Spatial Process & Relationship Modeling"
-copyright = "2023, Ted Zhang, Bob Murphy"
+copyright = "2020-2024, Ted Zhang, Bob Murphy"
 author = "Ted Zhang, Bob Murphy"
 release = "11/02/2023"
 

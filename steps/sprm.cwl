@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:1.5.1
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
@@ -35,10 +35,15 @@ inputs:
     inputBinding:
       position: 4
       prefix: "--enable-faulthandler"
+  threadpool_limit:
+    type: int?
+    inputBinding:
+      position: 5
+      prefix: "--threadpool-limit"
   verbose:
     type: boolean?
     inputBinding:
-      position: 5
+      position: 6
       prefix: "--verbose"
   cell_types_directory:
     type:
