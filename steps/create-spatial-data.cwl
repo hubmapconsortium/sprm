@@ -6,7 +6,7 @@ hints:
     dockerPull: hubmap/sprm-spatialdata-conversion:latest
   NetworkAccess:
     networkAccess: true
-baseCommand:
+baseCommand: /opt/SPRM_output_convert.py
 
 inputs:
   image_dir:
