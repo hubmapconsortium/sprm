@@ -1,15 +1,9 @@
-import anndata
 import faulthandler
-import spatialdata as sd
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from math import ceil, log2
 
-import spatialdata.models
-from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
 from subprocess import CalledProcessError, check_output
-from typing import Iterable
-from pathlib import Path
 
 from .constants import desired_pixel_size_for_pyramid
 from .outlinePCA import (
@@ -42,14 +36,6 @@ DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
 DEFAULT_TEMP_DIRECTORY = Path("temp")
 DOCKER_GIT_VERSION_PATH = Path("/opt/sprm-git-revision.json")
 ome_tiff_pattern = re.compile(r"(?P<basename>.*)\.ome\.tiff(f?)$")
-
-def find_ome_tiff(input_dir: Path) -> Path:
-    for dirpath_str, _, filenames in walk(input_dir):
-        dirpath = Path(dirpath_str)
-        for filename in filenames:
-            if ome_tiff_pattern.match(filename):
-                src_filepath = dirpath / filename
-                return src_filepath
 
 def get_sprm_version() -> str:
     """
@@ -88,68 +74,6 @@ def get_sprm_version() -> str:
         pass
 
     return "unknown"
-
-def get_expr_spatialdata(img_dir: Path, image_dimension: str):
-    print("Loading image data")
-    image_file = find_ome_tiff(img_dir)
-    image = AICSImage(image_file)
-    image_data_squeezed = image.data.squeeze()
-    print("... done. Original shape:", image.data.shape)
-
-    image_scale_factors = (2,) * ceil(
-        log2(max(image_data_squeezed.shape[1:]) / desired_pixel_size_for_pyramid)
-    )
-
-    model = Image2DModel if image_dimension == "2D" else Image3DModel
-
-    img_for_sdata = model.parse(
-        data=image_data_squeezed,
-        c_coords=image.channel_names,
-        scale_factors=image_scale_factors,
-    )
-
-    return img_for_sdata, image_scale_factors
-
-def get_mask_spatialdata(mask_dir: Path, image_dimension: str, image_scale_factors):
-    print("Loading mask data")
-    mask_file = find_ome_tiff(mask_dir)
-    mask = AICSImage(mask_file)
-    cell_mask = mask.data[0, mask.channel_names.index("cells"), 0, :, :]
-    cell_indexes = sorted(set(cell_mask.flat) - {0})
-    print("... done.", len(cell_indexes), "cells")
-
-    model = Labels2DModel if image_dimension == "2D" else Labels3DModel
-
-    mask_for_sdata = model.parse(
-        data=cell_mask,
-        scale_factors=image_scale_factors,
-    )
-
-    return mask_for_sdata
-
-def get_table_spatialdata(cell_type_files)->TableModel:
-    adata = anndata.AnnData()
-    #Read mean expression
-    #Read total expression
-    #Read cluster results cell_cluster.csv
-    #Read tSNE and PCA
-    #Read cell types
-    #Read adjacency matrix
-
-def get_cell_labels_spatialdata(cell_type_files, mean_expr_ad)->TableModel:
-    cell_type_dfs = []
-    for cell_type_file in cell_type_files:
-        cell_type_df = pd.read_csv(cell_type_file, index_col=0).sort_index()
-        cell_type_df.index = cell_type_df.index.astype(str)
-        for column in cell_type_df:
-            cell_type_df[column] = cell_type_df[column].astype("category")
-        cell_type_dfs.append(cell_type_df)
-
-    if cell_type_dfs:
-        cell_types = pd.concat(cell_type_dfs, axis=1)
-        cell_metadata = anndata.AnnData(obs=mean_expr_ad.obs.copy(), obsm={"cell_types": cell_types})
-        return TableModel.parse(cell_metadata)
-
 
 def analysis(
     img_file: Path,
@@ -435,9 +359,6 @@ def main(
     options = read_options(options_path, DEFAULT_OPTIONS_FILE)
 
     image_dimension = options.get("image_dimension")
-
-    sdata_image_model, scale_factors = get_expr_spatialdata(img_dir, image_dimension)
-    sdata_labels_model = get_mask_spatialdata(mask_dir, image_dimension, scale_factors)
 
     # store results in a dir
     check_output_dir(output_dir, options)

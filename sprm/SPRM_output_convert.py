@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import anndata
 import pandas as pd
 import spatialdata
@@ -14,6 +16,29 @@ from aicsimageio import AICSImage
 from math import ceil, log2
 
 desired_pixel_size_for_pyramid = 250
+
+
+def load_adjacency_matrix_and_labels(
+    adjacency_file: Path, label_file: Path, adata: anndata.AnnData
+):
+    adjacency_matrix = mmread(adjacency_file).tocsc()
+    labels = pd.read_csv(
+        label_file, header=None, names=["cell_id"], delim_whitespace=True
+    )
+
+    adata_cell_ids = adata.obs.index.astype(int).to_list()
+    filtered_labels = labels[labels["cell_id"].isin(adata_cell_ids)]
+    filtered_cell_ids = filtered_labels["cell_id"].values
+
+    label_to_index_map = pd.Series(
+        labels.index.values, index=labels["cell_id"].astype(int)
+    )
+    filtered_indices = label_to_index_map[filtered_cell_ids].values
+
+    # Adjust indices to fit the zero-based indexing
+    adjusted_indices = filtered_indices - 1
+    filtered_matrix = adjacency_matrix[adjusted_indices, :][:, adjusted_indices]
+    return filtered_matrix
 
 def sanitize_column_names(df:pd.DataFrame)->pd.DataFrame:
     for column in df.columns:
@@ -77,7 +102,9 @@ def read_table(sprm_dir)->TableModel:
         adata.obs[column] = cluster_df[column]
 
     adjacency_matrix_path = find_file(sprm_dir, "*AdjacencyMatrix.mtx")
-    adjacency_matrix = mmread(adjacency_matrix_path)
+    adjacency_matrix_labels_path = find_file(sprm_dir, '*AdjacencyMatrixRowColLabels.txt')
+
+    adjacency_matrix = load_adjacency_matrix_and_labels(adjacency_matrix_path, adjacency_matrix_labels_path, adata)
     adata.obsp['adjacency_matrix'] = adjacency_matrix
 
     tsne_csv = find_file(sprm_dir, "*tSNE_allfeatures.csv")
@@ -85,7 +112,7 @@ def read_table(sprm_dir)->TableModel:
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
-    adata.var = sanitize_column_names(adata.var)
+    adata.obs = sanitize_column_names(adata.obs)
 
     return TableModel.parse(adata)
 
