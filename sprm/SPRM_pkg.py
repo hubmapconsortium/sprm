@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
+import spatialdata as sd
 import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
@@ -43,6 +44,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, PCA
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
+from spatialdata.models import Image2DModel, Labels2DModel, PointsModel, TableModel
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .data_structures import IMGstruct, MaskStruct
@@ -1509,7 +1511,7 @@ def write_2_file(
     write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
 
 
-def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: list, options: Dict):
+def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: list, options: Dict)->pd.DataFrame:
     global row_index
 
     if row_index:
@@ -1556,6 +1558,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
         with pd.HDFStore(output_dir / "out.hdf5") as store:
             store.put(hdf_key, df)
 
+    return df
 
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
@@ -1564,7 +1567,7 @@ def write_cell_polygs(
     filename: str,
     output_dir: Path,
     options: Dict,
-):
+)->np.ndarray:
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str(
@@ -1594,6 +1597,7 @@ def write_cell_polygs(
     for i in range(1, 201):
         header.append(i)
     write_2_csv(header, pts, filename + "-normalized_cell_outlines", output_dir, cellidx, options)
+    return pts
 
 
 def build_matrix(
