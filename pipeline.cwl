@@ -25,6 +25,9 @@ inputs:
   enable_faulthandler:
     label: "Whether to enable the Python 'faulthandler' module"
     type: boolean?
+  threadpool_limit:
+    label: "Whether to enable the Python 'faulthandler' module"
+    type: int?
   verbose:
     label: "Whether to enable verbose/debug mode"
     type: boolean?
@@ -67,6 +70,8 @@ steps:
         source: enable_manhole
       enable_faulthandler:
         source: enable_faulthandler
+      threadpool_limit:
+        source: threadpool_limit
       verbose:
         source: verbose
       processes:
