@@ -4233,7 +4233,7 @@ def DR_AllFeatures(
         perplexity=perplexity,
         early_exaggeration=early_exaggeration,
         learning_rate=learning_rate,
-        n_iter=n_iter,
+        max_iter=n_iter,
         init="random",
         random_state=0,
     )

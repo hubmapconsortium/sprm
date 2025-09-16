@@ -41,7 +41,7 @@ setup(
         "pandas",
         "pint",
         "scikit-image==0.22.0",
-        "scikit-learn",
+        "scikit-learn==1.5.0",
         "shapely",
         "tables",
         "tifffile==2022.8.12",
