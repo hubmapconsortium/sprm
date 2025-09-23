@@ -1,0 +1,8 @@
+[
+	{
+		"pattern": "sprm_output.zarr/",
+		"description": "Zarr store containing serialized SpatialData object",
+		"edam_ontology_term": "EDAM_1.24.format_4006"
+	}
+]
+
