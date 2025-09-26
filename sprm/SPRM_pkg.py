@@ -1511,7 +1511,7 @@ def write_2_file(
     write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
 
 
-def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: list, options: Dict)->pd.DataFrame:
+def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: list, options: Dict):
     global row_index
 
     if row_index:
@@ -1557,8 +1557,6 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     with hdf5_lock:
         with pd.HDFStore(output_dir / "out.hdf5") as store:
             store.put(hdf_key, df)
-
-    return df
 
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
