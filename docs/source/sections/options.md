@@ -8,43 +8,43 @@ Generally the options are preset for every run and should not be changed. These 
 |--------|---------------|-------------|
 | **General/runtime controls** |
 | `debug` | 0 | Enable verbose/diagnostic mode. Also disables subprocess isolation for multi-image runs. |
-| `image_analysis` | 1 | Turn on the main image feature extraction/analysis steps. Set 0 to skip heavy analysis. |
-| **Input, dimensionality, and selection** |
-| `image_dimension` | 2D | Processing mode: 2D or 3D. Affects adjacency construction and slice handling. |
-| `zslices` | 0 | Number of z-slices to consider in 3D. 0 lets the pipeline pick a best 2D slice when applicable. |
+| `image_analysis` | 1 | Perform the main image feature-extraction and analysis steps. |
+| **Dimensionality selection and preprocessing** |
+| `image_dimension` | 2D | Processing mode: 2D or 3D. The default for 3D input
+images is to select one z-slice to process (see option
+zslices). Therefore, image_dimension must be set to 3D
+to process all slices. |
+| `zslices` | 0 | For image_dimension=2D, specifies which z-slice to
+process (setting to 0 picks the slice with the highest total
+intensity). Ignored for image_dimension=3D. |
 | `skip_empty_mask` | 1 | Skip images with no valid cells in the mask. |
-| `interior_cells_only` | 1 | Use only interior cells for downstream feature computation (e.g., texture). |
+| `interior_cells_only` | 1 | Use only interior cells for downstream feature
+computation (i.e., remove cells touching image edge). |
 | `valid_cell_threshold` | 10 | Minimum pixel count for a cell to be considered valid. |
-| **Normalization and preprocessing** |
 | `normalize_bg` | 1 | Apply background normalization across channels before feature extraction. |
-| `zscore_norm` | 1 | Apply z-score normalization to features prior to clustering/embedding. |
-| `tSNE_all_preprocess` | none zscore blockwise_zscore | Preprocessing for tSNE "all features": choose one of none, zscore, blockwise_zscore. blockwise_zscore balances blocks (cov/total/meanAll/shape/texture) before concatenation. |
-| `tSNE_texture_calculation_skip` | 1 | Exclude texture features from the concatenated feature matrix used for tSNE. |
-| **Texture (GLCM) features** |
-| `skip_texture` | 1 | Skip GLCM texture computation entirely. |
-| `glcm_angles` | [0] | Angular offsets (degrees) for GLCM. Currently only 0° is supported. |
-| `glcm_distances` | [1] | Pixel distances for GLCM co-occurrence. Multiple distances expand features per channel/mask. |
-| **Shape analysis and outlines** |
-| `run_outlinePCA` | 1 | Compute PCA on resampled cell outlines to derive shape features. |
+| **Cell shape analysis** | 
+| `run_outlinePCA` | 1 | Find cell outlines and use PCA to derive shape features. |
 | `num_outlinepoints` | 100 | Number of points used to resample cell outlines prior to PCA. |
-| `num_shapeclusters` | silhouette 3 6 1 | Shape clustering configuration: method (silhouette) with min=3, max=6, keep=1. The best K by silhouette is selected in-range. |
 | **Clustering (cells/voxels/markers)** |
-| `num_cellclusters` | silhouette 3 10 1 | Cell-feature clustering: method (silhouette) with min=3, max=10, keep=1. Best K chosen by silhouette. |
+| `zscore_norm` | 1 | Apply z-score normalization to features prior to clustering/embedding. |
+| `tSNE_all_preprocess` | none | Define desired preprocessing for tSNE: “none” (don’t zscore), “zscore” (zscore all features together), or “blockwise_zscore” (zscore each block of features (cov/total/meanAll/shape) separately. |
+| `num_shapeclusters` | silhouette 3 6 1 | Control shape clustering (same structure as num_cellclusters but different default max). |
+| `num_cellclusters` | silhouette 3 10 1 | Control choice of number of cell clusters found by kmeans: must begin with method (only method currently supported is silhouette) followed by min and max k followed by keep (1=output clustering resuts for each k). |
 | `num_voxelclusters` | 3 | Number of clusters for voxel-level grouping (e.g., intensity/region partitioning). |
 | `num_markers` | 3 | Number of markers to include for marker-driven analyses/plots. |
-| `recluster` | 0 | If enabled, perform a secondary clustering pass after feature updates/refinements. |
 | **Dimensionality reduction (tSNE and PCA before tSNE)** |
 | `tSNE_num_components` | 2 | Number of components for tSNE output (and PCA components when PCA init is used). |
-| `tSNE_all_tSNEInitialization` | pca | Initialization mode for tSNE "all features". pca triggers a PCA transform before tSNE. |
+| `tSNE_all_tSNEInitialization` | pca | Perform PCA transform before tSNE. |
 | `tsne_all_svdsolver4pca` | full | PCA SVD solver when using PCA init: full or randomized (auto-retries if full fails). |
 | `tSNE_all_perplexity` | 35 | tSNE perplexity hyperparameter. |
 | `tSNE_all_ee` | default | tSNE early exaggeration. default sets it to roughly N/10; numeric values are accepted. |
-| `num_channelPCA_components` | 3 | Number of PCA components per channel or stage where per-channel PCA is applied (used in channel-wise reductions feeding tSNE). |
+| `num_channelPCA_components` | 3 | When creating pixel/voxel-wise colored images, number of PCA or k-means components to choose. |
 | **Cell adjacency graph and neighborhood** |
 | `cell_graph` | 1 | Build the cell adjacency graph and related sparse distance matrices. |
 | `cell_adj_parallel` | 0 | Use parallel/numba-optimized windowing for adjacency (1) or standard Python (0). |
-| `cell_adj_dilation_itr` | 3 | Number of binary dilation iterations used to dilate cell edges when checking contact/neighbors. |
-| `adj_matrix_delta` | 3 | Window padding around each cell's ROI to restrict adjacency calculations and speed up searches. |
+| `cell_adj_dilation_itr` | 3 | Number of binary-dilation iterations done before checking neighbors. |
+| `adj_matrix_delta` | 3 | Padding (in pixels) to add around each cell’s bounding box. For efficiency, only pairs of cells with overlapping
+padded bounding boxes are checked for potential neighbors. |
 | **Reallocation/refinement controls** |
 | `reallocation_descent_rate` | 0.1 | Step size for iterative membership/label reallocation during post-cluster refinement. |
 | `reallocation_quit_criterion` | 0.0001 | Convergence tolerance for reallocation iterations. |

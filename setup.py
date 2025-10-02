@@ -35,6 +35,7 @@ setup(
         "lxml",
         "manhole",
         "matplotlib",
+        "notebook",
         "numba",
         "numpy",
         "opencv-python",
