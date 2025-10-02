@@ -1,10 +1,9 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # SPRM - Spatial Process & Relationship Modeling
-Ted Zhang, Haoran Chen, Matt Ruffalo, and Bob Murphy
-Ray and Stephanie Lane Computational Biology Department
-School of Computer Science
-Carnegie Mellon University
-V1.4.6 September 18, 2024
+Ted Zhang, Haoran Chen, Matt Ruffalo, and Robert F. Murphy\
+Ray and Stephanie Lane Computational Biology Department\
+School of Computer Science, Carnegie Mellon University\
+V1.5.5 October 1, 2025
 
 ## Description
 SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  
@@ -35,16 +34,38 @@ JSON containing all features and cluster assignments
 
 ## Simple illustration
 
-The demo folder contains two simple ways to run SPRM.  For both, begin by downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing).
+The demo folder contains two simple ways to run SPRM.  For both, start by
+* downloading/cloning this repository
 
-* The shell script `run_sprm.sh` will just run SPRM and place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  Run the command 
+Install all dependencies:
+
+**Automated**
+
+* Run the following command 
+
 ```bash
-python ../setup.py install
+./install_sprm.sh
 ```
-beforehand.
+* Will create an environment called SPRM if you have `conda` or `pyenv` otherwise will install in base environment.
 
-*The jupyter notebook sprm_demo.ipynb will run `run_sprm.hs` on the example files and then display the outputs in the notebook. It will run setup.py inside the notebook.
+**Manual**
 
+* in the main folder, run the command 
+```bash
+pip install .
+```
+Change to the demo folder ("cd demo") and you can then either:
+* Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files.  It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  
+
+or
+
+* Activate the SPRM environment (e.g., "conda activate SPRM") and then start jupyter notebook ("jupyter notebook").  Open the sprm_demo.ipynb notebook which will run SRPM on the demo files and then display the outputs in the notebook.
+
+**EXAMPLES**
+
+We have provided you with example images and masks but feel free to use your own as well! 
+
+* downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing) and putting them in the "demo" folder into their own respective directories "img" and "mask".
 ## Prerequisites
 
 * Python 3.8 or newer
