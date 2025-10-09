@@ -49,26 +49,35 @@ def fraction(img_bi, mask_bi):
 
 
 def foreground_separation(img_thre):
+    print(f"foreground_sep point 1 {img_thre.shape} {img_thre.dtype}")
     contour_ref = img_thre.copy()
+    print(f"foreground_sep point 2 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(1))
 
     img_thre = -img_thre + 1
+    print(f"foreground_sep point 3 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(2))
     img_thre = -img_thre + 1
 
+    print(f"foreground_sep point 4 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(20))
 
     img_thre = -img_thre + 1
+    print(f"foreground_sep point 5 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(10))
     img_thre = -img_thre + 1
 
+    print(f"foreground_sep point 6 {img_thre.shape} {img_thre.dtype}")
     img_thre = area_closing(img_thre, 20000, connectivity=2)
     contour_ref = contour_ref.astype(float)
     img_thre = img_thre.astype(float)
+    print(f"foreground_sep point 7 {img_thre.shape} {img_thre.dtype}")
     img_binary = MorphGAC(
         -contour_ref + 1, 5, -img_thre + 1, smoothing=1, balloon=0.8, threshold=0.5
     )
+    print(f"foreground_sep point 8 {img_thre.shape} {img_thre.dtype}")
     img_binary = area_closing(img_binary, 1000, connectivity=2)
+    print(f"foreground_sep point 9 {img_thre.shape} {img_thre.dtype}")
 
     return -img_binary + 1
 
@@ -376,6 +385,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
 
     # separate image foreground background
+    print("single method point 1")
     try:
         img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
@@ -387,12 +397,15 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         thresholding_channels = [nuclear_channel_index, cell_channel_index]
         seg_channel_provided = True
     except:
+        print("single method point 1b")
         thresholding_channels = range(img.data.shape[2])
         seg_channel_provided = False
+    print("single method point 2")
     img_thresholded = sum(
         thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
         for c in thresholding_channels
     )
+    print("single method point 3")
     if not seg_channel_provided:
         img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
     img_binary = foreground_separation(img_thresholded)
@@ -403,6 +416,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
+    print("single method point 4")
     # set mask channel names
     channel_names = [
         "Matched Cell",
@@ -411,10 +425,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     ]
     metrics = {}
     for channel in range(metric_mask.shape[0]):
+        print(f"single method point 5 {channel} of {metric_mask.shape[0]}")
         current_mask = metric_mask[channel]
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
+            print(f"single method point 5 case 1 {channel_names[channel]}")
             mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
             try:
                 matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
@@ -476,6 +492,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             # get cell type labels
             cell_type_labels = cell_type(current_mask, img_channels)
         else:
+            print(f"single method point 5 case 2 {channel_names[channel]}")
             img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
@@ -495,6 +512,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 "AvgSilhouetteOver2~10NumberOfClusters"
             ] = avg_cell_silhouette
 
+    print("single method point 6")
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
     with importlib.resources.open_binary("sprm", "pca.pickle") as f:
         PCA_model = pickle.load(f)
@@ -502,4 +520,5 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 
+    print("single method point 7")
     return metrics, fraction_background, 1 / (background_CV + 1), background_PCA
