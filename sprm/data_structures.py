@@ -17,7 +17,9 @@ class IMGstruct:
 
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
+        print(f"POINT 1: {self.img.dims} {self.img.dtype}")
         self.data = self.read_data(options)
+        print(f"POINT 2: {self.data.shape} {self.data.dtype}")
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
@@ -83,8 +85,10 @@ class IMGstruct:
             )
 
         # convert data to a float for normalization downstream
-        data = data.astype("float")
-        assert data.dtype == "float"
+        # data = data.astype("float")
+        # assert data.dtype == "float"
+        data = data.astype(np.float32)
+        assert data.dtype == np.float32
 
         return data
 
@@ -192,8 +196,11 @@ class MaskStruct(IMGstruct):
         self.set_bestz(bestz)
 
         # check to make sure is int64
-        data = data.astype(int)
-        assert data.dtype == "int"
+        # data = data.astype(int)
+        # assert data.dtype == "int"
+        data = data.astype(np.int32)
+        assert data.dtype == np.int32
+        print(f"POINT 3: {data.dtype} {data.shape} {data.min()} {data.max()}")
 
         return data
 
