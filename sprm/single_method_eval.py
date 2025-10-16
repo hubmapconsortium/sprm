@@ -21,6 +21,9 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
+from threadpoolctl import threadpool_info
+from pprint import pprint
+
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
@@ -49,6 +52,7 @@ def fraction(img_bi, mask_bi):
 
 
 def foreground_separation(img_thre):
+    img_thre = img_thre.astype(np.int16)
     print(f"foreground_sep point 1 {img_thre.shape} {img_thre.dtype}")
     contour_ref = img_thre.copy()
     print(f"foreground_sep point 2 {img_thre.shape} {img_thre.dtype}")
@@ -75,9 +79,10 @@ def foreground_separation(img_thre):
     img_binary = MorphGAC(
         -contour_ref + 1, 5, -img_thre + 1, smoothing=1, balloon=0.8, threshold=0.5
     )
-    print(f"foreground_sep point 8 {img_thre.shape} {img_thre.dtype}")
+    img_binary = img_binary.astype(np.int16)
+    print(f"foreground_sep point 8 {img_binary.shape} {img_binary.dtype}")
     img_binary = area_closing(img_binary, 1000, connectivity=2)
-    print(f"foreground_sep point 9 {img_thre.shape} {img_thre.dtype}")
+    print(f"foreground_sep point 9 {img_binary.shape} {img_binary.dtype}")
 
     return -img_binary + 1
 
@@ -386,6 +391,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
     # separate image foreground background
     print("single method point 1")
+    pprint(threadpool_info())
     try:
         img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
@@ -410,13 +416,14 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
+    print(f"img_binary {img_binary.shape} {img_binary.dtype}")
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
     # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
-    print("single method point 4")
+    print(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
     # set mask channel names
     channel_names = [
         "Matched Cell",
@@ -430,7 +437,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
-            print(f"single method point 5 case 1 {channel_names[channel]}")
+            print(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
             mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
             try:
                 matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
@@ -440,6 +447,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 matched_fraction = 1.0
 
             units, pixel_size = get_pixel_area(img.img)
+            print(f"units {units} pixel_size {pixel_size}")
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             total_area = pixel_size * pixel_num

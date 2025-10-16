@@ -548,9 +548,12 @@ def cell_cluster(
     df_all_cluster_list: list[pd.DataFrame],
 ) -> np.ndarray:
     # kmeans clustering
-    print("Clustering cells...")
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
+    print(f"Clustering cells for {s}: "
+          f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
+    print(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
+          f" for {len(typelist)} types")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -583,12 +586,14 @@ def cell_cluster(
             cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
+    print("cell_cluster point 1")
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
 
+    print("cell_cluster point 2")
     # sort the clusters by the largest to smallest and then reindex
     # unique_clusters = set(cellbycluster_labels)
     # cluster_counts = {cluster: (cellbycluster_labels == cluster).sum() for cluster in unique_clusters}
@@ -597,10 +602,12 @@ def cell_cluster(
     # lut = np.zeros_like(cellbycluster_labels)
     # lut[sorted_clusters] = np.arange(len(unique_clusters))
 
+    print("cell_cluster point 3")
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
 
+    print("cell_cluster point 4")
     # write out that cluster ids
     if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
@@ -614,6 +621,7 @@ def cell_cluster(
 
         df_all_cluster_list.append(df)
 
+    print("cell_cluster point 5")
     return cellbycluster_labels, clustercenters
 
 
