@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 from aicsimageio import AICSImage
@@ -23,6 +23,14 @@ class IMGstruct:
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
+        self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+
+    def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+            return self.data[0, 0, ch_idx, slice, :, :]
+        else:
+            return self.data[0, 0, channel, slice, :, :]
 
     def set_data(self, data):
         self.data = data
@@ -261,11 +269,20 @@ class DiskIMGstruct(IMGstruct):
 
     def __init__(self, path:Path, options):
         self.img = self.read_img(path, options)
-        print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
         self.data = None
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
+        print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
+        print(f"dask image data: {self.img.xarray_dask_data}")
+        print(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
 
     def get_data(self):
         raise(NotImplementedError("Disk-based images are a work in progress!"))
+
+    def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
+        if isinstance(channel, str):
+            return self.img.xarray_dask_data.loc[0, channel, slice, :, :].data.astype(np.float32).compute()
+        else:
+            ch_name = self.img.channel_names[channel]
+            return self.img.xarray_dask_data.loc[0, ch_name, slice, :, :].data.astype(np.float32).compute()
