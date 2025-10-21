@@ -255,3 +255,17 @@ class MaskStruct(IMGstruct):
     #     self.bad_cells = None
     #     self.cell_index = None
     #     self.ROI = None
+
+
+class DiskIMGstruct(IMGstruct):
+
+    def __init__(self, path:Path, options):
+        self.img = self.read_img(path, options)
+        print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
+        self.data = None
+        self.path = path
+        self.name = path.name
+        self.channel_labels = self.read_channel_names()
+
+    def get_data(self):
+        raise(NotImplementedError("Disk-based images are a work in progress!"))
