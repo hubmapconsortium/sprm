@@ -81,6 +81,7 @@ def analysis(
     output_dir: Path,
     options: Dict[str, Any],
     celltype_labels: Optional[pd.DataFrame],
+    min_memory: bool
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
 
@@ -90,7 +91,10 @@ def analysis(
     print("Reading in image and corresponding mask file...")
     print("Image name:", img_file.name)
 
-    im = IMGstruct(img_file, options)
+    if min_memory:
+        im = DiskIMGstruct(img_file, options)
+    else:
+        im = IMGstruct(img_file, options)
     if options.get("debug"):
         print("Image dimensions: ", im.get_data().shape)
 
@@ -375,6 +379,7 @@ def main(
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
     celltype_labels: Optional[list[Path]] = None,
+    min_memory: bool = False
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -447,6 +452,7 @@ def main(
                     output_dir,
                     options,
                     cell_types,
+                    min_memory,
                 )
             )
 
@@ -493,6 +499,8 @@ def argparse_wrapper():
         help="Limit the number of threads used by BLAS/OpenMP libraries (e.g., MKL)",
     )
     p.add_argument("--celltype-labels", type=Path, action="append")
+    p.add_argument("--min-memory", action="store_true",
+                   description="keep large arrays on disk where possible")
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
@@ -525,4 +533,5 @@ def argparse_wrapper():
         options_path=argss.options_file,
         optional_img_dir=argss.optional_img_dir,
         celltype_labels=argss.celltype_labels,
+        min_memory=argss.min_memory,
     )
