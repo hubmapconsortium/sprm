@@ -45,7 +45,7 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
-from .data_structures import IMGstruct, MaskStruct
+from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
 

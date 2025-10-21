@@ -500,7 +500,7 @@ def argparse_wrapper():
     )
     p.add_argument("--celltype-labels", type=Path, action="append")
     p.add_argument("--min-memory", action="store_true",
-                   description="keep large arrays on disk where possible")
+                   help="keep large arrays on disk where possible")
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
