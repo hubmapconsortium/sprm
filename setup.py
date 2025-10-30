@@ -32,6 +32,7 @@ setup(
     install_requires=[
         "aicsimageio==4.8.0",
         "frozendict",
+        "h5py",
         "lxml",
         "manhole",
         "matplotlib",
