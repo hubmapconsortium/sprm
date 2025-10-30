@@ -381,13 +381,16 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
     # get compartment masks
     matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
+    np.save(output_dir / "test_matched_mask.npy", matched_mask)
     cell_matched_mask = matched_mask[0]
     nuclear_matched_mask = matched_mask[1]
     cell_outside_nucleus_mask = cell_matched_mask - nuclear_matched_mask
+    np.save(output_dir / "test_cell_outside_nucleus_mask.npy", cell_outside_nucleus_mask)
 
     metric_mask = np.expand_dims(cell_matched_mask, 0)
     metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_matched_mask, 0)))
     metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
+    np.save(output_dir / "test_metric_mask.npy", metric_mask)
 
     # separate image foreground background
     print("single method point 1")
@@ -397,31 +400,37 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
             "OriginalMetadata"
         ]["Value"]
-        all_channel_names = img.img.get_channel_names()
+        all_channel_names = img.get_channel_labels()
         nuclear_channel_index = all_channel_names.index(seg_channel_names["Nucleus"])
         cell_channel_index = all_channel_names.index(seg_channel_names["Cell"])
         thresholding_channels = [nuclear_channel_index, cell_channel_index]
         seg_channel_provided = True
     except:
         print("single method point 1b")
-        thresholding_channels = range(img.data.shape[2])
+        thresholding_channels = range(len(img.get_channel_labels()))
         seg_channel_provided = False
     print("single method point 2")
-    img_thresholded = sum(
-        thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
-        for c in thresholding_channels
-    )
+    img_thresholded = np.zeros_like(img.get_plane(0, bestz[0]))
+    for c in thresholding_channels:
+        img_thresholded += thresholding(img.get_plane(c, bestz[0]))
     print("single method point 3")
     if not seg_channel_provided:
-        img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
+        thresh_lim = round(len(img.get_channel_labels()) * 0.2)
+        img_thresholded[img_thresholded <= thresh_lim] = 0
+    print(f"POINT ZZZ: {img_thresholded.shape} {img_thresholded.dtype}")
+    img_thresholded = img_thresholded[0, :, :]
+    print(f"POINT ZZZ2: {img_thresholded.shape} {img_thresholded.dtype}")
+    np.save(output_dir / "test_img_thresholded.npy", img_thresholded)
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
     print(f"img_binary {img_binary.shape} {img_binary.dtype}")
+    np.save(output_dir / "test_img_binary.npy", img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
     # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
+    raise RuntimeError("Done")
 
     print(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
     # set mask channel names

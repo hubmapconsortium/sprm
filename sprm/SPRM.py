@@ -96,7 +96,13 @@ def analysis(
     else:
         im = IMGstruct(img_file, options)
     if options.get("debug"):
-        print("Image dimensions: ", im.get_data().shape)
+        print("Image dimensions: ", im.img.dims)
+    thing1 = im.get_plane("CD44", 0)
+    print(f"thing1 is a {type(thing1)} {thing1.shape} {thing1.dtype}")
+    print(f"{thing1}")
+    thing2 = im.get_plane(1, 0)
+    print(f"thing2 is a {type(thing2)} {thing2.shape} {thing2.dtype}")
+    print(f"{thing2}")
 
     # init cell features
     covar_matrix = []
