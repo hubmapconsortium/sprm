@@ -16,7 +16,47 @@ Primary: Two OMETIFF files -
 1) a 3D or 4D multichannel intensity Image (2D or 3D for multiple channels)
 2) a corresponding 3D or 4D Indexed Image containing one channel for each component of cell segmentation (currently “cells”, “nucleus”, “cell membrane” and “nuclear membrane”).
 
-## Execution: (assuming SPRM.py is in working directory)
+## Execution
+
+### Option 1: Modular API (Recommended)
+
+The modular API allows you to run individual components of SPRM independently:
+
+```python
+from sprm import modules
+
+# Run only what you need
+core = modules.preprocessing.run(
+    img_file="image.ome.tiff",
+    mask_file="mask.ome.tiff",
+    output_dir="sprm_outputs"
+)
+
+features = modules.cell_features.run(
+    core_data=core,
+    output_dir="sprm_outputs",
+    compute_texture=False  # Skip texture for speed
+)
+
+clusters = modules.clustering.run(
+    core_data=core,
+    cell_features=features,
+    output_dir="sprm_outputs"
+)
+```
+
+**Benefits:**
+- Run only the analyses you need
+- Resume from checkpoints (save computation time)
+- Re-run parts with different parameters
+- Better for debugging and development
+
+See [Modular API Documentation](docs/MODULAR_API.md) and [examples/](examples/) for more details.
+
+### Option 2: Legacy Command-Line Interface
+
+For backward compatibility, the original CLI still works:
+
 ```bash
 [python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path] --output_dir [output_dir_path] --options_path [options_file_path] --celltype_labels [labels_file] --processes [number_of_processes_to_use]
 ```
@@ -70,6 +110,7 @@ We have provided you with example images and masks but feel free to use your own
 
 * Python 3.8 or newer
 * AICSImageIO
+* h5py (for checkpoint system)
 * Matplotlib
 * Numba
 * NumPy
