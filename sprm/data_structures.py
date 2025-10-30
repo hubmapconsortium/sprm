@@ -30,7 +30,8 @@ class IMGstruct:
             ch_idx = self.channel_dict[channel]
             return self.data[0, 0, ch_idx, slice, :, :]
         else:
-            return self.data[0, 0, channel, slice, :, :]
+            print(f"in-memory get_slice B: {self.data[0, 0, channel, slice, :, :].max()}")
+            return self.data[0, 0, channel, slice, np.newaxis, :, :]
 
     def set_data(self, data):
         self.data = data
@@ -273,6 +274,7 @@ class DiskIMGstruct(IMGstruct):
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
+        self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
         print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
         print(f"dask image data: {self.img.xarray_dask_data}")
         print(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
@@ -282,7 +284,10 @@ class DiskIMGstruct(IMGstruct):
 
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
-            return self.img.xarray_dask_data.loc[0, channel, slice, :, :].data.astype(np.float32).compute()
+            ch_idx = self.channel_dict[channel]
+            print(f"Accessing A channel {channel} -> {ch_idx} slice is {type(slice)} {slice} dims {self.img.dims}")
+            return self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
         else:
             ch_name = self.img.channel_names[channel]
-            return self.img.xarray_dask_data.loc[0, ch_name, slice, :, :].data.astype(np.float32).compute()
+            print(f"Accessing B channel {channel} -> {ch_name} -> {channel} slice is {type(slice)} {slice} dims {self.img.dims}")
+            return self.img.get_image_dask_data("ZYX", T=0, C=channel, Z=[slice]).compute().astype(np.float32)
