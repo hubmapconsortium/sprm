@@ -14,4 +14,6 @@ RUN cd sprm \
  && cd .. \
  && rm -rf sprm /root/cache/.pip
 
+ENV OPENBLAS_NUM_THREADS=64
+
 CMD ["/bin/bash"]
