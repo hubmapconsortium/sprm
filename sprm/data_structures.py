@@ -25,6 +25,20 @@ class IMGstruct:
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
 
+    def get_img_channel_generator(self, z=None):
+        if z is not None:
+            for chan in range(self.img.dims.C):
+                rslt = np.expand_dims(self.get_plane(chan, z), axis=0)
+                print(f"generator: {z} -> {chan} {z} {rslt.shape} {rslt.dtype}")
+                yield chan, z, rslt
+        else:
+            for chan in range(self.img.C):
+                for z_idx in range(self.img.dims.Z):
+                    rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
+                    print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
+                    yield chan, z_idx, rslt
+
+
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
