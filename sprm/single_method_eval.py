@@ -87,37 +87,39 @@ def foreground_separation(img_thre):
     return -img_binary + 1
 
 
-def uniformity_CV(loc, channels):
+def uniformity_CV(is_foreground, img, bestz):
     CV = []
-    n = len(channels)
-    for i in range(n):
-        channel = channels[i]
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         channel = channel / np.mean(channel)
-        intensity = channel[tuple(loc.T)]
+        intensity = channel[0,0,is_foreground]
+        print(f"intensity {intensity.shape} {intensity.dtype}")
         CV.append(np.std(intensity))
     return np.average(CV)
 
 
-def uniformity_fraction(loc, channels) -> float:
-    n = len(channels)
+def uniformity_fraction(is_foreground, img, bestz) -> float:
     feature_matrix_pieces = []
-    for i in range(n):
-        channel = channels[i]
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         ss = StandardScaler()
-        channel_z = ss.fit_transform(channel.copy())
-        intensity = channel_z[tuple(loc.T)]
+        channel_z = ss.fit_transform(channel[0,0].copy())
+        intensity = channel_z[is_foreground]
         feature_matrix_pieces.append(intensity)
     feature_matrix = np.vstack(feature_matrix_pieces)
+    print(f"feature matrix: {feature_matrix.shape} {feature_matrix.dtype}")
     pca = PCA(n_components=1)
     model = pca.fit(feature_matrix.T)
     fraction = model.explained_variance_ratio_[0]
+    print(f"uniformity_fraction returning {fraction}")
     return fraction
 
 
-def foreground_uniformity(img_bi, mask, channels):
-    foreground_loc = np.argwhere((img_bi - mask) == 1)
-    CV = uniformity_CV(foreground_loc, channels)
-    foreground_pixel_num = foreground_loc.shape[0]
+def foreground_uniformity(img_bi, mask, img, bestz):
+    # foreground_loc = np.argwhere((img_bi - mask) == 1)
+    is_foreground = (img_bi - mask) == 1
+    CV = uniformity_CV(is_foreground, img, bestz)
+    print(f"CV is {type(CV)} {CV}")
+    foreground_pixel_num = is_foreground.sum()
+    print(f"foreground_pixel_num = {foreground_pixel_num}")
     foreground_loc_fraction = 1
     fraction = None
 
@@ -125,26 +127,41 @@ def foreground_uniformity(img_bi, mask, channels):
         print("no pixels in the foreground")
         return CV, None
 
+    print(f"img_bi is {img_bi.shape}, mask is {mask.shape}, bestz is {bestz}")
     while foreground_loc_fraction > 0:
         try:
-            foreground_loc_sampled = foreground_loc[
-                np.random.randint(
-                    foreground_pixel_num,
-                    size=round(foreground_pixel_num * foreground_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(foreground_loc_sampled, channels)
+            is_foreground_sampled = np.logical_and(
+                is_foreground,
+                np.random.choice([True, False],
+                                 size=is_foreground.shape,
+                                 p=[foreground_loc_fraction,
+                                    1.0 - foreground_loc_fraction])
+            )
+            # foreground_loc_sampled = foreground_loc[
+            #     np.random.randint(
+            #         foreground_pixel_num,
+            #         size=round(foreground_pixel_num * foreground_loc_fraction),
+            #     ),
+            #     :,
+            # ]
+            print(f"randomization worked with {foreground_loc_fraction}")
+            fraction = uniformity_fraction(is_foreground_sampled, img, bestz)
+            print(f"uniformity_fraction worked with {foreground_loc_fraction}")
             break
-        except:
+        except Exception as excp:
+            print(f"got expected exception {excp}")
             foreground_loc_fraction = foreground_loc_fraction / 2
+    print(f"CV: {CV}, fraction: {fraction}")
     return CV, fraction
 
 
-def background_uniformity(img_bi, channels):
-    background_loc = np.argwhere(img_bi == 0)
-    CV = uniformity_CV(background_loc, channels)
-    background_pixel_num = background_loc.shape[0]
+def background_uniformity(img_bi, img, bestz):
+    # background_loc = np.argwhere(img_bi == 0)
+    is_background = (img_bi == 0)
+    CV = uniformity_CV(is_background, img, bestz)
+    print(f"CV for background is {CV}")
+
+    background_pixel_num = is_background.sum()
     background_loc_fraction = 1
     fraction = None
 
@@ -154,16 +171,26 @@ def background_uniformity(img_bi, channels):
 
     while background_loc_fraction > 0:
         try:
-            background_loc_sampled = background_loc[
-                np.random.randint(
-                    background_pixel_num,
-                    size=round(background_pixel_num * background_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(background_loc_sampled, channels)
+            # background_loc_sampled = background_loc[
+            #     np.random.randint(
+            #         background_pixel_num,
+            #         size=round(background_pixel_num * background_loc_fraction),
+            #     ),
+            #     :,
+            # ]
+            is_background_sampled = np.logical_and(
+                is_background,
+                np.random.choice([True, False],
+                                 size=is_background.shape,
+                                 p=[background_loc_fraction,
+                                    1.0 - background_loc_fraction])
+            )
+            print(f"background randomization worked with {background_loc_fraction}")
+            fraction = uniformity_fraction(is_background_sampled, img, bestz)
+            print(f"background uniformity_fraction worked with {background_loc_fraction}")
             break
-        except:
+        except Exception as excp:
+            print(f"bacground got expected exception {excp}")
             background_loc_fraction = background_loc_fraction / 2
     return CV, fraction
 
@@ -417,9 +444,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     if not seg_channel_provided:
         thresh_lim = round(len(img.get_channel_labels()) * 0.2)
         img_thresholded[img_thresholded <= thresh_lim] = 0
-    print(f"POINT ZZZ: {img_thresholded.shape} {img_thresholded.dtype}")
     img_thresholded = img_thresholded[0, :, :]
-    print(f"POINT ZZZ2: {img_thresholded.shape} {img_thresholded.dtype}")
     np.save(output_dir / "test_img_thresholded.npy", img_thresholded)
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
@@ -430,7 +455,6 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
-    raise RuntimeError("Done")
 
     print(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
     # set mask channel names
@@ -477,12 +501,10 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 img_binary, mask_binary
             )
 
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
-
             foreground_CV, foreground_PCA = foreground_uniformity(
-                img_binary, mask_binary, img_channels
+                img_binary, mask_binary, img, bestz
             )
-            background_CV, background_PCA = background_uniformity(img_binary, img_channels)
+            background_CV, background_PCA = background_uniformity(img_binary, img, bestz)
             metrics[channel_names[channel]][
                 "NumberOfCellsPer100SquareMicrons"
             ] = cell_num_normalized.magnitude
@@ -507,6 +529,8 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             ] = foreground_PCA
 
             # get cell type labels
+            #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
+
             cell_type_labels = cell_type(current_mask, img_channels)
         else:
             print(f"single method point 5 case 2 {channel_names[channel]}")
