@@ -17,8 +17,9 @@ from pathlib import Path
 from sprm import modules
 
 # Configuration
-IMG_FILE = Path("image.ome.tiff")
-MASK_FILE = Path("mask.ome.tiff")
+IMG_FILE = Path("/hive/users/tedz/workspace/test_imgs/CODEX/expressions/bftools_convert_stitched_image.ome.tiff")
+MASK_FILE = Path("/hive/users/tedz/workspace/test_imgs/CODEX/mask/bftools_convert_stitched_mask.ome.tiff")
+OPTIONS_FILE = Path("/hive/users/tedz/workspace/sprm/sprm/options.txt")
 OUTPUT_DIR = Path("sprm_features_outputs")
 
 
@@ -35,7 +36,8 @@ def main():
     core = modules.preprocessing.run(
         img_file=IMG_FILE,
         mask_file=MASK_FILE,
-        output_dir=OUTPUT_DIR
+        output_dir=OUTPUT_DIR,
+        options=OPTIONS_FILE
     )
     print(f"✓ Extracted {core.num_rois} ROIs with {len(core.cell_lists)} cells")
 

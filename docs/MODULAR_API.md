@@ -50,6 +50,7 @@ Preprocessing (Module 1) ✓ Always required
 ```python
 from sprm import modules
 
+# Basic usage with defaults
 core = modules.preprocessing.run(
     img_file="image.ome.tiff",
     mask_file="mask.ome.tiff",
@@ -57,7 +58,38 @@ core = modules.preprocessing.run(
     image_dimension="2D",  # or "3D"
     debug=False
 )
+
+# With options file (legacy compatibility)
+core = modules.preprocessing.run(
+    img_file="image.ome.tiff",
+    mask_file="mask.ome.tiff",
+    output_dir="sprm_outputs",
+    options="sprm/options.txt"  # Path to options file
+)
+
+# With options dictionary
+my_options = {
+    "image_dimension": "2D",
+    "debug": 1,
+    "interior_cells_only": 1,
+    "valid_cell_threshold": 10,
+    # ... other options
+}
+core = modules.preprocessing.run(
+    img_file="image.ome.tiff",
+    mask_file="mask.ome.tiff",
+    output_dir="sprm_outputs",
+    options=my_options
+)
 ```
+
+**Parameters**:
+- `img_file`: Path to OME-TIFF image
+- `mask_file`: Path to OME-TIFF mask/segmentation
+- `output_dir`: Output directory for results and checkpoints
+- `options` (optional): Path to options.txt, dict of options, or None (use defaults)
+- `image_dimension`: "2D" or "3D" (used if options is None)
+- `debug`: Enable debug output (used if options is None)
 
 **Returns**: `CoreData` object containing:
 - `im`: IMGstruct (image data)
