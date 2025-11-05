@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from ..data_structures import IMGstruct, MaskStruct
-from ..SPRM_pkg import find_edge_cells, get_coordinates, quality_control
+from ..SPRM_pkg import find_edge_cells, get_coordinates, quality_control, read_options
 from .checkpoint_manager import CheckpointManager, CoreData
 
 
@@ -17,6 +17,7 @@ def run(
     img_file: Union[Path, str],
     mask_file: Union[Path, str],
     output_dir: Union[Path, str],
+    options: Optional[Union[Path, str, Dict]] = None,
     image_dimension: str = "2D",
     debug: bool = False,
 ) -> CoreData:
@@ -33,10 +34,15 @@ def run(
         Path to OME-TIFF mask/segmentation file
     output_dir : Path or str
         Directory for outputs and checkpoints
+    options : Path, str, dict, or None, default None
+        Options for preprocessing. Can be:
+        - Path/str to options.txt file (will be read)
+        - Dictionary of options (already loaded)
+        - None (use defaults with image_dimension and debug parameters)
     image_dimension : str, default "2D"
-        Image dimensionality: "2D" or "3D"
+        Image dimensionality: "2D" or "3D" (only used if options is None)
     debug : bool, default False
-        Enable debug output
+        Enable debug output (only used if options is None)
 
     Returns:
     --------
@@ -66,13 +72,39 @@ def run(
     print("SPRM Module 1: Core Preprocessing")
     print("=" * 60)
 
-    # Create minimal options dict for compatibility with existing functions
-    options = {
-        "image_dimension": image_dimension,
-        "debug": debug,
-        "interior_cells_only": 1,  # Default behavior
-        "valid_cell_threshold": 10,  # Minimum valid cells
-    }
+    # Handle options parameter
+    if options is None:
+        # Create minimal options dict with defaults
+        options = {
+            "image_dimension": image_dimension,
+            "debug": debug,
+            "interior_cells_only": 1,  # Default behavior
+            "valid_cell_threshold": 10,  # Minimum valid cells
+        }
+    elif isinstance(options, (str, Path)):
+        # Read options from file
+        print(f"Reading options from: {options}")
+        options = dict(read_options(Path(options)))
+        # Override with function parameters if provided
+        if image_dimension != "2D":
+            options["image_dimension"] = image_dimension
+        if debug:
+            options["debug"] = debug
+    elif isinstance(options, dict):
+        # Use provided options dict directly
+        # Set defaults for required fields if not present
+        if "image_dimension" not in options:
+            options["image_dimension"] = image_dimension
+        if "debug" not in options:
+            options["debug"] = debug
+        if "interior_cells_only" not in options:
+            options["interior_cells_only"] = 1
+        if "valid_cell_threshold" not in options:
+            options["valid_cell_threshold"] = 10
+    else:
+        raise TypeError(
+            f"options must be None, Path, str, or dict, got {type(options)}"
+        )
 
     # Load image and mask
     print(f"Reading image file: {img_file.name}")
