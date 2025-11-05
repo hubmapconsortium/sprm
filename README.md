@@ -51,7 +51,7 @@ clusters = modules.clustering.run(
 - Re-run parts with different parameters
 - Better for debugging and development
 
-See [Modular API Documentation](docs/MODULAR_API.md) and [examples/](examples/) for more details.
+See [Modular API Documentation](docs/MODULAR_API.md) and [demo/](demo/) for more details.
 
 ### Option 2: Legacy Command-Line Interface
 
