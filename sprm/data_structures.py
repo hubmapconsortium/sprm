@@ -32,7 +32,7 @@ class IMGstruct:
                 print(f"generator: {z} -> {chan} {z} {rslt.shape} {rslt.dtype}")
                 yield chan, z, rslt
         else:
-            for chan in range(self.img.C):
+            for chan in range(self.img.dims.C):
                 for z_idx in range(self.img.dims.Z):
                     rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
                     print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
