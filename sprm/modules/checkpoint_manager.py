@@ -165,14 +165,29 @@ class CheckpointManager:
                                 compression="gzip",
                             )
 
-        # Save cell lists as JSON
+        # Save cell lists as JSON (convert numpy types to Python types)
+        def convert_to_native(obj):
+            """Convert numpy types to native Python types for JSON serialization."""
+            import numpy as np
+            if isinstance(obj, (np.integer, np.int64, np.int32)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                return float(obj)
+            elif isinstance(obj, (list, tuple)):
+                return [convert_to_native(item) for item in obj]
+            elif isinstance(obj, set):
+                return [convert_to_native(item) for item in obj]
+            elif isinstance(obj, np.ndarray):
+                return convert_to_native(obj.tolist())
+            return obj
+
         with open(checkpoint_dir / "cell_lists.json", "w") as f:
             json.dump(
                 {
-                    "interior_cells": data.interior_cells,
-                    "edge_cells": data.edge_cells,
-                    "cell_index": data.cell_index,
-                    "bad_cells": list(data.bad_cells),
+                    "interior_cells": convert_to_native(data.interior_cells),
+                    "edge_cells": convert_to_native(data.edge_cells),
+                    "cell_index": convert_to_native(data.cell_index),
+                    "bad_cells": convert_to_native(list(data.bad_cells)),
                 },
                 f,
             )

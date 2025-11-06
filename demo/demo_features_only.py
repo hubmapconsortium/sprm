@@ -39,7 +39,8 @@ def main():
         output_dir=OUTPUT_DIR,
         options=OPTIONS_FILE
     )
-    print(f"✓ Extracted {core.num_rois} ROIs with {len(core.cell_lists)} cells")
+    num_cells = len(core.interior_cells) + len(core.edge_cells)
+    print(f"✓ Extracted {len(core.roi_coords)} ROIs with {num_cells} cells")
 
     # Step 2: Cell Features (mean, total, covariance, optionally texture)
     print("\nStep 2/2: Cell Feature Extraction")
@@ -49,7 +50,7 @@ def main():
         output_dir=OUTPUT_DIR,
         compute_texture=False,  # Set to True if you want texture features too
     )
-    print(f"✓ Extracted features for {features.num_cells} cells")
+    print(f"✓ Extracted features for {len(features.mean_vector)} cells")
 
     # Summary of outputs
     print("\n" + "=" * 70)
@@ -59,7 +60,7 @@ def main():
     print("  - mean_features_ch*.csv   (mean intensity per channel)")
     print("  - total_features_ch*.csv  (total intensity per channel)")
     print("  - covar_features.csv      (covariance features)")
-    if features.texture_features is not None:
+    if features.texture_vectors is not None and len(features.texture_vectors) > 0:
         print("  - texture_features_ch*.csv (texture features)")
     print("\nCheckpoint saved:")
     print(f"  - {OUTPUT_DIR}/checkpoints/cell_features.h5")
