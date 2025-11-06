@@ -238,16 +238,15 @@ def cell_size_uniformity(mask):
     return cell_size_std
 
 
-def cell_type(mask, channels):
+def cell_type(mask, img, bestz):
     label_list = []
-    n = len(channels)
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
+        channel_z = ss.fit_transform(channel[0,0])
+        print(f"channel_z is {channel_z.shape} {channel_z.dtype}")
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
@@ -265,22 +264,20 @@ def cell_type(mask, channels):
     return label_list
 
 
-def cell_uniformity(mask, channels, label_list):
-    n = len(channels)
+def cell_uniformity(mask, img, bestz, label_list):
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
     feature_matrix_pieces = []
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
+        channel_z = ss.fit_transform(channel[0, 0])
         cell_intensity = []
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
             if cell_size_current != 0:
-                single_cell_intensity = np.sum(channel[tuple(cell_coord[j])]) / cell_size_current
+                single_cell_intensity = np.sum(channel[0,0][tuple(cell_coord[j])]) / cell_size_current
                 single_cell_intensity_z = (
                     np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
                 )
@@ -291,6 +288,8 @@ def cell_uniformity(mask, channels, label_list):
 
     feature_matrix = np.vstack(feature_matrix_pieces).T
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
+    print(f"cell_uniformity: feature_matrix {feature_matrix.shape} {feature_matrix.dtype}")
+    print(f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}")
     CV = []
     fraction = []
     silhouette = []
@@ -405,6 +404,14 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     print("Calculating single-method metrics v1.5 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
+    assert isinstance(bestz, list), "bestz is not a list?"
+    if img.data is None:
+        if len(bestz) > 1:
+            raise RuntimeError("Only a single bestz is currently"
+                               " suppored in min-memory mode")
+        if img.img.dims.Z != 1:
+            raise RuntimeError("Only a single slice is currently"
+                               " suppoerted in min-memory mode")
 
     # get compartment masks
     matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
@@ -528,16 +535,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 "FractionOfFirstPCForegroundOutsideCells"
             ] = foreground_PCA
 
-            # get cell type labels
-            #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
-
-            cell_type_labels = cell_type(current_mask, img_channels)
+            cell_type_labels = cell_type(current_mask, img, bestz)
         else:
             print(f"single method point 5 case 2 {channel_names[channel]}")
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
+            #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
-                current_mask, img_channels, cell_type_labels
+                current_mask, img, bestz, cell_type_labels
             )
             avg_cell_CV = np.average(cell_CV)
             avg_cell_fraction = np.average(cell_fraction)
