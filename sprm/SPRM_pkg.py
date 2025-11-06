@@ -1791,57 +1791,35 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
 
     global row_index
 
+    # min-memory mode
     print("Calculating Signal to Noise Ratio in image...")
-    channvals = im.get_data()[0, 0, :, :, :, :]
     zlist = []
     channelist = []
+    snr_channels_list = []
+    for ch_idx in range(im.img.dims.C):
+        all_pix = np.concatenate([im.get_plane(ch_idx, z_idx).copy()
+                                  for z_idx in range(im.img.dims.Z)],
+                                 axis = None)
+        print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
+        snr_channels_list.append(all_pix.mean() / all_pix.std(ddof=0))
 
-    channvals_z = channvals.reshape(
-        channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
-    )
-    channvals_z = channvals_z.transpose()
+        img_2D = all_pix.astype("int")
 
-    m = channvals_z.mean(0)
-    sd = channvals_z.std(axis=0, ddof=0)
-    # snr_channels = np.where(sd == 0, 0, m / sd)
-    snr_channels = m / sd
-    # snr_channels = snr_channels[np.newaxis, :]
-    # snr_channels = snr_channels.tolist()
-
-    # define otsu threshold
-    for i in range(0, channvals.shape[0]):
-        img_2D = channvals[i, :, :, :].astype("int")
-        img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
-
-        # try:
-        # nbins implement
         max_img = np.max(img_2D)
         max_img_dtype = np.iinfo(img_2D.dtype).max
         factor = np.floor(max_img_dtype / max_img)
         img_2D_factor = img_2D * factor
 
-        thresh = threshold_otsu(img_2D_factor)
-        thresh = max(thresh, factor)
+        thresh = max(threshold_otsu(img_2D_factor),
+                     factor)
 
-        above_th = img_2D_factor > thresh
-        below_th = img_2D_factor <= thresh
-        # if thresh == 0:
-        #     print('Otsu threshold returned 0')
-        #     fbr = 'N/A'
-        # else:
-        mean_a = np.mean(img_2D_factor[above_th])
-        mean_b = np.mean(img_2D_factor[below_th])
-        # take ratio above thresh / below thresh
+        mean_a = np.mean(img_2D_factor[img_2D_factor > thresh])
+        mean_b = np.mean(img_2D_factor[img_2D_factor <= thresh])
         fbr = mean_a / mean_b
-        # except ValueError:
-        #     print('Value Error encountered')
-        #     fbr = 0
-
         channelist.append(fbr)
 
-    channelist = np.asarray(channelist)
-
-    snrs = np.stack([snr_channels, channelist])
+    snrs = np.stack([np.asarray(snr_channels_list),
+                     np.asarray(channelist)])
 
     # check for nans
     snrs[np.isnan(snrs)] = 0
@@ -3799,28 +3777,34 @@ def normalize_image(img):
     """
     basic normalization of averaging negative values and setting that as background
     """
-    if (img.data < 0).any():
-        # find a boolean matrix of negative values
-        nbool = img.data < 0
+    neg_count = 0
+    neg_sum = 0.0
+    for chan_idx, z_idx, slice in img.get_img_channel_generator():
+        nbool = slice < 0.0
+        neg_count += nbool.sum()
+        neg_sum += slice[nbool].sum()
+    print(f"normalize_image: neg_count {neg_count} neg_sum {neg_sum}")
+    if neg_count:
+        # fail cleanly if we can't adjust the image values
+        if img.data is None:
+            raise RuntimeError("Image bias normalization is not supported"
+                               " in min-memory mode")
 
         # get average of negative and set that as the background or 0
-        n_avg = -np.average(img.data[nbool])
+        n_avg = -(neg_sum / neg_count)
         img.data = img.data + n_avg
 
         # everything that is < 0 is background
         img.data[img.data < 0] = 0
-        return
-    else:
-        return
 
 
 def normalize_background(im, mask, ROI_coords):
     # pass
-    img = im.get_data().copy()
-    # img = img.astype("int64")
     dims = mask.get_data().shape
 
+    # img = img.astype("int64")
     if dims[3] > 1:  # 3D
+        img = im.get_data().copy()
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
             bg_img_ch = img_ch[
@@ -3835,9 +3819,19 @@ def normalize_background(im, mask, ROI_coords):
                 avg = 1
 
             img[0, 0, i, :, :, :] = img_ch / avg
+        im.set_data(img)
+
     else:
-        for i in range(img.shape[2]):
-            img_ch = img[0, 0, i, 0, :, :]
+        img = None
+        print(f"normalize_background: {ROI_coords[0][0]}")
+        for i in range(im.img.dims.C):
+            img_ch = im.get_plane(i, 0)[0]
+            rough_sum = (img_ch[0,:].sum() + img_ch[-1,:].sum()
+                         +img_ch[:,0].sum() + img_ch[:,-1].sum())
+            rough_count = 2*(img_ch.shape[0]+img_ch.shape[1])
+            print(f"rough_avg for {i}: {rough_sum} {rough_count} {rough_sum/rough_count}")
+        for i in range(im.img.dims.C):
+            img_ch = im.get_plane(i, 0)[0]
             bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
 
             avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
@@ -3846,13 +3840,18 @@ def normalize_background(im, mask, ROI_coords):
                 continue
             elif avg < 1:
                 avg = 1
+            print(f"avg for channel {i} is {avg} with denom {ROI_coords[0][0].shape[1]}")
+            if avg != 1:
+                if img is None:  # do not copy unless necessary!
+                    img = im.get_data().copy()  # will fail in min-memory mode
+                img[0, 0, i, 0, :, :] = img_ch / avg
+        if img is not None:
+            im.set_data(img)
 
-            img[0, 0, i, 0, :, :] = img_ch / avg
-
-    im.set_data(img)
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
+    print("starting set_zdims")
     bound = options.get("zslices")
     bestz = mask.get_bestz()
     z = mask.get_data().shape[3]
@@ -3866,12 +3865,15 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_bestz(idx)
         return
     else:
-        new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
-        new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+        if lower_bound == bestz[0] and upper_bound == lower_bound+1:
+            return  # no change
+        else:
+            new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+            new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
 
-        mask.set_data(new_mask)
-        mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
-        img.set_data(new_img)
+            mask.set_data(new_mask)
+            mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
+            img.set_data(new_img)
 
 
 def find_edge_cells(mask):
