@@ -38,6 +38,17 @@ class IMGstruct:
                     print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
                     yield chan, z_idx, rslt
 
+    def apply_scale(self, channel: Union[int, str], factor: float) -> None:
+        if factor == 1.0:
+            return  # because the scaling has no effect
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+        else:
+            ch_idx = channel
+        img = self.get_data().copy()
+        img_ch = img[0, 0, ch_idx, :, :, :]
+        img[0, 0, ch_idx, :, : :] = img_ch * factor
+        self.set_data(img)
 
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
@@ -289,9 +300,11 @@ class DiskIMGstruct(IMGstruct):
         self.name = path.name
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+        self.scale_factors = np.ones((self.img.dims.C))
         print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
         print(f"dask image data: {self.img.xarray_dask_data}")
         print(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
+        print(f"scale_factors: {self.scale_factors}")
 
     def get_data(self):
         raise(NotImplementedError("Disk-based images are a work in progress!"))
@@ -300,8 +313,19 @@ class DiskIMGstruct(IMGstruct):
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
             print(f"Accessing A channel {channel} -> {ch_idx} slice is {type(slice)} {slice} dims {self.img.dims}")
-            return self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
+            return self.scale_factors[ch_idx] * self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
         else:
             ch_name = self.img.channel_names[channel]
             print(f"Accessing B channel {channel} -> {ch_name} -> {channel} slice is {type(slice)} {slice} dims {self.img.dims}")
-            return self.img.get_image_dask_data("ZYX", T=0, C=channel, Z=[slice]).compute().astype(np.float32)
+            return self.scale_factors[channel] * self.img.get_image_dask_data("ZYX", T=0, C=channel, Z=[slice]).compute().astype(np.float32)
+
+    def apply_scale(self, channel: Union[int, str], factor: float) -> None:
+        if factor == 1.0:
+            return  # because the scaling has no effect
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+        else:
+            ch_idx = channel
+        print(f"scaling channel {ch_idx} by {factor}")
+        self.scale_factors[ch_idx] *= factor
+
