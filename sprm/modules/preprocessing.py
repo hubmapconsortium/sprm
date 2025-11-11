@@ -8,9 +8,61 @@ This module is required for all other modules.
 from pathlib import Path
 from typing import Dict, Optional, Union
 
+import numpy as np
+import pandas as pd
+
 from ..data_structures import IMGstruct, MaskStruct
 from ..SPRM_pkg import find_edge_cells, get_coordinates, quality_control, read_options
 from .checkpoint_manager import CheckpointManager, CoreData
+
+
+def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
+    """
+    Ensure `{image_name}-cell_centers.csv` exists for the provided core data.
+
+    Parameters
+    ----------
+    core_data : CoreData
+        Core preprocessing results containing ROI coordinates.
+    output_dir : Path
+        Directory where outputs should be written.
+    """
+    output_dir = Path(output_dir)
+    base_name = core_data.im.get_name()
+    centers_path = output_dir / f"{base_name}-cell_centers.csv"
+
+    if centers_path.exists():
+        return
+
+    roi_coords = core_data.roi_coords
+    if not roi_coords or len(roi_coords) == 0 or roi_coords[0] is None:
+        print("Warning: Unable to write cell centers; ROI coordinates missing.")
+        return
+
+    cellmask = roi_coords[0]
+    if cellmask is None or len(cellmask) == 0:
+        print("Warning: Unable to write cell centers; no cell coordinates found.")
+        return
+
+    cell_center = np.zeros((len(cellmask), 3), dtype=int)
+
+    for idx in range(1, len(cellmask)):
+        coords = cellmask[idx]
+        if coords is None or coords.size == 0:
+            continue
+
+        mean_coords = np.mean(coords, axis=1)
+        if coords.shape[0] == 3:
+            cell_center[idx, 0] = int(mean_coords[1])
+            cell_center[idx, 1] = int(mean_coords[2])
+            cell_center[idx, 2] = int(mean_coords[0])
+        else:
+            cell_center[idx, 0] = int(mean_coords[0])
+            cell_center[idx, 1] = int(mean_coords[1])
+
+    centers_df = pd.DataFrame(cell_center, columns=["x", "y", "z"])
+    centers_df.index.name = "ID"
+    centers_df.to_csv(centers_path, index_label="ID")
 
 
 def run(
@@ -64,9 +116,10 @@ def run(
     # Check if checkpoint already exists
     if CheckpointManager.exists_core_data(output_dir):
         print(f"Loading existing preprocessing checkpoint from {output_dir}")
-        return CheckpointManager.load_core_data(
-            CheckpointManager.get_checkpoint_dir(output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(output_dir)
+        core_data = CheckpointManager.load_core_data(checkpoint_dir)
+        _ensure_cell_centers(core_data, output_dir)
+        return core_data
 
     print("=" * 60)
     print("SPRM Module 1: Core Preprocessing")
@@ -152,6 +205,8 @@ def run(
         bad_cells=bad_cells,
         bestz=bestz,
     )
+
+    _ensure_cell_centers(core_data, output_dir)
 
     # Save checkpoint
     print("Saving preprocessing checkpoint...")
