@@ -90,9 +90,10 @@ def analysis(
     image_stime = time.monotonic()
     
     # Import modular API
+    from .SPRM_pkg import compute_cell_centers
     from .modules import preprocessing, segmentation_eval, shape_analysis
     from .modules import spatial_graphs, image_analysis, cell_features, clustering
-    from .modules.checkpoint_manager import ShapeData
+    from .modules.checkpoint_manager import CheckpointManager, CoreData, ShapeData
     
     # Module 1: Preprocessing
     # Don't use checkpoints here to maintain legacy behavior
@@ -111,7 +112,7 @@ def analysis(
     quality_control(mask, im, ROI_coords, options)
     
     # Build CoreData manually (don't save checkpoint for legacy mode)
-    from .modules.checkpoint_manager import CoreData
+    cell_centers = compute_cell_centers(ROI_coords)
     core_data = CoreData(
         im=im,
         mask=mask,
@@ -121,6 +122,7 @@ def analysis(
         cell_index=mask.get_cell_index(),
         bad_cells=mask.get_bad_cells(),
         bestz=mask.get_bestz(),
+        cell_centers=cell_centers,
     )
     
     # Module 2: Segmentation Evaluation (if requested)
