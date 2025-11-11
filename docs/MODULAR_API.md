@@ -19,8 +19,8 @@ SPRM is organized into 7 modules:
 1. **Preprocessing** (Required) - Load images, extract ROIs, quality control
 2. **Segmentation Evaluation** (Optional) - Assess segmentation quality
 3. **Shape Analysis** (Optional) - Extract cell shape features
-4. **Spatial Graphs** (Optional) - Compute spatial relationships
-5. **Image Analysis** (Optional) - NMF, superpixels, channel PCA
+4. **Spatial Graphs (Cell Neighborhood Graphs)** (Optional) - Compute spatial relationships
+5. **Image Analysis (Pixel Level Analysis)** (Optional) - NMF, superpixels, channel PCA
 6. **Cell Features** (Required for clustering) - Intensity & texture features
 7. **Clustering** (Analysis) - Multiple clustering methods
 
@@ -103,6 +103,9 @@ core = modules.preprocessing.run(
 - `checkpoints/core_data.pkl`
 - `checkpoints/roi_coords.h5`
 - `checkpoints/cell_lists.json`
+
+**Outputs**:
+- `{image_name}-cell_centers.csv`
 
 ---
 
