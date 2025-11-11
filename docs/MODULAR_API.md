@@ -98,6 +98,7 @@ core = modules.preprocessing.run(
 - `interior_cells`, `edge_cells`, `cell_index`: Cell lists
 - `bad_cells`: Set of invalid cell indices
 - `bestz`: Best focal plane(s)
+- `cell_centers`: Array of per-cell centroid coordinates (x, y, z)
 
 **Checkpoints saved**:
 - `checkpoints/core_data.pkl`

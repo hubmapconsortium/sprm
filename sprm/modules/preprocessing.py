@@ -8,11 +8,16 @@ This module is required for all other modules.
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-import numpy as np
 import pandas as pd
 
 from ..data_structures import IMGstruct, MaskStruct
-from ..SPRM_pkg import find_edge_cells, get_coordinates, quality_control, read_options
+from ..SPRM_pkg import (
+    compute_cell_centers,
+    find_edge_cells,
+    get_coordinates,
+    quality_control,
+    read_options,
+)
 from .checkpoint_manager import CheckpointManager, CoreData
 
 
@@ -31,36 +36,19 @@ def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
     base_name = core_data.im.get_name()
     centers_path = output_dir / f"{base_name}-cell_centers.csv"
 
+    centers = core_data.cell_centers
+    if centers is None:
+        centers = compute_cell_centers(core_data.roi_coords)
+        core_data.cell_centers = centers
+
+    if centers is None or len(centers) == 0:
+        print("Warning: Unable to write cell centers; no cell coordinate data available.")
+        return
+
     if centers_path.exists():
         return
 
-    roi_coords = core_data.roi_coords
-    if not roi_coords or len(roi_coords) == 0 or roi_coords[0] is None:
-        print("Warning: Unable to write cell centers; ROI coordinates missing.")
-        return
-
-    cellmask = roi_coords[0]
-    if cellmask is None or len(cellmask) == 0:
-        print("Warning: Unable to write cell centers; no cell coordinates found.")
-        return
-
-    cell_center = np.zeros((len(cellmask), 3), dtype=int)
-
-    for idx in range(1, len(cellmask)):
-        coords = cellmask[idx]
-        if coords is None or coords.size == 0:
-            continue
-
-        mean_coords = np.mean(coords, axis=1)
-        if coords.shape[0] == 3:
-            cell_center[idx, 0] = int(mean_coords[1])
-            cell_center[idx, 1] = int(mean_coords[2])
-            cell_center[idx, 2] = int(mean_coords[0])
-        else:
-            cell_center[idx, 0] = int(mean_coords[0])
-            cell_center[idx, 1] = int(mean_coords[1])
-
-    centers_df = pd.DataFrame(cell_center, columns=["x", "y", "z"])
+    centers_df = pd.DataFrame(centers, columns=["x", "y", "z"])
     centers_df.index.name = "ID"
     centers_df.to_csv(centers_path, index_label="ID")
 
@@ -176,6 +164,7 @@ def run(
     print("Extracting cell ROI coordinates...")
     ROI_coords = get_coordinates(mask, options)
     mask.set_ROI(ROI_coords)
+    cell_centers = compute_cell_centers(ROI_coords)
 
     # Quality control: identify edge cells, bad cells, best z-planes
     print("Performing quality control...")
@@ -204,6 +193,7 @@ def run(
         cell_index=cell_index,
         bad_cells=bad_cells,
         bestz=bestz,
+        cell_centers=cell_centers,
     )
 
     _ensure_cell_centers(core_data, output_dir)
@@ -232,7 +222,9 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> CoreData:
     CoreData: Loaded preprocessing data
     """
     checkpoint_dir = Path(checkpoint_dir)
-    return CheckpointManager.load_core_data(
+    core_data = CheckpointManager.load_core_data(
         CheckpointManager.get_checkpoint_dir(checkpoint_dir)
     )
+    _ensure_cell_centers(core_data, checkpoint_dir)
+    return core_data
 

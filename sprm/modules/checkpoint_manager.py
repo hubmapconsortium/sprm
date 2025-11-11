@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 import h5py
 import numpy as np
 
+from ..SPRM_pkg import compute_cell_centers
 from ..data_structures import IMGstruct, MaskStruct
 
 
@@ -28,6 +29,7 @@ class CoreData:
     cell_index: List[int]
     bad_cells: Set[int]
     bestz: List[int]
+    cell_centers: Optional[np.ndarray]
 
 
 @dataclass
@@ -148,6 +150,7 @@ class CheckpointManager:
                     "im": data.im,
                     "mask": data.mask,
                     "bestz": data.bestz,
+                    "cell_centers": data.cell_centers,
                 },
                 f,
             )
@@ -228,6 +231,10 @@ class CheckpointManager:
         with open(checkpoint_dir / "cell_lists.json", "r") as f:
             cell_lists = json.load(f)
 
+        cell_centers = core_dict.get("cell_centers")
+        if cell_centers is None:
+            cell_centers = compute_cell_centers(roi_coords)
+
         return CoreData(
             im=core_dict["im"],
             mask=core_dict["mask"],
@@ -237,6 +244,7 @@ class CheckpointManager:
             cell_index=cell_lists["cell_index"],
             bad_cells=set(cell_lists["bad_cells"]),
             bestz=core_dict["bestz"],
+            cell_centers=cell_centers,
         )
 
     @staticmethod
@@ -248,6 +256,7 @@ class CheckpointManager:
             and (checkpoint_dir / "roi_coords.h5").exists()
             and (checkpoint_dir / "cell_lists.json").exists()
         )
+
 
     @staticmethod
     def save_shape_data(data: ShapeData, output_dir: Path):

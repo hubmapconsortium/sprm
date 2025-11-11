@@ -851,6 +851,44 @@ def get_coordinates(mask, options):
     return channel_coords
 
 
+def compute_cell_centers(ROI_coords: List[List[np.ndarray]]) -> Optional[np.ndarray]:
+    """
+    Compute per-cell centroid coordinates from ROI coordinate arrays.
+
+    Parameters
+    ----------
+    ROI_coords : List[List[np.ndarray]]
+        ROI coordinate arrays, where the first element contains cell masks.
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        Array of shape (n_cells, 3) with centroid coordinates (x, y, z).
+        Returns None if ROI coordinates are unavailable.
+    """
+    if not ROI_coords or ROI_coords[0] is None or len(ROI_coords[0]) == 0:
+        return None
+
+    cellmask = ROI_coords[0]
+    cell_center = np.zeros((len(cellmask), 3), dtype=int)
+
+    for i in range(1, len(cellmask)):
+        coords = cellmask[i]
+        if coords is None or coords.size == 0:
+            continue
+
+        mean_coords = np.mean(coords, axis=1)
+        if coords.shape[0] == 3:
+            cell_center[i, 0] = int(mean_coords[1])
+            cell_center[i, 1] = int(mean_coords[2])
+            cell_center[i, 2] = int(mean_coords[0])
+        else:
+            cell_center[i, 0] = int(mean_coords[0])
+            cell_center[i, 1] = int(mean_coords[1])
+
+    return cell_center
+
+
 def cell_graphs(
     mask: MaskStruct,
     ROI_coords: List[List[np.ndarray]],
@@ -863,23 +901,10 @@ def cell_graphs(
     Get cell centers as well as adj list of cells
     """
 
-    cellmask = ROI_coords[0]
-    cell_center = np.zeros((len(cellmask), 3))
-    # cell_idx = mask.get_cell_index()
-
-    if cellmask[0].shape[0] == 3:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[1]
-            cell_center[i, 1] = m[2]
-            cell_center[i, 2] = m[0]
-    else:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[0]
-            cell_center[i, 1] = m[1]
+    cell_center = compute_cell_centers(ROI_coords)
+    if cell_center is None:
+        print("Warning: Unable to compute cell centers from ROI coordinates.")
+        cell_center = np.zeros((0, 3), dtype=int)
 
     cell_center_df = pd.DataFrame(cell_center)
     cell_center_df.index.name = "ID"
