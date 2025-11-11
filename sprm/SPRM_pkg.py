@@ -474,15 +474,18 @@ def calculations(
 
     y = y.astype(int)
     x = x.astype(int)
-
+    print(f"calculations i={i}: x {x.shape} y {y.shape}")
+    
     temp = im.get_data()
 
     channel_all_mask = temp[0, t, :, z, y, x]
     ROI = np.transpose(channel_all_mask)
+    print(f"calculations: ROI is {ROI.shape} {ROI.dtype}")
 
     cov_m = np.cov(ROI)
     mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
     total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
+    print(f"calculations: cov_m {cov_m.shape} mu_v {mu_v.shape} total {total.shape}")
 
     # filter for NaNs
     cov_m[np.isnan(cov_m)] = 0
@@ -1614,11 +1617,11 @@ def build_matrix(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
-                im.get_data().shape[2],
+                im.img.dims.C,
+                im.img.dims.C,
             )
         )
     else:
@@ -1635,10 +1638,10 @@ def build_vector(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
+                im.img.dims.C,
                 1,
             )
         )
@@ -3614,8 +3617,8 @@ def check_shape(im, mask):
     # put in check here for matching dims
 
     return (
-        im.get_data().shape[4] != mask.get_data().shape[4]
-        or im.get_data().shape[5] != mask.get_data().shape[5]
+        (im.img.dims.X != mask.img.dims.X)
+        or (im.img.dims.Y != mask.img.dims.Y)
     )
 
 
@@ -3671,10 +3674,15 @@ def reallocate_and_merge_intensities(
         im.set_channel_labels(channel_list)
 
     # prune for NaNs
-    im_prune = im.get_data()
-    nan_find = np.isnan(im_prune)
-    im_prune[nan_find] = 0
-    im.set_data(im_prune)
+    nan_count = 0
+    for c_idx, z_idx, slice in im.get_img_channel_generator():
+        nan_count += np.isnan(slice).sum()
+        print(f"nan scan: {c_idx} {z_idx} {nan_count}")
+    if nan_count > 0:
+        im_prune = im.get_data()
+        nan_find = np.isnan(im_prune)
+        im_prune[nan_find] = 0
+        im.set_data(im_prune)
 
 
 # def generate_fake_stackimg(im, mask, opt_img_file, options):
@@ -3823,13 +3831,6 @@ def normalize_background(im, mask, ROI_coords):
 
     else:
         img = None
-        print(f"normalize_background: {ROI_coords[0][0]}")
-        for i in range(im.img.dims.C):
-            img_ch = im.get_plane(i, 0)[0]
-            rough_sum = (img_ch[0,:].sum() + img_ch[-1,:].sum()
-                         +img_ch[:,0].sum() + img_ch[:,-1].sum())
-            rough_count = 2*(img_ch.shape[0]+img_ch.shape[1])
-            print(f"rough_avg for {i}: {rough_sum} {rough_count} {rough_sum/rough_count}")
         for i in range(im.img.dims.C):
             img_ch = im.get_plane(i, 0)[0]
             bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
@@ -3840,14 +3841,8 @@ def normalize_background(im, mask, ROI_coords):
                 continue
             elif avg < 1:
                 avg = 1
-            print(f"avg for channel {i} is {avg} with denom {ROI_coords[0][0].shape[1]}")
-            if avg != 1:
-                if img is None:  # do not copy unless necessary!
-                    img = im.get_data().copy()  # will fail in min-memory mode
-                img[0, 0, i, 0, :, :] = img_ch / avg
-        if img is not None:
-            im.set_data(img)
-
+            print(f"avg for channel {i} is {avg}")
+            im.apply_scale(i, 1.0/avg)
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
