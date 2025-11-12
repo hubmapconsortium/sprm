@@ -299,7 +299,7 @@ def analysis(
     print(f"tracemalloc point 10: {tracemalloc.get_traced_memory()}")
 
     # time point loop (don't expect multiple time points)
-    for t in range(0, im.get_data().shape[1]):
+    for t in range(0, im.img.dims.T):
         # loop of types of segmentation (channels in the mask img)
         for j in range(0, mask.get_data().shape[2]):
             # get the mask for this particular segmentation
@@ -313,18 +313,27 @@ def analysis(
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
             masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
+            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
 
             covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
             mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
             total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+            ROI_dict = calculations(masked_imgs_coord, im, t, bestz)
 
-            # loop of ROIs
-            for i in range(0, len(masked_imgs_coord)):
-                (
-                    covar_matrix[t, j, i, :, :],
-                    mean_vector[t, j, i, :, :],
-                    total_vector[t, j, i, :, :],
-                ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
+            for cell_idx in ROI_dict:
+                ROI = ROI_dict[cell_idx]
+                cov_m = np.cov(ROI)
+                mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
+                total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
+
+                # filter for NaNs
+                cov_m[np.isnan(cov_m)] = 0
+                mu_v[np.isnan(mu_v)] = 0
+                total[np.isnan(total)] = 0
+
+                covar_matrix[t, j, cell_idx, :, :] = cov_m
+                mean_vector[t, j, cell_idx, :, :] = mu_v
+                total_vector[t, j, cell_idx, :, :] = total
 
         # save the means, covars, shape and total for each cell
         save_all(
