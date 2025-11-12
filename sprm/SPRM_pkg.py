@@ -456,46 +456,44 @@ def save_image(
 
 
 def calculations(
-    coord, im: IMGstruct, t: int, i: int, bestz: int
+    coord_all, im: IMGstruct, t: int, bestz: List[int]
 ) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     Returns covariance matrix, mean vector, and total vector
     """
 
-    if i == 0:
-        print("Performing statistical analyses on ROIs...")
+    print("Performing statistical analyses on ROIs...")
 
-    if coord.shape[0] > 2:
-        z, y, x = coord[0], coord[1], coord[2]
-        z = z.astype(int)
-    else:
-        y, x = coord[0], coord[1]
-        z = bestz
+    ROI_dict = {}  # ROI matrices by cell ID
+    channels_this_cell_dict = defaultdict(list)
+    for ch_idx in range(im.img.dims.C):
+        cell_plane_dict = defaultdict(list) # planes of this channel by cell ID
+        for z_idx in range(im.img.dims.Z):
+            slice = im.get_plane(ch_idx, z_idx)
+            for cell_idx in range(len(coord_all)):
+                coord = coord_all[cell_idx]
+                if coord.shape[0] > 2:
+                    z, y, x = coord[0], coord[1], coord[2]
+                    z = z.astype(int)
+                else:
+                    y, x = coord[0], coord[1]
+                    z = bestz
+                y = y.astype(int)
+                x = x.astype(int)
+                if z_idx in z:
+                    pix_array = slice[0, y, x].copy().ravel()
+                    cell_plane_dict[cell_idx].append(pix_array)
+        for cell_idx in cell_plane_dict:
+            channels_this_cell_dict[cell_idx].append(
+                np.concatenate(cell_plane_dict[cell_idx])
+            )
+    for cell_idx in channels_this_cell_dict:
+        ROI = np.vstack(channels_this_cell_dict[cell_idx])
+        print(f"calculations: ROI {cell_idx} is {ROI.shape} {ROI.dtype}")
+        ROI_dict[cell_idx] = ROI
+        # del channels_this_cell_dict[cell_idx]  # clean up some memory
 
-    y = y.astype(int)
-    x = x.astype(int)
-    print(f"calculations i={i}: x {x.shape} y {y.shape}")
-    
-    temp = im.get_data()
-
-    channel_all_mask = temp[0, t, :, z, y, x]
-    ROI = np.transpose(channel_all_mask)
-    print(f"calculations: ROI is {ROI.shape} {ROI.dtype}")
-
-    cov_m = np.cov(ROI)
-    mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
-    total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
-    print(f"calculations: cov_m {cov_m.shape} mu_v {mu_v.shape} total {total.shape}")
-
-    # filter for NaNs
-    cov_m[np.isnan(cov_m)] = 0
-    mu_v[np.isnan(mu_v)] = 0
-    total[np.isnan(total)] = 0
-
-    # if not cov_m.shape:
-    # cov_m = np.array([cov_m])
-
-    return cov_m, mu_v, total
+    return ROI_dict
 
 
 def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> np.array:
