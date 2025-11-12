@@ -1,1 +1,2 @@
-main_branch: main
+main_branch: mruffalo/omit-image-analysis
+release_branch: omit-image-analysis-release
