@@ -27,10 +27,19 @@ class IMGstruct:
 
     def get_img_channel_generator(self, z=None):
         if z is not None:
-            for chan in range(self.img.dims.C):
-                rslt = np.expand_dims(self.get_plane(chan, z), axis=0)
-                print(f"generator: {z} -> {chan} {z} {rslt.shape} {rslt.dtype}")
-                yield chan, z, rslt
+            if isinstance(z, int):
+                for chan in range(self.img.dims.C):
+                    rslt = np.expand_dims(self.get_plane(chan, z), axis=0)
+                    print(f"generator: {z} -> {chan} {z} {rslt.shape} {rslt.dtype}")
+                    yield chan, z, rslt
+            elif isinstance(z, list):
+                for chan in range(self.img.dims.C):
+                    for z_idx in z:
+                        rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
+                        print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
+                        yield chan, z_idx, rslt
+            else:
+                raise RuntimeError(f"z parameter is neither an int nor a list: {z}")
         else:
             for chan in range(self.img.dims.C):
                 for z_idx in range(self.img.dims.Z):
