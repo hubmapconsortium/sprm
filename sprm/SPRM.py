@@ -341,6 +341,10 @@ def analysis(
                 mean_vector[t, j, cell_idx, :, :] = mu_v
                 total_vector[t, j, cell_idx, :, :] = total
 
+            LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
+            LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
+            LOGGER.debug(f"cell stats info: total_vector {total_vector.shape} {total_vector.dtype}")
+
         # save the means, covars, shape and total for each cell
         save_all(
             filename=baseoutputfilename,
