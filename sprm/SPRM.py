@@ -1,4 +1,5 @@
 import faulthandler
+import logging
 import tracemalloc
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -28,6 +29,9 @@ Version:   1.03
 
 
 """
+
+logging.basicConfig(level=logging.DEBUG)
+LOGGER = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
@@ -206,8 +210,10 @@ def analysis(
             pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
             # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
 
+        print(f"tracemalloc point 4.1: {tracemalloc.get_traced_memory()}")
         cellidx = mask.get_cell_index()
 
+        print(f"tracemalloc point 4.2: {tracemalloc.get_traced_memory()}")
         write_cell_polygs(
             cell_polygons,
             outline_vectors,
@@ -350,6 +356,8 @@ def analysis(
             outline_vectors=shape_vectors,
             norm_shape_vectors=norm_shape_vectors,
         )
+
+        print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
 
         cell_analysis(
             im=im,

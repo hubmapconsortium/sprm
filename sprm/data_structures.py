@@ -1,8 +1,11 @@
+import logging
 from pathlib import Path
 from typing import Dict, Union
 
 import numpy as np
 from aicsimageio import AICSImage
+
+LOGGER = logging.getLogger(__name__)
 
 
 class IMGstruct:
@@ -17,9 +20,7 @@ class IMGstruct:
 
     def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
-        print(f"POINT 1: {self.img.dims} {self.img.dtype}")
         self.data = self.read_data(options)
-        print(f"POINT 2: {self.data.shape} {self.data.dtype}")
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
@@ -30,13 +31,13 @@ class IMGstruct:
             if isinstance(z, int):
                 for chan in range(self.img.dims.C):
                     rslt = np.expand_dims(self.get_plane(chan, z), axis=0)
-                    print(f"generator: {z} -> {chan} {z} {rslt.shape} {rslt.dtype}")
+                    LOGGER.debug(f"generator: {z} -> {chan} {z} {rslt.shape}")
                     yield chan, z, rslt
             elif isinstance(z, list):
                 for chan in range(self.img.dims.C):
                     for z_idx in z:
                         rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
-                        print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
+                        LOGGER.debug(f"generator: {z} -> {chan} {z_idx} {rslt.shape}")
                         yield chan, z_idx, rslt
             else:
                 raise RuntimeError(f"z parameter is neither an int nor a list: {z}")
@@ -44,7 +45,7 @@ class IMGstruct:
             for chan in range(self.img.dims.C):
                 for z_idx in range(self.img.dims.Z):
                     rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
-                    print(f"generator: {z} -> {chan} {z_idx} {rslt.shape} {rslt.dtype}")
+                    LOGGER.debug(f"generator: {z} -> {chan} {z_idx} {rslt.shape}")
                     yield chan, z_idx, rslt
 
     def apply_scale(self, channel: Union[int, str], factor: float) -> None:
@@ -62,9 +63,10 @@ class IMGstruct:
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
+            LOGGING.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
             return self.data[0, 0, ch_idx, slice, :, :]
         else:
-            print(f"in-memory get_slice B: {self.data[0, 0, channel, slice, :, :].max()}")
+            LOGGING.debug(f"in-memory get_plane: {channel} {slice}")
             return self.data[0, 0, channel, slice, np.newaxis, :, :]
 
     def set_data(self, data):
@@ -243,7 +245,6 @@ class MaskStruct(IMGstruct):
         # assert data.dtype == "int"
         data = data.astype(np.int32)
         assert data.dtype == np.int32
-        print(f"POINT 3: {data.dtype} {data.shape} {data.min()} {data.max()}")
 
         return data
 
@@ -310,10 +311,9 @@ class DiskIMGstruct(IMGstruct):
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
         self.scale_factors = np.ones((self.img.dims.C))
-        print(f"DISK POINT 1: {self.img.dims} {self.img.dtype}")
-        print(f"dask image data: {self.img.xarray_dask_data}")
-        print(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
-        print(f"scale_factors: {self.scale_factors}")
+        LOGGER.debug(f"dask image data: {self.img.xarray_dask_data}")
+        LOGGER.debug(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
+        LOGGER.debug(f"scale_factors: {self.scale_factors}")
 
     def get_data(self):
         raise(NotImplementedError("Disk-based images are a work in progress!"))
@@ -321,12 +321,15 @@ class DiskIMGstruct(IMGstruct):
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
-            print(f"Accessing A channel {channel} -> {ch_idx} slice is {type(slice)} {slice} dims {self.img.dims}")
+            LOGGER.debug(f"Accessing {channel} -> {ch_idx} {slice} from dims {self.img.dims}")
             return self.scale_factors[ch_idx] * self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
         else:
             ch_name = self.img.channel_names[channel]
-            print(f"Accessing B channel {channel} -> {ch_name} -> {channel} slice is {type(slice)} {slice} dims {self.img.dims}")
-            return self.scale_factors[channel] * self.img.get_image_dask_data("ZYX", T=0, C=channel, Z=[slice]).compute().astype(np.float32)
+            LOGGER.debug(f"Accessing {channel} ({ch_name}) {slice} dims {self.img.dims}")
+            return (self.scale_factors[channel]
+                    * self.img.get_image_dask_data(
+                        "ZYX", T=0, C=channel, Z=[slice]
+                    ).compute().astype(np.float32))
 
     def apply_scale(self, channel: Union[int, str], factor: float) -> None:
         if factor == 1.0:
@@ -335,6 +338,6 @@ class DiskIMGstruct(IMGstruct):
             ch_idx = self.channel_dict[channel]
         else:
             ch_idx = channel
-        print(f"scaling channel {ch_idx} by {factor}")
+        LOGGER.debug(f"scaling channel {ch_idx} by {factor}")
         self.scale_factors[ch_idx] *= factor
 
