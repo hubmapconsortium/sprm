@@ -457,7 +457,7 @@ def save_image(
 
 def calculations(
     coord_all, im: IMGstruct, t: int, bestz: List[int]
-) -> (np.ndarray, np.ndarray, np.ndarray):
+) -> Dict[int, np.ndarray]:
     """
     Returns covariance matrix, mean vector, and total vector
     """
