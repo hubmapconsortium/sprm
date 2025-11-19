@@ -489,9 +489,7 @@ def calculations(
             )
     for cell_idx in channels_this_cell_dict:
         ROI = np.vstack(channels_this_cell_dict[cell_idx])
-        print(f"calculations: ROI {cell_idx} is {ROI.shape} {ROI.dtype}")
         ROI_dict[cell_idx] = ROI
-        # del channels_this_cell_dict[cell_idx]  # clean up some memory
 
     return ROI_dict
 
@@ -3232,10 +3230,21 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        running_sum = np.zeros((im.img.dims.C,))
+        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        total_intensity_per_chan = np.zeros((im.img.dims.C,))
+        total_intensity_per_chancell = np.zeros((im.img.dims.C,))
+        total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
+        total_intensity_nuclei_per_chan = np.zeros((im.img.dims.C,))
         for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
-            running_sum[c_idx] += np.sum(slice)
-        total_intensity_per_chan = running_sum
+            total_intensity_per_chan[c_idx] += np.sum(slice)
+            total_intensity_per_chancell[c_idx] += np.sum(
+                slice[0, 0, total_intensity_cell[0], total_intensity_cell[1]]
+            )
+            total_intensity_per_chanbg[c_idx] += np.sum(slice[0, 0, bgpixels[0], bgpixels[1]])
+            total_intensity_nuclei_per_chan[c_idx] += np.sum(
+                slice[0, 0, total_intensity_nuclei[0], total_intensity_nuclei[1]]
+            )
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -3248,27 +3257,7 @@ def quality_measures(
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
         # total_intensity_file = get_paths(total_intensity_path)
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        running_sum = np.zeros((im.img.dims.C,))
-        print(f"shape info: total_intensity_cell {total_intensity_cell.shape}")
-        print(f"shape info: total_intensity_cell[0] {total_intensity_cell[0].shape}")
-        print(f"shape info: running_sum {running_sum.shape}")
-        #print(f"shape info: expr {im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]].shape}")
-        for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
-            running_sum[c_idx] += np.sum(
-                slice[0, 0, total_intensity_cell[0], total_intensity_cell[1]]
-            )
-        total_intensity_per_chancell = running_sum
-        #total_intensity_per_chancell = np.sum(
-        #    im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
-        #)
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
-
-        running_sum = np.zeros((im.img.dims.C,))
-        for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
-            running_sum[c_idx] += np.sum(slice[0, 0, bgpixels[0], bgpixels[1]])
-        total_intensity_per_chanbg = running_sum
-        #total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -3276,17 +3265,6 @@ def quality_measures(
         # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
 
         # nuclei total intensity per channel
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
-        running_sum = np.zeros((im.img.dims.C,))
-        for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
-            running_sum[c_idx] += np.sum(slice[0, 0,
-                                               total_intensity_nuclei[0],
-                                               total_intensity_nuclei[1]]
-            )
-        total_intensity_nuclei_per_chan = running_sum
-        #total_intensity_nuclei_per_chan = np.sum(
-        #    im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0
-        #)
 
         # cytoplasm total intensity per channel
         # cytoplasm_all = np.concatenate(cytoplasm, axis=1)
