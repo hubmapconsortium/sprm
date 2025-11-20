@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import math
 import time
 from bisect import bisect
@@ -63,6 +64,9 @@ Version: 1.03
 ###########################################
 ########## GLOBAL VARIABLES ###############
 ###########################################
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 hdf5_lock = Lock()
 row_index = 0

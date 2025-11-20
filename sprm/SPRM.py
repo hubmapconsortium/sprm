@@ -30,8 +30,8 @@ Version:   1.03
 
 """
 
-logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
@@ -518,6 +518,9 @@ def main(
 
 
 def argparse_wrapper():
+    LOGGER.info("this is an info message")
+    LOGGER.error("this is an error message")
+    LOGGER.debug("this is a debug message")
     p = ArgumentParser()
     p.add_argument("--img-dir", type=Path, required=True)
     p.add_argument("--mask-dir", type=Path, required=True)
