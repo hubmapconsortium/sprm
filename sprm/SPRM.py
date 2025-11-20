@@ -1,6 +1,5 @@
 import faulthandler
 import logging
-import tracemalloc
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
@@ -98,9 +97,6 @@ def analysis(
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
 
-    tracemalloc.start()
-    print("tracemalloc point 0")
-    
     print("Reading in image and corresponding mask file...")
     print("Image name:", img_file.name)
 
@@ -130,8 +126,6 @@ def analysis(
     # get base file name for all output files
     baseoutputfilename = im.get_name()
 
-    print(f"tracemalloc point 1: {tracemalloc.get_traced_memory()}")
-    
     mask = MaskStruct(mask_file, options)
 
     # hot fix for stitched images pipeline
@@ -162,8 +156,6 @@ def analysis(
     ##############################
     ##############################
 
-    print(f"tracemalloc point 2: {tracemalloc.get_traced_memory()}")
-
     # 0 == just sprm, 1 == segeval, 2 == both
     eval_pathway = options.get("sprm_segeval_both")
 
@@ -185,8 +177,6 @@ def analysis(
             # loop to next image
             return
 
-    print(f"tracemalloc point 3: {tracemalloc.get_traced_memory()}")
-
     # combination of mask_img & get_masked_imgs
     ROI_coords = get_coordinates(mask, options)
     mask.set_ROI(ROI_coords)
@@ -199,8 +189,6 @@ def analysis(
 
     seg_n = mask.get_labels("cell")
 
-    print(f"tracemalloc point 4: {tracemalloc.get_traced_memory()}")
-    
     shape_vectors = None
     norm_shape_vectors = None
     # get normalized shape representation of each cell
@@ -219,10 +207,8 @@ def analysis(
             pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
             # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
 
-        print(f"tracemalloc point 4.1: {tracemalloc.get_traced_memory()}")
         cellidx = mask.get_cell_index()
 
-        print(f"tracemalloc point 4.2: {tracemalloc.get_traced_memory()}")
         write_cell_polygs(
             cell_polygons,
             outline_vectors,
@@ -233,8 +219,6 @@ def analysis(
         )
     else:
         print("Skipping outlinePCA...")
-
-    print(f"tracemalloc point 5: {tracemalloc.get_traced_memory()}")
 
     # get cells to be processed
     inCells = mask.get_interior_cells()
@@ -247,8 +231,6 @@ def analysis(
     # signal to noise ratio of the image
     SNR(im, baseoutputfilename, output_dir, cellidx, options)
 
-    print(f"tracemalloc point 6: {tracemalloc.get_traced_memory()}")
-
     bestz = mask.get_bestz()
     # empty mask skip tile
     if not bestz and options.get("skip_empty_mask") == 1:
@@ -260,8 +242,6 @@ def analysis(
     # check for whether there are accompanying images of the same field
     # TODO: don't require empty list if no other file
     opt_img_file = optional_img_file or []
-
-    print(f"tracemalloc point 7: {tracemalloc.get_traced_memory()}")
 
     if options.get("image_analysis"):
         # NMF calculation
@@ -285,11 +265,9 @@ def analysis(
     # check if the image and mask spatial resolutions match
     # and reallocate intensity to the mask resolution if not
     # also merge in optional additional image if present
-    print(f"tracemalloc point 8: {tracemalloc.get_traced_memory()}")
+
     reallocate_and_merge_intensities(im, mask, opt_img_file, options)
     # generate_fake_stackimg(im, mask, opt_img_file, options)
-
-    print(f"tracemalloc point 9: {tracemalloc.get_traced_memory()}")
 
     if options.get("skip_texture"):
         # make fake textures matrix - all zeros
@@ -310,8 +288,6 @@ def analysis(
             )
     else:
         textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
-
-    print(f"tracemalloc point 10: {tracemalloc.get_traced_memory()}")
 
     # time point loop (don't expect multiple time points)
     for t in range(0, im.img.dims.T):
@@ -373,8 +349,6 @@ def analysis(
             norm_shape_vectors=norm_shape_vectors,
         )
 
-        print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
-
         cell_analysis(
             im=im,
             mask=mask,
@@ -395,8 +369,6 @@ def analysis(
             shape_vectors=shape_vectors,
             norm_shape_vectors=norm_shape_vectors,
         )
-
-    print(f"tracemalloc point 11: {tracemalloc.get_traced_memory()}")
 
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
@@ -518,9 +490,6 @@ def main(
 
 
 def argparse_wrapper():
-    LOGGER.info("this is an info message")
-    LOGGER.error("this is an error message")
-    LOGGER.debug("this is a debug message")
     p = ArgumentParser()
     p.add_argument("--img-dir", type=Path, required=True)
     p.add_argument("--mask-dir", type=Path, required=True)
