@@ -1,4 +1,5 @@
 import importlib.resources
+import logging
 import pickle
 import re
 import xml.etree.ElementTree as ET
@@ -31,6 +32,9 @@ Author: Haoran Chen and Ted Zhang
 Version: 1.5
 09/08/2021
 """
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
@@ -92,7 +96,6 @@ def uniformity_CV(is_foreground, img, bestz):
     for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         channel = channel / np.mean(channel)
         intensity = channel[0,0,is_foreground]
-        print(f"intensity {intensity.shape} {intensity.dtype}")
         CV.append(np.std(intensity))
     return np.average(CV)
 
