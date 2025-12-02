@@ -4,6 +4,7 @@ import logging
 import math
 import time
 import re
+import tracemalloc
 import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
@@ -68,7 +69,7 @@ Version: 2.0.3
 ###########################################
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(logging.DEBUG)
 
 hdf5_lock = Lock()
 row_index = 0
@@ -491,6 +492,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     Receives out_matrix and extracts information to output a vector:
     len # of cells with corresponding cluster number
     """
+    LOGGER.debug(f"enter cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype} seq {segnum}")
     # extracting all cells through all timepoints --> 4D matrix
     # cell_matrix = outmatrix[:,0,:,:,:]
     # dims = get_dims(cell_matrix)
@@ -525,6 +527,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
         #     (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
         # cell_matrix =
+    LOGGER.debug(f"exit cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype}")
     return cell_matrix
 
 
@@ -541,10 +544,11 @@ def cell_cluster(
     # kmeans clustering
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
-    print(f"Clustering cells for {s}: "
+    LOGGER.debug(f"Clustering cells for {s}: "
           f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
-    print(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
+    LOGGER.debug(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
           f" for {len(typelist)} types")
+    snapshot1 = tracemalloc.take_snapshot()
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -579,14 +583,14 @@ def cell_cluster(
             cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
-    print("cell_cluster point 1")
+    LOGGER.debug("cell_cluster point 1")
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
 
-    print("cell_cluster point 2")
+    LOGGER.debug("cell_cluster point 2")
     # sort the clusters by the largest to smallest and then reindex
     # unique_clusters = set(cellbycluster_labels)
     # cluster_counts = {cluster: (cellbycluster_labels == cluster).sum() for cluster in unique_clusters}
@@ -595,12 +599,12 @@ def cell_cluster(
     # lut = np.zeros_like(cellbycluster_labels)
     # lut[sorted_clusters] = np.arange(len(unique_clusters))
 
-    print("cell_cluster point 3")
+    LOGGER.debug("cell_cluster point 3")
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
 
-    print("cell_cluster point 4")
+    LOGGER.debug("cell_cluster point 4")
     # write out that cluster ids
     if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
@@ -614,7 +618,11 @@ def cell_cluster(
 
         df_all_cluster_list.append(df)
 
-    print("cell_cluster point 5")
+    LOGGER.debug("cell_cluster point 5")
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
     return cellbycluster_labels, clustercenters
 
 
@@ -2920,6 +2928,7 @@ def cell_analysis(
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
+    snapshot1 = tracemalloc.take_snapshot()
     (
         clustercells_tsneAll,
         clustercells_tsneAllcenters,
@@ -2940,6 +2949,11 @@ def cell_analysis(
         matrix_texture=texture_matrix,
         matrix_shape=norm_shape_vectors,
     )
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Memory change across DR_AllFeatures:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
 
     # tsne
     # cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
@@ -4194,6 +4208,7 @@ def DR_AllFeatures(
     """
     By: Young Je Lee and Ted Zhang
     """
+    LOGGER.debug(f"DR_AllFeatures point 0: {matrix_total.shape} {matrix_total.dtype}")
     # get features into correct shapes - cov, total
     # matrix_mean = matrix_mean[0]
     matrix_cov = matrix_cov[0]
@@ -4228,6 +4243,7 @@ def DR_AllFeatures(
     learning_rate = 1
     matrix_texture = matrix_texture[:, : int(len(matrix_texture[0]) / 2)]
 
+    LOGGER.debug("DR_AllFeatures point 1")
     if options.get("tSNE_texture_calculation_skip"):
         matrix_all_OnlyCell_original = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
@@ -4248,6 +4264,7 @@ def DR_AllFeatures(
         else:
             raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
+    LOGGER.debug("DR_AllFeatures point 2")
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":
         matrix_all_OnlyCell = np.asarray(matrix_all_OnlyCell, dtype=float)
@@ -4269,6 +4286,7 @@ def DR_AllFeatures(
             axis=1,
         )
 
+    LOGGER.debug("DR_AllFeatures point 3")
     matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # tol
     if tSNEInitialization == "pca":
@@ -4294,6 +4312,7 @@ def DR_AllFeatures(
 
         matrix_all_OnlyCell = m.transform(matrix_all_OnlyCell_full)
 
+    LOGGER.debug("DR_AllFeatures point 4")
     t_matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # init tSNE
     tsne = TSNE(
@@ -4306,6 +4325,7 @@ def DR_AllFeatures(
         random_state=0,
     )
 
+    LOGGER.debug("DR_AllFeatures point 5")
     while True:
         try:
             tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
@@ -4323,11 +4343,13 @@ def DR_AllFeatures(
     plt.clf()
     plt.close()
 
+    LOGGER.debug("DR_AllFeatures point 6")
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
         header, tsne_all_OnlyCell, filename + "-tSNE_allfeatures", output_dir, cellidx, options
     )
 
+    LOGGER.debug("DR_AllFeatures point 7")
     clustercells_all, clustercells_allcenters = cell_cluster(
         tsne_all_OnlyCell,
         types_list,
@@ -4341,23 +4363,27 @@ def DR_AllFeatures(
     # clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
     # for i in range(len(clustercells_all)):
     #    clustercells_all[i]=len(clustercells_allcenters)-1-np.where(clusterMembership_descending==clustercells_all[i])[0]
+    LOGGER.debug("DR_AllFeatures point 8")
 
     # umap
     reducer = umap.UMAP()
     umap_features = matrix_all_OnlyCell_full.copy()
     umap_embed = reducer.fit_transform(umap_features)
 
+    LOGGER.debug("DR_AllFeatures point 9")
     # 2D umap
     plt.scatter(umap_embed[:, 0], umap_embed[:, 1], marker=".")
     plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"), bbox_inches="tight")
     plt.clf()
     plt.close()
 
+    LOGGER.debug("DR_AllFeatures point 10")
     umap_header = [x for x in range(1, umap_embed.shape[1] + 1)]
     write_2_csv(
         umap_header, umap_embed, filename + "-UMAP_allfeatures", output_dir, cellidx, options
     )
 
+    LOGGER.debug("DR_AllFeatures point 11")
     clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
         umap_embed,
         types_list,
@@ -4369,6 +4395,7 @@ def DR_AllFeatures(
         df_all_cluster_list,
     )
 
+    LOGGER.debug("DR_AllFeatures point 12")
     return (
         clustercells_all,
         clustercells_allcenters,

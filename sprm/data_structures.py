@@ -7,7 +7,7 @@ from aicsimageio import AICSImage
 from aicsimageio.readers import OmeTiffReader, TiffReader
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.INFO)
 
 class IMGstruct:
     """

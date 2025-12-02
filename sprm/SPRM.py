@@ -349,6 +349,9 @@ def analysis(
             norm_shape_vectors=norm_shape_vectors,
         )
 
+        print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
+
+        snapshot1 = tracemalloc.take_snapshot()
         cell_analysis(
             im=im,
             mask=mask,
@@ -369,6 +372,11 @@ def analysis(
             shape_vectors=shape_vectors,
             norm_shape_vectors=norm_shape_vectors,
         )
+        snapshot2 = tracemalloc.take_snapshot()
+        top_stats - snapshot2.compare_to(snapshot1, "lineno")
+        LOGGER.debug("Top net allocations across cell_analysis:")
+        for stat in top_stats[:10]:
+            LOGGER.debug(stat)
 
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
