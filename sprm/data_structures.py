@@ -6,7 +6,7 @@ import numpy as np
 from aicsimageio import AICSImage
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.INFO)
 
 class IMGstruct:
     """
