@@ -633,6 +633,7 @@ def cell_cluster(
     LOGGER.debug("cell_cluster point 5")
     snapshot2 = tracemalloc.take_snapshot()
     top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("cell_cluster tracemalloc stats:")
     for stat in top_stats[:10]:
         LOGGER.debug(stat)
     return cellbycluster_labels, clustercenters

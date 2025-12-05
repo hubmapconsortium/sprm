@@ -1,5 +1,6 @@
 import faulthandler
 import logging
+import tracemalloc
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
@@ -351,6 +352,16 @@ def analysis(
 
         print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
 
+        # Free a large data structure
+        snapshot1 = tracemalloc.take_snapshot()
+        ROI_coords = None
+        mask.set_ROI(ROI_coords)
+        snapshot2 = tracemalloc.take_snapshot()
+        top_stats = snapshot2.compare_to(snapshot1, "lineno")
+        LOGGER.debug("Change in allocation across free:")
+        for stat in top_stats[:10]:
+            LOGGER.debug(stat)
+
         snapshot1 = tracemalloc.take_snapshot()
         cell_analysis(
             im=im,
@@ -394,6 +405,7 @@ def main(
     celltype_labels: Optional[list[Path]] = None,
     min_memory: bool = False
 ):
+    tracemalloc.start()
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
 
