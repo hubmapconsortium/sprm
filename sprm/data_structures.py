@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Union, Any
 
 import numpy as np
 from aicsimageio import AICSImage
@@ -26,6 +26,16 @@ class IMGstruct:
         self.name = path.name
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+        self.cached_data = {}
+        
+    def cache_set(self, key: str, val: Any)-> None:
+        self.cached_data[key] = val
+
+    def cache_get(self, key: str) -> Any:
+        """
+        returns None if the entry is missing
+        """
+        return self.cached_data.get(key)
 
     def get_img_channel_generator(self, z=None):
         if z is not None:
@@ -319,6 +329,7 @@ class DiskIMGstruct(IMGstruct):
         self.name = path.name
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+        self.cached_data = {}
         self.scale_factors = np.ones((self.img.dims.C))
         LOGGER.debug(f"dask image data: {self.img.xarray_dask_data}")
         LOGGER.debug(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
