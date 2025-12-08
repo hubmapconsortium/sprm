@@ -2902,6 +2902,7 @@ def cell_analysis(
 
     # for each channel in the mask
     for i in range(len(maskchs)):
+        LOGGER.debug(f"starting mask channel {i}")
         # for i in range(1):
         seg_n = mask.get_labels(maskchs[i])
 
@@ -3039,6 +3040,7 @@ def cell_analysis(
             list_of_cluster_imgs,
         )
 
+    LOGGER.debug("finished mask channel loop")
     if options.get("debug"):
         print("Elapsed time for cluster img saving: ", time.monotonic() - stime)
 
@@ -3234,9 +3236,6 @@ def quality_measures(
         #print(f"shape info: im_data {im_data.shape}")
         #print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
         pixels = im_dims[-2] * im_dims[-1]
-        bgpixels = ROI_coords[0][0]
-        cells = ROI_coords[0][1:]
-        nuclei = ROI_coords[1][1:]
 
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"] = dict()
@@ -3249,9 +3248,12 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        bgpixels = im.cache_get("bgpixels")
+        total_intensity_cell = im.cache_get("total_intensity_cell")
+        total_intensity_nuclei = im.cache_get("total_intensity_nuclei")
         total_intensity_per_chan = np.zeros((im.img.dims.C,))
+        LOGGER.debug(f"total_intensity_cell is {total_intensity_cell.shape} {total_intensity_cell.dtype}")
+        LOGGER.debug(f"total_intensity_cell[0] is a {type(total_intensity_cell[0])}")
         total_intensity_per_chancell = np.zeros((im.img.dims.C,))
         total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
         total_intensity_nuclei_per_chan = np.zeros((im.img.dims.C,))

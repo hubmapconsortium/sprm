@@ -352,8 +352,13 @@ def analysis(
 
         print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
 
-        # Free a large data structure
+        # Cache some values needed later, and free a large data structure
         snapshot1 = tracemalloc.take_snapshot()
+        im.cache_set("bgpixels", ROI_coords[0][0].astype(np.int32).copy())
+        im.cache_set("total_intensity_cell",
+                     np.concatenate(ROI_coords[0][1:], axis=1).astype(np.int32))
+        im.cache_set("total_intensity_nuclei",
+                     np.concatenate(ROI_coords[1][1:], axis=1).astype(np.int32))
         ROI_coords = None
         mask.set_ROI(ROI_coords)
         snapshot2 = tracemalloc.take_snapshot()
@@ -384,7 +389,7 @@ def analysis(
             norm_shape_vectors=norm_shape_vectors,
         )
         snapshot2 = tracemalloc.take_snapshot()
-        top_stats - snapshot2.compare_to(snapshot1, "lineno")
+        top_stats = snapshot2.compare_to(snapshot1, "lineno")
         LOGGER.debug("Top net allocations across cell_analysis:")
         for stat in top_stats[:10]:
             LOGGER.debug(stat)
@@ -392,6 +397,7 @@ def analysis(
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
 
+    LOGGER.debug("End of analysis()")
     return im, mask, cell_count, seg_metrics
 
 
@@ -501,6 +507,7 @@ def main(
         quality_measures(
             im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
         )
+    LOGGER.debug("End of quality measures")
 
     if options.get("debug"):
         print(f"Total runtime: {time.monotonic() - stime}")
