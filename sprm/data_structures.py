@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from sys import getsizeof
 from typing import Dict, Union, Any
 
 import numpy as np
@@ -28,6 +29,10 @@ class IMGstruct:
         self.cached_data = {}
         
     def cache_set(self, key: str, val: Any)-> None:
+        if isinstance(val, np.ndarray):
+            LOGGER.info(f"size of cached object <{key}> is {getsizeof(val)} {val.nbytes}")
+        else:
+            LOGGER.info(f"size of cached object <{key}> type {type(val)} is {getsizeof(val)}")
         self.cached_data[key] = val
 
     def cache_get(self, key: str) -> Any:
