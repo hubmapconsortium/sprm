@@ -767,7 +767,7 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
         indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
 
         append_coord(masked_imgs_coord, rlabel_mask, indices)
-        masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
+        masked_imgs_coord = list(np.asarray(elt, dtype=np.int32) for elt in masked_imgs_coord)
 
         channel_coords.append(masked_imgs_coord)
 

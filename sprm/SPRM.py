@@ -179,7 +179,13 @@ def analysis(
             return
 
     # combination of mask_img & get_masked_imgs
+    snapshot1 = tracemalloc.take_snapshot()
     ROI_coords = get_coordinates(mask, options)
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across get_coordinates:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
     mask.set_ROI(ROI_coords)
 
     # quality control of image and mask for edge cells and best z slices +- n options
