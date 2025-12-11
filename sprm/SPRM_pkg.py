@@ -808,19 +808,28 @@ def get_coordinates(mask, options):
     mask_channels = []
     channel_coords = []
     # channel_coords_np = []
+    LOGGER.debug("Entering get_coordinates")
+    snapshot1 = tracemalloc.take_snapshot()
     s, t, c, z, y, x = mask.get_data().shape
-    mask_data = mask.get_data().copy()
+    mask_data = mask.get_data()
 
     # find cell index - if not sequential
     cell_num = np.unique(mask_data)
     maxvalue = len(cell_num)
     mask.set_cell_index(cell_num[1:])
 
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 1:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
     if maxvalue - 1 != np.max(mask_data):
+        LOGGER.debug("Conditional block start")
         cell_num_idx = np.arange(0, len(cell_num))
         # cell_num_dict = dict(zip(cell_num, cell_num_idx))
         cell_num_dict = nb_populate_dict(cell_num, cell_num_idx)
-        fmask_data = mask_data.reshape(-1)
+        fmask_data = mask_data.copy().reshape(-1)
 
         # for i in range(0, len(fmask_data)):
         #     fmask_data[i] = cell_num_dict.get(fmask_data[i])
@@ -832,10 +841,17 @@ def get_coordinates(mask, options):
 
         cell_num = np.unique(mask_data)
         maxvalue = len(cell_num)
+        LOGGER.debug("Conditional block end")
 
     assert (maxvalue - 1) == np.max(mask_data)
 
     # post-process for edge case cell coordinates - filter out cells that have less than specified pixel area threshold
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 2:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
     freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.add_bad_cells(idx)
@@ -844,6 +860,13 @@ def get_coordinates(mask, options):
 
     for i in range(0, mask_4D.shape[0]):
         mask_channels.append(mask_4D[i, :, :, :])
+
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 3:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
 
     # 3D case
     if mask_4D.shape[1] > 1:
