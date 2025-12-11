@@ -1,4 +1,5 @@
 import faulthandler
+import logging
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
@@ -27,6 +28,9 @@ Version:   1.03
 
 
 """
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
@@ -73,6 +77,15 @@ def get_sprm_version() -> str:
     return "unknown"
 
 
+def get_cell_blk_sz(num_cells: int, im: IMGstruct, options: Dict[str, Any]) -> int:
+    """
+    Given num_cells cells each of which may subtend many pixels, how
+    many cells should be calculated in each block of the calculation?
+    This function provides a way to balance memory use and run time.
+    """
+    return num_cells // 10  # TODO: make a smarter calculation
+
+
 def analysis(
     img_file: Path,
     mask_file: Path,
@@ -80,14 +93,19 @@ def analysis(
     output_dir: Path,
     options: Dict[str, Any],
     celltype_labels: Optional[pd.DataFrame],
+    min_memory: bool
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
+
     print("Reading in image and corresponding mask file...")
     print("Image name:", img_file.name)
 
-    im = IMGstruct(img_file, options)
+    if min_memory:
+        im = DiskIMGstruct(img_file, options)
+    else:
+        im = IMGstruct(img_file, options)
     if options.get("debug"):
-        print("Image dimensions: ", im.get_data().shape)
+        print("Image dimensions: ", im.img.dims)
 
     # init cell features
     covar_matrix = []
@@ -247,6 +265,7 @@ def analysis(
     # check if the image and mask spatial resolutions match
     # and reallocate intensity to the mask resolution if not
     # also merge in optional additional image if present
+
     reallocate_and_merge_intensities(im, mask, opt_img_file, options)
     # generate_fake_stackimg(im, mask, opt_img_file, options)
 
@@ -271,7 +290,7 @@ def analysis(
         textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
 
     # time point loop (don't expect multiple time points)
-    for t in range(0, im.get_data().shape[1]):
+    for t in range(0, im.img.dims.T):
         # loop of types of segmentation (channels in the mask img)
         for j in range(0, mask.get_data().shape[2]):
             # get the mask for this particular segmentation
@@ -285,18 +304,34 @@ def analysis(
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
             masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
+            cell_blk_sz = get_cell_blk_sz(len(masked_imgs_coord), im, options)
+            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
 
             covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
             mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
             total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+            for blk_min in range(0, len(masked_imgs_coord), cell_blk_sz):
+                ROI_dict = calculations(masked_imgs_coord[blk_min: blk_min+cell_blk_sz],
+                                        im, t, bestz)
 
-            # loop of ROIs
-            for i in range(0, len(masked_imgs_coord)):
-                (
-                    covar_matrix[t, j, i, :, :],
-                    mean_vector[t, j, i, :, :],
-                    total_vector[t, j, i, :, :],
-                ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
+                for cell_idx in ROI_dict:
+                    ROI = ROI_dict[cell_idx]
+                    cov_m = np.cov(ROI)
+                    mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
+                    total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
+
+                    # filter for NaNs
+                    cov_m[np.isnan(cov_m)] = 0
+                    mu_v[np.isnan(mu_v)] = 0
+                    total[np.isnan(total)] = 0
+
+                    covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
+                    mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
+                    total_vector[t, j, cell_idx + blk_min, :, :] = total
+
+            LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
+            LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
+            LOGGER.debug(f"cell stats info: total_vector {total_vector.shape} {total_vector.dtype}")
 
         # save the means, covars, shape and total for each cell
         save_all(
@@ -349,6 +384,7 @@ def main(
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
     celltype_labels: Optional[list[Path]] = None,
+    min_memory: bool = False
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -421,6 +457,7 @@ def main(
                     output_dir,
                     options,
                     cell_types,
+                    min_memory,
                 )
             )
 
@@ -467,6 +504,8 @@ def argparse_wrapper():
         help="Limit the number of threads used by BLAS/OpenMP libraries (e.g., MKL)",
     )
     p.add_argument("--celltype-labels", type=Path, action="append")
+    p.add_argument("--min-memory", action="store_true",
+                   help="keep large arrays on disk where possible")
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)
@@ -499,4 +538,5 @@ def argparse_wrapper():
         options_path=argss.options_file,
         optional_img_dir=argss.optional_img_dir,
         celltype_labels=argss.celltype_labels,
+        min_memory=argss.min_memory,
     )

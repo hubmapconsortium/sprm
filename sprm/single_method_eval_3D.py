@@ -159,7 +159,9 @@ def cell_uniformity(mask, channels, label_list):
 
 
 def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
-    print("Calculating single-method metrics v1.5 for", img.path)
+    if not img.data:
+        raise NotImplementedError("Not implemented for disk-based images")
+    print("Calculating single-method metrics 3D v1.5 for", img.path)
 
     # get compartment masks
     matched_mask = mask.data[0, 0, :, :, :, :]

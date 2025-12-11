@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import math
 import time
 from bisect import bisect
@@ -45,7 +46,7 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
-from .data_structures import IMGstruct, MaskStruct
+from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
 
@@ -63,6 +64,9 @@ Version: 1.03
 ###########################################
 ########## GLOBAL VARIABLES ###############
 ###########################################
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 hdf5_lock = Lock()
 row_index = 0
@@ -456,43 +460,42 @@ def save_image(
 
 
 def calculations(
-    coord, im: IMGstruct, t: int, i: int, bestz: int
-) -> (np.ndarray, np.ndarray, np.ndarray):
+    coord_all, im: IMGstruct, t: int, bestz: List[int]
+) -> Dict[int, np.ndarray]:
     """
     Returns covariance matrix, mean vector, and total vector
     """
 
-    if i == 0:
-        print("Performing statistical analyses on ROIs...")
+    print("Performing statistical analyses on ROIs...")
 
-    if coord.shape[0] > 2:
-        z, y, x = coord[0], coord[1], coord[2]
-        z = z.astype(int)
-    else:
-        y, x = coord[0], coord[1]
-        z = bestz
+    ROI_dict = {}  # ROI matrices by cell ID
+    channels_this_cell_dict = defaultdict(list)
+    for ch_idx in range(im.img.dims.C):
+        cell_plane_dict = defaultdict(list) # planes of this channel by cell ID
+        for z_idx in range(im.img.dims.Z):
+            slice = im.get_plane(ch_idx, z_idx)
+            for cell_idx in range(len(coord_all)):
+                coord = coord_all[cell_idx]
+                if coord.shape[0] > 2:
+                    z, y, x = coord[0], coord[1], coord[2]
+                    z = z.astype(int)
+                else:
+                    y, x = coord[0], coord[1]
+                    z = bestz
+                y = y.astype(int)
+                x = x.astype(int)
+                if z_idx in z:
+                    pix_array = slice[0, y, x].copy().ravel()
+                    cell_plane_dict[cell_idx].append(pix_array)
+        for cell_idx in cell_plane_dict:
+            channels_this_cell_dict[cell_idx].append(
+                np.concatenate(cell_plane_dict[cell_idx])
+            )
+    for cell_idx in channels_this_cell_dict:
+        ROI = np.vstack(channels_this_cell_dict[cell_idx])
+        ROI_dict[cell_idx] = ROI
 
-    y = y.astype(int)
-    x = x.astype(int)
-
-    temp = im.get_data()
-
-    channel_all_mask = temp[0, t, :, z, y, x]
-    ROI = np.transpose(channel_all_mask)
-
-    cov_m = np.cov(ROI)
-    mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
-    total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
-
-    # filter for NaNs
-    cov_m[np.isnan(cov_m)] = 0
-    mu_v[np.isnan(mu_v)] = 0
-    total[np.isnan(total)] = 0
-
-    # if not cov_m.shape:
-    # cov_m = np.array([cov_m])
-
-    return cov_m, mu_v, total
+    return ROI_dict
 
 
 def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> np.array:
@@ -548,9 +551,12 @@ def cell_cluster(
     df_all_cluster_list: list[pd.DataFrame],
 ) -> np.ndarray:
     # kmeans clustering
-    print("Clustering cells...")
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
+    print(f"Clustering cells for {s}: "
+          f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
+    print(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
+          f" for {len(typelist)} types")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -580,15 +586,19 @@ def cell_cluster(
             cellbycluster = cellbycluster.fit(cell_matrix)
 
         else:
+            #TODO: num_cellclusters and cluster_score are undefined on this branch
+            raise NotImplementedError("Only silhouette is currently supported")
             cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
+    print("cell_cluster point 1")
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
 
+    print("cell_cluster point 2")
     # sort the clusters by the largest to smallest and then reindex
     # unique_clusters = set(cellbycluster_labels)
     # cluster_counts = {cluster: (cellbycluster_labels == cluster).sum() for cluster in unique_clusters}
@@ -597,10 +607,12 @@ def cell_cluster(
     # lut = np.zeros_like(cellbycluster_labels)
     # lut[sorted_clusters] = np.arange(len(unique_clusters))
 
+    print("cell_cluster point 3")
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
 
+    print("cell_cluster point 4")
     # write out that cluster ids
     if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
@@ -614,6 +626,7 @@ def cell_cluster(
 
         df_all_cluster_list.append(df)
 
+    print("cell_cluster point 5")
     return cellbycluster_labels, clustercenters
 
 
@@ -1606,11 +1619,11 @@ def build_matrix(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
-                im.get_data().shape[2],
+                im.img.dims.C,
+                im.img.dims.C,
             )
         )
     else:
@@ -1627,10 +1640,10 @@ def build_vector(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
+                im.img.dims.C,
                 1,
             )
         )
@@ -1783,57 +1796,35 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
 
     global row_index
 
+    # min-memory mode
     print("Calculating Signal to Noise Ratio in image...")
-    channvals = im.get_data()[0, 0, :, :, :, :]
     zlist = []
     channelist = []
+    snr_channels_list = []
+    for ch_idx in range(im.img.dims.C):
+        all_pix = np.concatenate([im.get_plane(ch_idx, z_idx).copy()
+                                  for z_idx in range(im.img.dims.Z)],
+                                 axis = None)
+        print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
+        snr_channels_list.append(all_pix.mean() / all_pix.std(ddof=0))
 
-    channvals_z = channvals.reshape(
-        channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
-    )
-    channvals_z = channvals_z.transpose()
+        img_2D = all_pix.astype("int")
 
-    m = channvals_z.mean(0)
-    sd = channvals_z.std(axis=0, ddof=0)
-    # snr_channels = np.where(sd == 0, 0, m / sd)
-    snr_channels = m / sd
-    # snr_channels = snr_channels[np.newaxis, :]
-    # snr_channels = snr_channels.tolist()
-
-    # define otsu threshold
-    for i in range(0, channvals.shape[0]):
-        img_2D = channvals[i, :, :, :].astype("int")
-        img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
-
-        # try:
-        # nbins implement
         max_img = np.max(img_2D)
         max_img_dtype = np.iinfo(img_2D.dtype).max
         factor = np.floor(max_img_dtype / max_img)
         img_2D_factor = img_2D * factor
 
-        thresh = threshold_otsu(img_2D_factor)
-        thresh = max(thresh, factor)
+        thresh = max(threshold_otsu(img_2D_factor),
+                     factor)
 
-        above_th = img_2D_factor > thresh
-        below_th = img_2D_factor <= thresh
-        # if thresh == 0:
-        #     print('Otsu threshold returned 0')
-        #     fbr = 'N/A'
-        # else:
-        mean_a = np.mean(img_2D_factor[above_th])
-        mean_b = np.mean(img_2D_factor[below_th])
-        # take ratio above thresh / below thresh
+        mean_a = np.mean(img_2D_factor[img_2D_factor > thresh])
+        mean_b = np.mean(img_2D_factor[img_2D_factor <= thresh])
         fbr = mean_a / mean_b
-        # except ValueError:
-        #     print('Value Error encountered')
-        #     fbr = 0
-
         channelist.append(fbr)
 
-    channelist = np.asarray(channelist)
-
-    snrs = np.stack([snr_channels, channelist])
+    snrs = np.stack([np.asarray(snr_channels_list),
+                     np.asarray(channelist)])
 
     # check for nans
     snrs[np.isnan(snrs)] = 0
@@ -3219,10 +3210,14 @@ def quality_measures(
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
 
-        im_data = im.get_data()
-        im_dims = im_data.shape
+        #im_data = im.get_data()
+        im_dims = (1, 1,
+                   im.img.dims.C, im.img.dims.Z,
+                   im.img.dims.Y, im.img.dims.X)
 
-        im_channels = im_data[0, 0, :, bestz, :, :]
+        #im_channels = im_data[0, 0, :, bestz, :, :]
+        #print(f"shape info: im_data {im_data.shape}")
+        #print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
         pixels = im_dims[-2] * im_dims[-1]
         bgpixels = ROI_coords[0][0]
         cells = ROI_coords[0][1:]
@@ -3239,15 +3234,21 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        total_intensity_per_chan = im_channels[0, :, :, :]
-        total_intensity_per_chan = np.reshape(
-            total_intensity_per_chan,
-            (
-                total_intensity_per_chan.shape[0],
-                total_intensity_per_chan.shape[1] * total_intensity_per_chan.shape[2],
-            ),
-        )
-        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
+        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        total_intensity_per_chan = np.zeros((im.img.dims.C,))
+        total_intensity_per_chancell = np.zeros((im.img.dims.C,))
+        total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
+        total_intensity_nuclei_per_chan = np.zeros((im.img.dims.C,))
+        for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
+            total_intensity_per_chan[c_idx] += np.sum(slice)
+            total_intensity_per_chancell[c_idx] += np.sum(
+                slice[0, 0, total_intensity_cell[0], total_intensity_cell[1]]
+            )
+            total_intensity_per_chanbg[c_idx] += np.sum(slice[0, 0, bgpixels[0], bgpixels[1]])
+            total_intensity_nuclei_per_chan[c_idx] += np.sum(
+                slice[0, 0, total_intensity_nuclei[0], total_intensity_nuclei[1]]
+            )
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -3260,13 +3261,7 @@ def quality_measures(
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
         # total_intensity_file = get_paths(total_intensity_path)
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        total_intensity_per_chancell = np.sum(
-            im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
-        )
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
-
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -3274,10 +3269,6 @@ def quality_measures(
         # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
 
         # nuclei total intensity per channel
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
-        total_intensity_nuclei_per_chan = np.sum(
-            im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0
-        )
 
         # cytoplasm total intensity per channel
         # cytoplasm_all = np.concatenate(cytoplasm, axis=1)
@@ -3628,8 +3619,8 @@ def check_shape(im, mask):
     # put in check here for matching dims
 
     return (
-        im.get_data().shape[4] != mask.get_data().shape[4]
-        or im.get_data().shape[5] != mask.get_data().shape[5]
+        (im.img.dims.X != mask.img.dims.X)
+        or (im.img.dims.Y != mask.img.dims.Y)
     )
 
 
@@ -3685,10 +3676,15 @@ def reallocate_and_merge_intensities(
         im.set_channel_labels(channel_list)
 
     # prune for NaNs
-    im_prune = im.get_data()
-    nan_find = np.isnan(im_prune)
-    im_prune[nan_find] = 0
-    im.set_data(im_prune)
+    nan_count = 0
+    for c_idx, z_idx, slice in im.get_img_channel_generator():
+        nan_count += np.isnan(slice).sum()
+        print(f"nan scan: {c_idx} {z_idx} {nan_count}")
+    if nan_count > 0:
+        im_prune = im.get_data()
+        nan_find = np.isnan(im_prune)
+        im_prune[nan_find] = 0
+        im.set_data(im_prune)
 
 
 # def generate_fake_stackimg(im, mask, opt_img_file, options):
@@ -3791,28 +3787,34 @@ def normalize_image(img):
     """
     basic normalization of averaging negative values and setting that as background
     """
-    if (img.data < 0).any():
-        # find a boolean matrix of negative values
-        nbool = img.data < 0
+    neg_count = 0
+    neg_sum = 0.0
+    for chan_idx, z_idx, slice in img.get_img_channel_generator():
+        nbool = slice < 0.0
+        neg_count += nbool.sum()
+        neg_sum += slice[nbool].sum()
+    print(f"normalize_image: neg_count {neg_count} neg_sum {neg_sum}")
+    if neg_count:
+        # fail cleanly if we can't adjust the image values
+        if img.data is None:
+            raise RuntimeError("Image bias normalization is not supported"
+                               " in min-memory mode")
 
         # get average of negative and set that as the background or 0
-        n_avg = -np.average(img.data[nbool])
+        n_avg = -(neg_sum / neg_count)
         img.data = img.data + n_avg
 
         # everything that is < 0 is background
         img.data[img.data < 0] = 0
-        return
-    else:
-        return
 
 
 def normalize_background(im, mask, ROI_coords):
     # pass
-    img = im.get_data().copy()
-    # img = img.astype("int64")
     dims = mask.get_data().shape
 
+    # img = img.astype("int64")
     if dims[3] > 1:  # 3D
+        img = im.get_data().copy()
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
             bg_img_ch = img_ch[
@@ -3827,9 +3829,12 @@ def normalize_background(im, mask, ROI_coords):
                 avg = 1
 
             img[0, 0, i, :, :, :] = img_ch / avg
+        im.set_data(img)
+
     else:
-        for i in range(img.shape[2]):
-            img_ch = img[0, 0, i, 0, :, :]
+        img = None
+        for i in range(im.img.dims.C):
+            img_ch = im.get_plane(i, 0)[0]
             bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
 
             avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
@@ -3838,13 +3843,12 @@ def normalize_background(im, mask, ROI_coords):
                 continue
             elif avg < 1:
                 avg = 1
-
-            img[0, 0, i, 0, :, :] = img_ch / avg
-
-    im.set_data(img)
+            print(f"avg for channel {i} is {avg}")
+            im.apply_scale(i, 1.0/avg)
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
+    print("starting set_zdims")
     bound = options.get("zslices")
     bestz = mask.get_bestz()
     z = mask.get_data().shape[3]
@@ -3858,12 +3862,15 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_bestz(idx)
         return
     else:
-        new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
-        new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+        if lower_bound == bestz[0] and upper_bound == lower_bound+1:
+            return  # no change
+        else:
+            new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+            new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
 
-        mask.set_data(new_mask)
-        mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
-        img.set_data(new_img)
+            mask.set_data(new_mask)
+            mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
+            img.set_data(new_img)
 
 
 def find_edge_cells(mask):
