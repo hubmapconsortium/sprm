@@ -758,6 +758,11 @@ def unravel_indices_3D(mask_channels, maxvalue, channel_coords):
 
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
+    """
+    mask_channels: list of n [:,:,:] arrays of ints, each a mask channel
+    maxvalue: upper limit of the range of cell indices (single int)
+    channel_coords: on entry, an empty list. returns the result.
+    """
     for j in range(0, len(mask_channels)):
         # might want to change this to pure numpy arrays
         masked_imgs_coord = [[[], []] for i in range(maxvalue)]
@@ -767,7 +772,7 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
         indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
 
         append_coord(masked_imgs_coord, rlabel_mask, indices)
-        masked_imgs_coord = list(np.asarray(elt, dtype=np.int32) for elt in masked_imgs_coord)
+        masked_imgs_coord = [np.asarray(elt, dtype=np.int32) for elt in masked_imgs_coord]
 
         channel_coords.append(masked_imgs_coord)
 
@@ -862,6 +867,12 @@ def get_coordinates(mask, options):
     else:
         unravel_indices(mask_channels, maxvalue, channel_coords)  # new
     # npwhere(mask_channels, maxvalue, channel_coords_np) #old
+
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 4:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
 
     # remove idx from coords
     # if len(idx) != 0:
