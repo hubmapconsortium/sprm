@@ -31,6 +31,9 @@ inputs:
   verbose:
     label: "Whether to enable verbose/debug mode"
     type: boolean?
+  min_memory:
+    label: "Whether to conserve memory by leaving large arrays on disk"
+    type: boolean?
   processes:
     label: "Number of images to process in parallel (default: 1)"
     type: int?
@@ -74,6 +77,8 @@ steps:
         source: threadpool_limit
       verbose:
         source: verbose
+      min_memory:
+        source: min_memory
       processes:
         source: processes
     out: [output_dir]
