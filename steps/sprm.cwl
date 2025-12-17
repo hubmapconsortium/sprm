@@ -45,6 +45,11 @@ inputs:
     inputBinding:
       position: 6
       prefix: "--verbose"
+  min_memory:
+    type: boolean?
+    inputBinding:
+      position: 7
+      prefix: "--min-memory"
   cell_types_directory:
     type:
       - "null"
