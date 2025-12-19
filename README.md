@@ -115,6 +115,19 @@ Beforehand, run the following command to install SPRM
 pip install .
 ```
 
+### Installing with pip
+
+
+```bash
+pip install sprmpkg
+```
+
+Even though the distribution name is `sprmpkg`, the Python import name remains:
+
+```python
+import sprm
+```
+
 Then you can either:
 
 - Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files. It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.

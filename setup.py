@@ -11,7 +11,7 @@ with open(here / "sprm/version.txt") as f:
     version = f.read().strip()
 
 setup(
-    name="SPRM",
+    name="sprmpkg",
     version=version,
     description="Spatial Process & Relationship Modeling ",
     long_description=long_description,
