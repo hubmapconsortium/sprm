@@ -77,23 +77,18 @@ JSON containing all features and cluster assignments
 The demo folder contains two simple ways to run SPRM.  For both, start by
 * downloading/cloning this repository
 
-Install all dependencies:
+Install SPRM (and its dependencies):
 
-**Automated**
-
-* Run the following command 
-
-```bash
-./install_sprm.sh
-```
-* Will create an environment called SPRM if you have `conda` or `pyenv` otherwise will install in base environment.
-
-**Manual**
-
-* in the main folder, run the command 
+* In the main folder, run:
 ```bash
 pip install .
 ```
+
+* For development (editable install), run:
+```bash
+pip install -e .
+```
+
 Change to the demo folder ("cd demo") and you can then either:
 * Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files.  It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  
 
