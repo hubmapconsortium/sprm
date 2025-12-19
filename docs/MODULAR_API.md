@@ -17,11 +17,11 @@ The SPRM modular API allows you to run individual components of the SPRM pipelin
 SPRM is organized into 7 modules:
 
 1. **Preprocessing** (Required) - Load images, extract ROIs, quality control
-2. **Segmentation Evaluation** (Optional) - Assess segmentation quality
-3. **Shape Analysis** (Optional) - Extract cell shape features
-4. **Spatial Graphs (Cell Neighborhood Graphs)** (Optional) - Compute spatial relationships
-5. **Image Analysis (Pixel Level Analysis)** (Optional) - NMF, superpixels, channel PCA
-6. **Cell Features** (Required for clustering) - Intensity & texture features
+2. **Segmentation_Eval** (Optional) - Assess segmentation quality
+3. **Shape_Analysis** (Optional) - Extract cell shape features
+4. **Spatial_Graphs (Cell Neighborhood Graphs)** (Optional) - Compute spatial relationships
+5. **Image_Analysis (Pixel Level Analysis)** (Optional) - NMF, superpixels, channel PCA
+6. **Cell_Features** (Required for clustering) - Intensity & texture features
 7. **Clustering** (Analysis) - Multiple clustering methods
 
 ### Dependency Graph
@@ -43,7 +43,7 @@ Preprocessing (Module 1) ✓ Always required
 
 ### Module 1: Preprocessing
 
-**Purpose**: Load images, extract cell ROI coordinates, perform quality control
+**Purpose**: Load images, extract cell ROI coordinates, perform quality control, create data object to hold results
 
 **Required for**: All other modules
 
@@ -87,7 +87,7 @@ core = modules.preprocessing.run(
 - `img_file`: Path to OME-TIFF image
 - `mask_file`: Path to OME-TIFF mask/segmentation
 - `output_dir`: Output directory for results and checkpoints
-- `options` (optional): Path to options.txt, dict of options, or None (use defaults)
+- `options` (optional): Path to options.txt, dict of options, or None (use defaults). See [Main Documentation](https://docs.google.com/document/d/1aysD_yRmk_5Lmm2fXIUGCeWnxICpxrJt0Osym99FfWA/view?usp=sharing) for list of options.
 - `image_dimension`: "2D" or "3D" (used if options is None)
 - `debug`: Enable debug output (used if options is None)
 

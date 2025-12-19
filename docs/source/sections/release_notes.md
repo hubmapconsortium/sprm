@@ -1,5 +1,18 @@
 # Release Notes
 
+## SPRM v2.0.0
+December 19, 2025 Changes since v1.5.1
+
+### New Features
+
+- Modular API: run SPRM components independently via `sprm.modules` (see `docs/MODULAR_API.md`)
+- Checkpoint/resume support to reuse intermediate results and avoid recomputation
+
+### Improvements
+
+- Improved documentation for modular workflows and module dependencies
+- Demo scripts/notebooks updated to align with the current modular workflow
+
 ## SPRM v1.5.1
 December 20, 2024 Changes since v1.4.4
 

@@ -29,8 +29,8 @@ SPRM.py [img_dir_path] [mask_dir_path] [output_dir_path] [options_path] [cell-ty
 
 For any inquires and question please contact us!
 
-Robert F. Murphy \
-Ted Zhang \
-Haoran Chen 
+Robert F. Murphy - murphy@cmu.edu\
+Ted Zhang - tedz@andrew.cmu.edu\
+Matt Ruffalo - mruffalo@cs.cmu.edu
 
 
