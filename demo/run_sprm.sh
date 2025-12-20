@@ -150,7 +150,7 @@ main() {
     # Set matplotlib backend to Agg to avoid GUI threading issues on macOS
     export MPLBACKEND=Agg
     
-    if python -u "$SPRM_PATH" --img-dir img/image_demo.ome.tiff --mask-dir mask/mask_demo.ome.tiff --output-dir sprm_demo_outputs --processes 1 > sprm_demo_outputs/sprm_demo_outputs.log 2>&1; then
+    if python -u "$SPRM_PATH" --img-dir img/image_demo.ome.tiff --mask-dir mask/mask_demo.ome.tiff --output-dir sprm_demo_outputs --processes 1 --min-memory > sprm_demo_outputs/sprm_demo_outputs.log 2>&1; then
         print_success "SPRM demo completed successfully!"
         print_status "Results saved to: sprm_demo_outputs/"
         print_status "Log file: sprm_demo_outputs/sprm_demo_outputs.log"
