@@ -261,9 +261,23 @@ def cell_type(mask, img, bestz):
         feature_matrix_z_pieces.append(cell_intensity_z)
 
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
+    n_cells = feature_matrix_z.shape[0]
+    # Ensure we ALWAYS return 10 label arrays since downstream code assumes this.
+    # When clustering is degenerate (e.g., all points identical) or impossible
+    # (e.g., n_cells < c), we reuse the last valid labels.
+    prev_labels = np.zeros(n_cells, dtype=int)
     for c in range(1, 11):
-        model = KMeans(n_clusters=c).fit(feature_matrix_z)
-        label_list.append(model.labels_.astype(int))
+        if n_cells < 2 or n_cells < c:
+            label_list.append(prev_labels.copy())
+            continue
+        try:
+            model = KMeans(n_clusters=c, n_init="auto", random_state=0).fit(feature_matrix_z)
+            labels = model.labels_.astype(int)
+            prev_labels = labels
+            label_list.append(labels)
+        except Exception as excp:
+            print(f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels")
+            label_list.append(prev_labels.copy())
     return label_list
 
 
@@ -304,7 +318,18 @@ def cell_uniformity(mask, img, bestz, label_list):
         if c == 1:
             silhouette.append(1)
         else:
-            silhouette.append(silhouette_score(feature_matrix_z, labels))
+            # silhouette_score requires 2..(n_samples-1) distinct labels. KMeans can
+            # legitimately return only 1 distinct label (e.g., all points identical).
+            try:
+                n_labels = np.unique(labels).size
+                n_samples = feature_matrix_z.shape[0]
+                if n_labels < 2 or n_labels >= n_samples:
+                    silhouette.append(0.0)
+                else:
+                    silhouette.append(float(silhouette_score(feature_matrix_z, labels)))
+            except Exception as excp:
+                print(f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0")
+                silhouette.append(0.0)
         for i in range(c):
             cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
             cluster_feature_matrix_z = feature_matrix_z[np.where(labels == i)[0], :]
