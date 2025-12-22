@@ -163,13 +163,34 @@ def run(
             mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
             total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
 
+            # Extract ROI pixel intensity matrices for all cells in this mask channel.
+            # `calculations` returns {cell_idx -> ROI} where ROI has shape (C, Npix).
+            roi_dict = calculations(masked_imgs_coord, im, t, bestz)
+
             # Compute statistics for each cell
             for i in range(0, len(masked_imgs_coord)):
-                (
-                    covar_matrix[t, j, i, :, :],
-                    mean_vector[t, j, i, :, :],
-                    total_vector[t, j, i, :, :],
-                ) = calculations(masked_imgs_coord[i], im, t, i, bestz)
+                roi = roi_dict.get(i)
+                c = im.img.dims.C
+                if roi is None or getattr(roi, "size", 0) == 0:
+                    covar_matrix[t, j, i, :, :] = np.zeros((c, c), dtype=np.float64)
+                    mean_vector[t, j, i, :, :] = np.zeros((c, 1), dtype=np.float64)
+                    total_vector[t, j, i, :, :] = np.zeros((c, 1), dtype=np.float64)
+                    continue
+
+                # Mean / total per channel
+                mean_vector[t, j, i, :, :] = roi.mean(axis=1, keepdims=True)
+                total_vector[t, j, i, :, :] = roi.sum(axis=1, keepdims=True)
+
+                # Covariance between channels
+                if roi.shape[1] > 1:
+                    cov = np.cov(roi)
+                    if cov.ndim == 0:
+                        cov = np.array([[float(cov)]], dtype=np.float64)
+                    covar_matrix[t, j, i, :, :] = np.nan_to_num(
+                        cov, nan=0.0, posinf=0.0, neginf=0.0
+                    )
+                else:
+                    covar_matrix[t, j, i, :, :] = np.zeros((c, c), dtype=np.float64)
 
     print(f"  Mean vector shape: {mean_vector.shape}")
     print(f"  Covariance matrix shape: {covar_matrix.shape}")
