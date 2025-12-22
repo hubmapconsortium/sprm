@@ -17,6 +17,7 @@ from .single_method_eval import (
     flatten_dict,
     foreground_separation,
     get_indices_sparse,
+    _get_metadata_xml,
     get_physical_dimension_func,
     get_quality_score,
     thresholding,
@@ -175,7 +176,10 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
 
     # separate image foreground background
     try:
-        img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
+        img_xml = _get_metadata_xml(img.img.metadata)
+        if img_xml is None:
+            raise ValueError("No parseable OME-XML metadata found on image")
+        img_xmldict = xmltodict.parse(img_xml)
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
             "OriginalMetadata"
         ]["Value"]

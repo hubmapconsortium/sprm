@@ -69,9 +69,9 @@ install_with_conda() {
         conda env remove -n SPRM -y
     fi
     
-    # Create conda environment with Python 3.8+
-    print_status "Creating conda environment 'SPRM' with Python 3.9..."
-    conda create -n SPRM python=3.9 -y
+    # Create conda environment with a modern Python
+    print_status "Creating conda environment 'SPRM' with Python 3.11..."
+    conda create -n SPRM python=3.11 -y
     
     # Activate environment and install dependencies
     print_status "Installing dependencies in conda environment..."

@@ -6,7 +6,7 @@ import warnings
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import aicsimageio
 import numpy as np
@@ -461,9 +461,34 @@ def get_physical_dimension_func(
 get_pixel_area = get_physical_dimension_func(2)
 
 
+def _get_metadata_xml(metadata: Any) -> Optional[Union[str, bytes]]:
+    """
+    Return OME-XML as a string/bytes from various aicsimageio metadata forms.
+
+    Depending on aicsimageio version/reader, `AICSImage.metadata` can be:
+    - an OME object with `.to_xml()`
+    - a raw XML string/bytes
+    - None/other (no parseable metadata)
+    """
+    if metadata is None:
+        return None
+    if isinstance(metadata, (str, bytes)):
+        return metadata
+    to_xml = getattr(metadata, "to_xml", None)
+    if callable(to_xml):
+        return to_xml()
+    return None
+
+
 def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
+    # Compatibility: older pickled PCA objects may be missing newer attributes that
+    # scikit-learn expects to exist (e.g. in __sklearn_tags__ on newer versions).
+    # Without this, pca.transform() can raise AttributeError on newer sklearn.
+    if not hasattr(pca, "power_iteration_normalizer"):
+        # sklearn default for PCA(randomized) is "auto" in modern versions.
+        pca.power_iteration_normalizer = "auto"
     features_scaled = ss.transform(features)
     # Robustness: older metric code paths can produce NaN/inf; keep scoring finite.
     features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=0.0, neginf=0.0)
@@ -504,7 +529,10 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     print("single method point 1")
     pprint(threadpool_info())
     try:
-        img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
+        img_xml = _get_metadata_xml(img.img.metadata)
+        if img_xml is None:
+            raise ValueError("No parseable OME-XML metadata found on image")
+        img_xmldict = xmltodict.parse(img_xml)
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
             "OriginalMetadata"
         ]["Value"]
@@ -552,7 +580,8 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
             print(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
-            mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
+            mask_xml = _get_metadata_xml(mask.img.metadata)
+            mask_xmldict = xmltodict.parse(mask_xml) if mask_xml is not None else {}
             try:
                 matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
                     "Value"
