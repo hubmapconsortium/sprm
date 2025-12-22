@@ -88,8 +88,8 @@ check_demo_files() {
     print_status "Checking for demo files..."
     
     # Check for image file in img/ subdirectory
-    if [ ! -f "img/image_demo.ome.tiff" ]; then
-        print_error "Demo image file 'img/image_demo.ome.tiff' not found!"
+    if [ ! -f "img/image_demo.tiff" ]; then
+        print_error "Demo image file 'img/image_demo.tiff' not found!"
         print_error "Please download demo files from:"
         print_error "https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing"
         print_error "and place them in the img/ and mask/ subdirectories"
@@ -97,8 +97,8 @@ check_demo_files() {
     fi
     
     # Check for mask file in mask/ subdirectory
-    if [ ! -f "mask/mask_demo.ome.tiff" ]; then
-        print_error "Demo mask file 'mask/mask_demo.ome.tiff' not found!"
+    if [ ! -f "mask/mask_demo.tiff" ]; then
+        print_error "Demo mask file 'mask/mask_demo.tiff' not found!"
         print_error "Please download demo files from:"
         print_error "https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing"
         print_error "and place them in the img/ and mask/ subdirectories"
@@ -145,12 +145,12 @@ main() {
     
     # Run SPRM
     print_status "Running SPRM demo..."
-    print_status "Command: MPLBACKEND=Agg python -u $SPRM_PATH --img-dir img/image_demo.ome.tiff --mask-dir mask/mask_demo.ome.tiff --output-dir sprm_demo_outputs --processes 1"
+    print_status "Command: MPLBACKEND=Agg python -u $SPRM_PATH --img-dir img/image_demo.tiff --mask-dir mask/mask_demo.tiff --output-dir sprm_demo_outputs --processes 1"
     
     # Set matplotlib backend to Agg to avoid GUI threading issues on macOS
     export MPLBACKEND=Agg
     
-    if python -u "$SPRM_PATH" --img-dir img/image_demo.ome.tiff --mask-dir mask/mask_demo.ome.tiff --output-dir sprm_demo_outputs --processes 1 > sprm_demo_outputs/sprm_demo_outputs.log 2>&1; then
+    if python -u "$SPRM_PATH" --img-dir img/image_demo.tiff --mask-dir mask/mask_demo.tiff --output-dir sprm_demo_outputs --processes 1 > sprm_demo_outputs/sprm_demo_outputs.log 2>&1; then
         print_success "SPRM demo completed successfully!"
         print_status "Results saved to: sprm_demo_outputs/"
         print_status "Log file: sprm_demo_outputs/sprm_demo_outputs.log"
