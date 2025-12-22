@@ -4,6 +4,7 @@ from typing import Dict, Union
 
 import numpy as np
 from aicsimageio import AICSImage
+from aicsimageio.readers import OmeTiffReader, TiffReader
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
@@ -57,16 +58,17 @@ class IMGstruct:
             ch_idx = channel
         img = self.get_data().copy()
         img_ch = img[0, 0, ch_idx, :, :, :]
-        img[0, 0, ch_idx, :, : :] = img_ch * factor
+        img[0, 0, ch_idx, :, :, :] = img_ch * factor
         self.set_data(img)
 
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
-            LOGGING.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
-            return self.data[0, 0, ch_idx, slice, :, :]
+            LOGGER.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
+            # Always return (1, Y, X) for consistent downstream indexing.
+            return self.data[0, 0, ch_idx, slice, np.newaxis, :, :]
         else:
-            LOGGING.debug(f"in-memory get_plane: {channel} {slice}")
+            LOGGER.debug(f"in-memory get_plane: {channel} {slice}")
             return self.data[0, 0, channel, slice, np.newaxis, :, :]
 
     def set_data(self, data):
@@ -90,7 +92,14 @@ class IMGstruct:
 
     @staticmethod
     def read_img(path: Path, options: Dict) -> AICSImage:
-        img = AICSImage(path)
+        # Avoid bfio dependency for (OME-)TIFF by selecting readers that don't require it.
+        # This prevents noisy "No module named 'bfio'" messages for OmeTiledTiffReader.
+        suffix = path.name.lower()
+        if suffix.endswith((".tif", ".tiff")):
+            reader = OmeTiffReader if ".ome." in suffix else TiffReader
+            img = AICSImage(path, reader=reader)
+        else:
+            img = AICSImage(path)
         if not img.metadata:
             print("Metadata not found in input image")
             # might be a case-by-basis

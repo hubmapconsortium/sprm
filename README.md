@@ -59,6 +59,7 @@ core = modules.preprocessing.run(
     img_file="image.ome.tiff",
     mask_file="mask.ome.tiff",
     output_dir="sprm_outputs"
+    options="sprm/options.txt"  # Pass path to options file
 )
 
 features = modules.cell_features.run(

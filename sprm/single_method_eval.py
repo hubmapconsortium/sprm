@@ -2,6 +2,7 @@ import importlib.resources
 import logging
 import pickle
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
@@ -52,7 +53,12 @@ def fraction(img_bi, mask_bi):
     mask_all = np.sum(mask_bi)
     background = len(np.where(mask_bi - img_bi == 1)[0])
     foreground = np.sum(mask_bi * img_bi)
-    return foreground / foreground_all, background / background_all, foreground / mask_all
+    # Robustness: avoid NaNs from divide-by-zero when image/mask are empty.
+    # Use 0.0 for undefined fractions (e.g., no foreground pixels).
+    foreground_fraction = float(foreground / foreground_all) if foreground_all else 0.0
+    background_fraction = float(background / background_all) if background_all else 0.0
+    mask_foreground_fraction = float(foreground / mask_all) if mask_all else 0.0
+    return foreground_fraction, background_fraction, mask_foreground_fraction
 
 
 def foreground_separation(img_thre):
@@ -94,26 +100,47 @@ def foreground_separation(img_thre):
 def uniformity_CV(is_foreground, img, bestz):
     CV = []
     for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
-        channel = channel / np.mean(channel)
-        intensity = channel[0,0,is_foreground]
-        CV.append(np.std(intensity))
-    return np.average(CV)
+        channel = channel.astype(np.float32, copy=False)
+        mean = float(np.mean(channel))
+        if mean and np.isfinite(mean):
+            channel = channel / mean
+        plane = channel[0, 0]
+        intensity = plane[is_foreground]
+        if intensity.size == 0:
+            CV.append(0.0)
+        else:
+            CV.append(float(np.std(intensity)))
+    if len(CV) == 0:
+        return 0.0
+    val = float(np.average(CV))
+    return val if np.isfinite(val) else 0.0
 
 
 def uniformity_fraction(is_foreground, img, bestz) -> float:
+    # If there are no selected pixels, the "uniformity fraction" is undefined.
+    # Return 0.0 to keep downstream metrics finite and conservative.
+    if np.count_nonzero(is_foreground) == 0:
+        return 0.0
     feature_matrix_pieces = []
     for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         ss = StandardScaler()
-        channel_z = ss.fit_transform(channel[0,0].copy())
+        channel_z = ss.fit_transform(channel[0, 0].copy())
         intensity = channel_z[is_foreground]
         feature_matrix_pieces.append(intensity)
     feature_matrix = np.vstack(feature_matrix_pieces)
     print(f"feature matrix: {feature_matrix.shape} {feature_matrix.dtype}")
+    if feature_matrix.shape[1] < 2:
+        # Too few samples for PCA to be meaningful.
+        return 0.0
+    # If there's effectively no variance, PCA will warn and return NaN ratios.
+    if float(np.var(feature_matrix)) == 0.0:
+        return 0.0
     pca = PCA(n_components=1)
     model = pca.fit(feature_matrix.T)
     fraction = model.explained_variance_ratio_[0]
     print(f"uniformity_fraction returning {fraction}")
-    return fraction
+    fraction = float(fraction)
+    return fraction if np.isfinite(fraction) else 0.0
 
 
 def foreground_uniformity(img_bi, mask, img, bestz):
@@ -216,10 +243,13 @@ def cell_uniformity_fraction(feature_matrix):
     if np.sum(feature_matrix) == 0 or feature_matrix.shape[0] == 1:
         return 1
     else:
+        if float(np.var(feature_matrix)) == 0.0:
+            return 0.0
         pca = PCA(n_components=1)
         model = pca.fit(feature_matrix)
         fraction = model.explained_variance_ratio_[0]
-        return fraction
+        fraction = float(fraction)
+        return fraction if np.isfinite(fraction) else 0.0
 
 
 def weighted_by_cluster(vector, labels):
@@ -237,8 +267,10 @@ def cell_size_uniformity(mask):
         cell_size_current = len(cell_coord[i][0])
         if cell_size_current != 0:
             cell_size.append(cell_size_current)
-    cell_size_std = np.std(np.expand_dims(np.array(cell_size), 1))
-    return cell_size_std
+    if len(cell_size) == 0:
+        return 0.0
+    cell_size_std = float(np.std(np.expand_dims(np.array(cell_size), 1)))
+    return cell_size_std if np.isfinite(cell_size_std) else 0.0
 
 
 def cell_type(mask, img, bestz):
@@ -262,16 +294,28 @@ def cell_type(mask, img, bestz):
 
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
     n_cells = feature_matrix_z.shape[0]
+    # If points are highly duplicated, KMeans can only produce fewer distinct clusters
+    # and will emit ConvergenceWarning; avoid fitting impossible cluster counts.
+    try:
+        n_unique = np.unique(feature_matrix_z, axis=0).shape[0]
+    except Exception:
+        n_unique = n_cells
     # Ensure we ALWAYS return 10 label arrays since downstream code assumes this.
     # When clustering is degenerate (e.g., all points identical) or impossible
     # (e.g., n_cells < c), we reuse the last valid labels.
     prev_labels = np.zeros(n_cells, dtype=int)
     for c in range(1, 11):
-        if n_cells < 2 or n_cells < c:
+        if n_cells < 2 or n_cells < c or n_unique < c:
             label_list.append(prev_labels.copy())
             continue
         try:
-            model = KMeans(n_clusters=c, n_init="auto", random_state=0).fit(feature_matrix_z)
+            with warnings.catch_warnings():
+                try:
+                    from sklearn.exceptions import ConvergenceWarning
+                    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+                except Exception:
+                    pass
+                model = KMeans(n_clusters=c, n_init="auto", random_state=0).fit(feature_matrix_z)
             labels = model.labels_.astype(int)
             prev_labels = labels
             label_list.append(labels)
@@ -421,11 +465,13 @@ def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
     features_scaled = ss.transform(features)
-    score = (
-        pca.transform(features_scaled)[0, 0] * pca.explained_variance_ratio_[0]
-        + pca.transform(features_scaled)[0, 1] * pca.explained_variance_ratio_[1]
-    )
-    return score
+    # Robustness: older metric code paths can produce NaN/inf; keep scoring finite.
+    features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=0.0, neginf=0.0)
+    comps = pca.transform(features_scaled)[0]
+    evr = np.nan_to_num(pca.explained_variance_ratio_, nan=0.0, posinf=0.0, neginf=0.0)
+    # pca.pickle is expected to have at least 2 components; be defensive anyway.
+    score = float(np.dot(comps[:2], evr[:2]))
+    return score if np.isfinite(score) else 0.0
 
 
 def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
@@ -561,7 +607,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             )
             metrics[channel_names[channel]][
                 "FractionOfFirstPCForegroundOutsideCells"
-            ] = foreground_PCA
+            ] = 0.0 if foreground_PCA is None else float(foreground_PCA)
 
             cell_type_labels = cell_type(current_mask, img, bestz)
         else:
@@ -587,8 +633,16 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
     print("single method point 6")
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-    with importlib.resources.open_binary("sprm", "pca.pickle") as f:
-        PCA_model = pickle.load(f)
+    # Loading pickled sklearn models can emit InconsistentVersionWarning. It's noisy
+    # during CLI runs and does not affect our ability to compute a score here.
+    with warnings.catch_warnings():
+        try:
+            from sklearn.exceptions import InconsistentVersionWarning
+            warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+        except Exception:
+            pass
+        with importlib.resources.open_binary("sprm", "pca.pickle") as f:
+            PCA_model = pickle.load(f)
 
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score

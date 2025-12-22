@@ -30,7 +30,7 @@ setup(
         "": ["*.txt", "*.pickle"],
     },
     install_requires=[
-        "aicsimageio==4.8.0",
+        "aicsimageio==4.14.0",
         "frozendict",
         "h5py",
         "lxml",

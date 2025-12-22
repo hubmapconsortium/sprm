@@ -3,6 +3,8 @@ import json
 import logging
 import math
 import time
+import re
+import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
 from contextlib import contextmanager
@@ -1589,10 +1591,28 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     # Sean Donahue - 11/12/20
     key_parts = s.replace("-", "_").split("_")
     key_parts.reverse()
-    hdf_key = "/".join(key_parts)
+    # Sanitize key parts for PyTables "natural naming" (avoid dots/spaces/etc).
+    # This keeps the demo log clean and makes keys easier to access.
+    safe_parts: List[str] = []
+    for part in key_parts:
+        part = re.sub(r"[^0-9a-zA-Z_]+", "_", str(part))
+        if not part:
+            part = "x"
+        if not re.match(r"^[a-zA-Z_]", part):
+            part = "_" + part
+        safe_parts.append(part)
+    hdf_key = "/".join(safe_parts)
     with hdf5_lock:
-        with pd.HDFStore(output_dir / "out.hdf5") as store:
-            store.put(hdf_key, df)
+        with warnings.catch_warnings():
+            # Avoid noisy warnings for non-critical naming / dtype issues when writing demo HDF5.
+            try:
+                from tables.exceptions import NaturalNameWarning, PerformanceWarning
+                warnings.filterwarnings("ignore", category=NaturalNameWarning)
+                warnings.filterwarnings("ignore", category=PerformanceWarning)
+            except Exception:
+                pass
+            with pd.HDFStore(output_dir / "out.hdf5") as store:
+                store.put(hdf_key, df)
 
 
 def write_cell_polygs(
@@ -1831,28 +1851,47 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
                                   for z_idx in range(im.img.dims.Z)],
                                  axis = None)
         print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
-        snr_channels_list.append(all_pix.mean() / all_pix.std(ddof=0))
+        all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
+            np.float32, copy=False
+        )
 
-        img_2D = all_pix.astype("int")
+        mean = float(all_pix.mean()) if all_pix.size else 0.0
+        std = float(all_pix.std(ddof=0)) if all_pix.size else 0.0
+        snr = mean / std if std > 0 else 0.0
+        snr_channels_list.append(snr if np.isfinite(snr) else 0.0)
 
-        max_img = np.max(img_2D)
-        max_img_dtype = np.iinfo(img_2D.dtype).max
-        factor = np.floor(max_img_dtype / max_img)
-        img_2D_factor = img_2D * factor
+        # Robust Otsu-like foreground/background ratio (avoid NaN ranges / empty slices)
+        if all_pix.size == 0 or float(np.var(all_pix)) == 0.0:
+            channelist.append(0.0)
+            continue
 
-        thresh = max(threshold_otsu(img_2D_factor),
-                     factor)
+        max_img = float(np.max(all_pix))
+        if (not np.isfinite(max_img)) or max_img <= 0.0:
+            channelist.append(0.0)
+            continue
 
-        mean_a = np.mean(img_2D_factor[img_2D_factor > thresh])
-        mean_b = np.mean(img_2D_factor[img_2D_factor <= thresh])
-        fbr = mean_a / mean_b
-        channelist.append(fbr)
+        # Scale into a stable range for thresholding (uint16-ish), but keep float for skimage.
+        scale = 65535.0 / max_img
+        img_scaled = np.nan_to_num(all_pix * scale, nan=0.0, posinf=0.0, neginf=0.0)
+
+        try:
+            thresh = float(threshold_otsu(img_scaled))
+        except Exception as excp:
+            print(f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold")
+            thresh = float(np.median(img_scaled))
+
+        fg = img_scaled[img_scaled > thresh]
+        bg = img_scaled[img_scaled <= thresh]
+        mean_a = float(fg.mean()) if fg.size else 0.0
+        mean_b = float(bg.mean()) if bg.size else 0.0
+        fbr = (mean_a / mean_b) if mean_b > 0 else 0.0
+        channelist.append(fbr if np.isfinite(fbr) else 0.0)
 
     snrs = np.stack([np.asarray(snr_channels_list),
                      np.asarray(channelist)])
 
-    # check for nans
-    snrs[np.isnan(snrs)] = 0
+    # check for non-finites
+    snrs = np.nan_to_num(snrs, nan=0.0, posinf=0.0, neginf=0.0)
 
     # add index identifier
     row_index = 1
