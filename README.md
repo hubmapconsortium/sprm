@@ -88,8 +88,21 @@ See [Modular API Documentation](docs/MODULAR_API.md) and [demo/](demo/) for more
 For backward compatibility, the original CLI still works:
 
 ```bash
-[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path] --output_dir [output_dir_path] --options_path [options_file_path] --celltype_labels [labels_file] --processes [number_of_processes_to_use]
+[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --optional-img-dir [optional_img_dir_path] --output-dir [output_dir_path] --options-file [options_file_path] --celltype-labels [labels_file] --processes [number_of_processes_to_use]
 ```
+
+#### Memory usage (`--min-memory`)
+
+If you are running out of RAM, you can pass `--min-memory` to **keep large image arrays on disk where possible** (SPRM will stream planes from the OME-TIFF instead of loading the full image into memory).
+
+```bash
+[python_path] SPRM.py --img-dir [img_dir_path] --mask-dir [mask_dir_path] --output-dir [output_dir_path] --options-file [options_file_path] --processes 4 --min-memory
+```
+
+- **Tradeoff**: lower peak RAM, but typically slower due to increased disk I/O.
+- **Important limitations**:
+  - Image “bias” normalization for negative-valued pixels is **not supported** in min-memory mode (inputs should already be non-negative / normalized).
+  - Segmentation evaluation metrics in min-memory mode currently require a **single Z slice** (i.e., effectively 2D / `Z==1`, and only one `bestz`).
 ## Outputs
 The following sets of files are placed in the folder specified by the “output_dir” argument.  They are
 
