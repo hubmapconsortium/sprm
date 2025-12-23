@@ -3,7 +3,7 @@
 Ted Zhang, Haoran Chen, Matt Ruffalo, and Robert F. Murphy\
 Ray and Stephanie Lane Computational Biology Department\
 School of Computer Science, Carnegie Mellon University\
-V2.0.0 December 19, 2025
+	V2.0.1 December 23, 2025
 
 ## Description
 SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  

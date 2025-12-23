@@ -1,6 +1,6 @@
 # Release Notes
 
-## SPRM v2.0.0
+## SPRM v2.0.1
 December 19, 2025 Changes since v1.5.1
 
 ### New Features

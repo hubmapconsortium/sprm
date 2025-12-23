@@ -29,8 +29,8 @@ from .single_method_eval import (
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
-Version: 1.5
-04/21/2022
+Version: 2.0.1
+04/21/2022 - 12/23/2025
 """
 
 get_voxel_volume = get_physical_dimension_func(3)

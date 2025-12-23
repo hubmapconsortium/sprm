@@ -57,8 +57,8 @@ from .ims_sparse_allchan import reallocateIMS as reallo
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/25/2020
-Version: 1.03
+01/21/2020 - 12/23/2025
+Version: 2.0.1
 
 
 """
