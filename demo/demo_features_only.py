@@ -17,8 +17,8 @@ from pathlib import Path
 from sprm import modules
 
 # Configuration
-IMG_FILE = Path("img/image_demo.ome.tiff")
-MASK_FILE = Path("mask/mask_demo.ome.tiff")
+IMG_FILE = Path("img/image_demo.tiff")
+MASK_FILE = Path("mask/mask_demo.tiff")
 OPTIONS_FILE = Path("../sprm/options.txt")
 OUTPUT_DIR = Path("demo_features_only_outputs")
 
