@@ -17,13 +17,10 @@ from pathlib import Path
 from sprm import modules
 
 # Configuration
-# IMG_FILE = Path("/hive/users/tedz/workspace/test_imgs/CODEX/expressions/bftools_convert_stitched_image.ome.tiff")
-# MASK_FILE = Path("/hive/users/tedz/workspace/test_imgs/CODEX/mask/bftools_convert_stitched_mask.ome.tiff")
-IMG_FILE = Path("/hive/users/tedz/workspace/sprm/demo/img/image_demo.tiff")
-MASK_FILE = Path("/hive/users/tedz/workspace/sprm/demo/mask/mask_demo.tiff")
-OPTIONS_FILE = Path("/hive/users/tedz/workspace/sprm/sprm/options.txt")
+IMG_FILE = Path("img/image_demo.ome.tiff")
+MASK_FILE = Path("mask/mask_demo.ome.tiff")
+OPTIONS_FILE = Path("options.txt")
 OUTPUT_DIR = Path("sprm_features_outputs")
-
 
 def main():
     """Run SPRM pipeline to extract only mean and total features."""

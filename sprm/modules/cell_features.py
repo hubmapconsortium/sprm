@@ -27,9 +27,12 @@ def run(
     output_dir: Union[Path, str],
     shape_data: Optional[Union[Path, str, ShapeData]] = None,
     optional_img_file: Optional[Union[Path, str]] = None,
-    compute_texture: bool = True,
-    glcm_angles: list = None,
-    glcm_distances: list = None,
+    compute_texture: bool = False,
+    glcm_angles: Optional[Union[str, list]] = None,
+    glcm_distances: Optional[Union[str, list]] = None,
+    *,
+    debug: bool = False,
+    image_dimension: str = "2D",
 ) -> CellFeatures:
     """
     Extract per-cell features: mean, covariance, total intensity, and texture.
@@ -46,10 +49,16 @@ def run(
         Optional additional image file to merge with main image
     compute_texture : bool, default True
         Whether to compute GLCM texture features (can be slow)
-    glcm_angles : list, optional
-        Angles for GLCM computation (default: [0])
-    glcm_distances : list, optional
-        Distances for GLCM computation (default: [1])
+    glcm_angles : list or str, optional
+        Angles for GLCM computation. For legacy compatibility, strings like `"[0]"` are also accepted
+        (default: [0]).
+    glcm_distances : list or str, optional
+        Distances for GLCM computation. For legacy compatibility, strings like `"[1]"` are also accepted
+        (default: [1]).
+    debug : bool, default False
+        Enable debug output in legacy feature extraction utilities.
+    image_dimension : str, default "2D"
+        Image dimensionality passed through to legacy output utilities.
 
     Returns:
     --------
@@ -96,6 +105,22 @@ def run(
     baseoutputfilename = im.get_name()
 
     # Create options dict for compatibility
+    def _normalize_glcm_param(val, default_list):
+        """
+        Legacy `SPRM_pkg.glcmProcedure()` expects `options["glcm_angles"]` and
+        `options["glcm_distances"]` to be "string-like" (it does `"".join(x)`).
+        Accept both lists and strings at the module API and normalize here.
+        """
+        if val is None:
+            val = default_list
+        if isinstance(val, str):
+            return val
+        if isinstance(val, np.ndarray):
+            val = val.tolist()
+        if isinstance(val, (list, tuple)):
+            return str(list(val))
+        return str([val])
+
     if glcm_angles is None:
         glcm_angles = [0]
     if glcm_distances is None:
@@ -103,10 +128,10 @@ def run(
 
     options = {
         "skip_texture": 0 if compute_texture else 1,
-        "glcm_angles": glcm_angles,
-        "glcm_distances": glcm_distances,
-        "debug": False,
-        "image_dimension": "2D",
+        "glcm_angles": _normalize_glcm_param(glcm_angles, [0]),
+        "glcm_distances": _normalize_glcm_param(glcm_distances, [1]),
+        "debug": debug,
+        "image_dimension": image_dimension,
     }
 
     # Reallocate intensities to match mask resolution

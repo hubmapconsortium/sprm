@@ -898,11 +898,13 @@ def cell_graphs(
     cell_center_df.index.name = "ID"
 
     cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y", "z"])
-    adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
+    adjacency_matrix, cell_graph = adj_cell_list(
+        mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options
+    )
 
     # adj_cell_list(cellmask, fname, outputdir)
 
-    # return cell_center
+    return adjacency_matrix, cell_graph
 
 
 def adj_cell_list(
@@ -924,15 +926,23 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if options.get("image_dimension") == "2D":
-            AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+        # Default to 2D unless explicitly set to "3D"
+        image_dimension = options.get("image_dimension", "2D")
+        if image_dimension == "2D":
+            adjacency_matrix, cell_graph = AdjacencyMatrix(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
-            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            adjacency_matrix, cell_graph = AdjacencyMatrix_3D(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
         print("Runtime of adj matrix: ", time.monotonic() - stime)
+        return adjacency_matrix, cell_graph
     else:
         df = pd.DataFrame(np.zeros(1))
         df.to_csv(outputdir / (fname + "-cell_adj_list.csv"))
+        return None, {}
 
 
 @nb.njit(parallel=True)
@@ -1135,6 +1145,8 @@ def AdjacencyMatrix_3D(
         for i in range(numCells):
             print(i, file=f)
 
+    return adjacencyMatrix_csr, dict(cellGraph)
+
 
 def AdjacencyMatrix(
     mask,
@@ -1260,7 +1272,7 @@ def AdjacencyMatrix(
         for i in range(numCells):
             print(i, file=f)
 
-    # return adjacencyMatrix
+    return adjacencyMatrix_csr, dict(cellGraph)
 
 
 def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
@@ -2079,7 +2091,6 @@ def matchNShow_markers(
     """
     get the markers to indicate what the respective clusters represent
     """
-
     markers = [features[i] for i in markerlist]
     table = clustercenters[:, markerlist]
 

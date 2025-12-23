@@ -12,12 +12,37 @@ from ..SPRM_pkg import SNR, cell_graphs
 from .checkpoint_manager import CheckpointManager, CoreData, SpatialData
 
 
+def _infer_image_dimension_from_roi_coords(roi_coords) -> str:
+    """
+    Infer whether data is 2D or 3D based on ROI coordinate arrays.
+
+    ROI coordinate arrays are expected to be shaped either (2, N) for 2D
+    or (3, N) for 3D, where rows correspond to coordinate axes.
+    """
+    try:
+        cellmask = roi_coords[0] if roi_coords is not None and len(roi_coords) > 0 else []
+        for coords in cellmask:
+            if coords is None:
+                continue
+            # coords should be a 2D array: (axes, points)
+            if getattr(coords, "ndim", None) == 2 and coords.shape[0] == 3:
+                return "3D"
+    except Exception:
+        # Fall back to 2D if anything is unexpected; downstream code defaults to 2D.
+        return "2D"
+    return "2D"
+
+
 def run(
     core_data: Union[Path, str, CoreData],
     output_dir: Union[Path, str],
     adjacency_dilation_itr: int = 3,
     adjacency_delta: int = 3,
     compute_cell_graph: bool = True,
+    *,
+    cell_adj_parallel: int = 0,
+    debug: bool = False,
+    image_dimension: Union[str, None] = None,
 ) -> SpatialData:
     """
     Compute spatial relationships: cell graphs, adjacency matrices, and SNR.
@@ -34,6 +59,12 @@ def run(
         Delta parameter for adjacency window calculation
     compute_cell_graph : bool, default True
         Whether to compute detailed cell graph structure
+    cell_adj_parallel : int, default 0
+        Legacy option controlling parallel adjacency computation (passed through to `SPRM_pkg.cell_graphs()`).
+    debug : bool, default False
+        Enable debug output in legacy spatial graph utilities.
+    image_dimension : str or None, default None
+        If None, inferred from ROI coordinates; otherwise passed through to legacy utilities.
 
     Returns:
     --------
@@ -74,11 +105,15 @@ def run(
     baseoutputfilename = im.get_name()
 
     # Create options dict for compatibility
+    if image_dimension is None:
+        image_dimension = _infer_image_dimension_from_roi_coords(roi_coords)
     options = {
         "cell_graph": 1 if compute_cell_graph else 0,
         "cell_adj_dilation_itr": adjacency_dilation_itr,
         "adj_matrix_delta": adjacency_delta,
-        "debug": False,
+        "cell_adj_parallel": cell_adj_parallel,
+        "image_dimension": image_dimension,
+        "debug": debug,
     }
 
     # Compute cell graphs and adjacency

@@ -5,10 +5,11 @@ Performs various clustering methods and cell type assignment.
 This is the final analysis module.
 """
 
+from itertools import product
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from ..SPRM_pkg import cell_analysis
+from ..SPRM_pkg import cell_analysis, read_options
 from .checkpoint_manager import (
     CellFeatures,
     CheckpointManager,
@@ -18,6 +19,8 @@ from .checkpoint_manager import (
     ShapeData,
     SpatialData,
 )
+
+DEFAULT_OPTIONS_FILE = Path(__file__).resolve().parents[1] / "options.txt"
 
 
 def run(
@@ -32,6 +35,20 @@ def run(
     n_clusters_step: int = 1,
     clustering_method: str = "silhouette",
     n_shape_clusters_range: tuple = (3, 6),
+    num_markers: int = 3,
+    *,
+    debug: bool = False,
+    skip_texture: Union[bool, Literal["auto"]] = "auto",
+    run_outlinePCA: Union[bool, Literal["auto"]] = "auto",
+    channel_label_combo: Union[List[str], Literal["auto"]] = "auto",
+    tSNE_all_preprocess: List[str] = ["none", "zscore", "blockwise_zscore"],
+    tSNE_all_ee: str = "default",
+    tSNE_all_perplexity: int = 35,
+    tSNE_all_tSNEInitialization: str = "pca",
+    tsne_all_svdsolver4pca: str = "full",
+    tSNE_texture_calculation_skip: int = 1,
+    tSNE_num_components: int = 2,
+    options: Optional[Union[Path, str, Dict[str, Any]]] = None,
 ) -> ClusteringResults:
     """
     Perform clustering analysis on cell features.
@@ -69,6 +86,30 @@ def run(
         Method to select optimal cluster number: "silhouette" or "fixed"
     n_shape_clusters_range : tuple, default (3, 6)
         Range of cluster numbers for shape clustering
+    num_markers : int, default 3
+        Number of marker channels to select per cluster (legacy `options["num_markers"]`).
+    debug : bool, default False
+        Enable debug output in legacy functions.
+    skip_texture : bool or "auto", default "auto"
+        Whether to skip texture-based clustering. If "auto", inferred from `cell_features.texture_vectors`.
+    run_outlinePCA : bool or "auto", default "auto"
+        Whether to run outline PCA clustering. If "auto", inferred from whether `shape_data` is provided.
+    channel_label_combo : list[str] or "auto", default "auto"
+        Flattened covariance feature names (cartesian product of channel labels).
+        If "auto", computed from the image's channel labels.
+    tSNE_all_preprocess : list[str], default ["none", "zscore", "blockwise_zscore"]
+    tSNE_all_ee : str, default "default"
+    tSNE_all_perplexity : int, default 35
+    tSNE_all_tSNEInitialization : str, default "pca"
+    tsne_all_svdsolver4pca : str, default "full"
+    tSNE_texture_calculation_skip : int, default 1
+    tSNE_num_components : int, default 2
+        t-SNE configuration options passed through to legacy clustering code.
+    options : Path, str, dict, or None, default None
+        Optional legacy options source. Can be:
+        - Path/str to an options.txt file (overlays package defaults)
+        - Dict of legacy options (overlays package defaults)
+        - None (use package defaults)
 
     Returns:
     --------
@@ -116,39 +157,77 @@ def run(
         print(f"Loading cell type labels from: {celltype_labels_path.name}")
         celltype_labels_df = pd.read_csv(celltype_labels_path)
 
-    # Create options dict for compatibility
-    options = {
-        "num_cellclusters": [
-            clustering_method,
-            n_clusters_range[0],
-            n_clusters_range[1],
-            n_clusters_step,
-        ],
-        "num_shapeclusters": [
-            clustering_method,
-            n_shape_clusters_range[0],
-            n_shape_clusters_range[1],
-            n_clusters_step,
-        ],
-        "debug": False,
-        "skip_texture": cell_features.texture_vectors is None
-        or cell_features.texture_vectors.sum() == 0,
-        "run_outlinePCA": shape_data is not None,
-        "channel_label_combo": [],  # Will be populated by cell_analysis
-        "tSNE_all_preprocess": ["none", "zscore", "blockwise_zscore"],
-        "tSNE_all_ee": "default",
-        "tSNE_all_perplexity": 35,
-        "tSNE_all_tSNEInitialization": "pca",
-        "tsne_all_svdsolver4pca": "full",
-        "tSNE_texture_calculation_skip": 1,
-        "tSNE_num_components": 2,
-    }
+    # Create options dict for compatibility with legacy `SPRM_pkg.cell_analysis()`.
+    # In the original pipeline, covariance legends rely on `options["channel_label_combo"]`
+    # being set to the flattened covariance feature names (cartesian product of channels).
+    channel_labels = im.get_channel_labels()
+    computed_channel_label_combo = [
+        ":".join(pair) for pair in product(channel_labels, channel_labels)
+    ]
+
+    # Build legacy options dict for compatibility with SPRM_pkg.cell_analysis().
+    # Start from package defaults, then overlay user-provided options, then overlay explicit parameters.
+    if options is None:
+        compat_options: Dict[str, Any] = dict(read_options(DEFAULT_OPTIONS_FILE))
+    elif isinstance(options, (str, Path)):
+        compat_options = dict(read_options(Path(options), DEFAULT_OPTIONS_FILE))
+    elif isinstance(options, dict):
+        compat_options = dict(read_options(DEFAULT_OPTIONS_FILE))
+        compat_options.update(options)
+    else:
+        raise TypeError(f"options must be None, Path, str, or dict, got {type(options)}")
+
+    compat_options["num_cellclusters"] = [
+        clustering_method,
+        n_clusters_range[0],
+        n_clusters_range[1],
+        n_clusters_step,
+    ]
+    compat_options["num_shapeclusters"] = [
+        clustering_method,
+        n_shape_clusters_range[0],
+        n_shape_clusters_range[1],
+        n_clusters_step,
+    ]
+
+    # Used by SPRM_pkg.findmarkers() to pick the top marker channels per cluster.
+    compat_options["num_markers"] = num_markers
+
+    # Defaults: match the behavior this module previously hard-coded.
+    compat_options["debug"] = debug
+
+    computed_skip_texture = cell_features.texture_vectors is None or (
+        cell_features.texture_vectors.sum() == 0
+    )
+    compat_options["skip_texture"] = (
+        computed_skip_texture if skip_texture == "auto" else skip_texture
+    )
+
+    computed_run_outlinePCA = shape_data is not None
+    compat_options["run_outlinePCA"] = (
+        computed_run_outlinePCA if run_outlinePCA == "auto" else run_outlinePCA
+    )
+
+    compat_options["channel_label_combo"] = (
+        computed_channel_label_combo if channel_label_combo == "auto" else channel_label_combo
+    )
+
+    # Defaults are now expressed in the function signature.
+    compat_options["tSNE_all_preprocess"] = tSNE_all_preprocess
+    compat_options["tSNE_all_ee"] = tSNE_all_ee
+    compat_options["tSNE_all_perplexity"] = tSNE_all_perplexity
+    compat_options["tSNE_all_tSNEInitialization"] = tSNE_all_tSNEInitialization
+    compat_options["tsne_all_svdsolver4pca"] = tsne_all_svdsolver4pca
+    compat_options["tSNE_texture_calculation_skip"] = tSNE_texture_calculation_skip
+    compat_options["tSNE_num_components"] = tSNE_num_components
 
     print(f"Clustering configuration:")
     print(f"  Cluster range: {n_clusters_range[0]}-{n_clusters_range[1]}")
     print(f"  Method: {clustering_method}")
     print(f"  Shape clustering: {'enabled' if shape_data else 'disabled'}")
-    print(f"  Texture features: {'enabled' if not options['skip_texture'] else 'disabled'}")
+    print(
+        f"  Texture features: {'enabled' if not compat_options['skip_texture'] else 'disabled'}"
+    )
     print(f"  Cell type labels: {'provided' if celltype_labels_df is not None else 'not provided'}")
 
     # Initialize list for storing cluster dataframes
@@ -177,7 +256,7 @@ def run(
         output_dir=output_dir,
         seg_n=seg_n,
         cellidx=cellidx,
-        options=options,
+        options=compat_options,
         celltype_labels=celltype_labels_df,
         df_all_cluster_list=df_all_cluster_list,
         mean_vector=cell_features.mean_vector,

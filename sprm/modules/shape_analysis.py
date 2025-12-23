@@ -24,6 +24,8 @@ def run(
     output_dir: Union[Path, str],
     n_outline_points: int = 100,
     debug: bool = False,
+    *,
+    image_dimension: str = "2D",
 ) -> ShapeData:
     """
     Extract cell shape features using parametric outlines and PCA.
@@ -38,6 +40,8 @@ def run(
         Number of points for parametric outline representation
     debug : bool, default False
         Enable debug visualizations (PCA reconstructions, etc.)
+    image_dimension : str, default "2D"
+        Image dimensionality passed through to legacy outline/PCA utilities.
 
     Returns:
     --------
@@ -81,7 +85,7 @@ def run(
     options = {
         "num_outlinepoints": n_outline_points,
         "debug": debug,
-        "image_dimension": "2D",  # Shape analysis primarily for 2D
+        "image_dimension": image_dimension,  # Shape analysis primarily for 2D
     }
 
     # Extract parametric outlines
