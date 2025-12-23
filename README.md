@@ -3,7 +3,7 @@
 Ted Zhang, Haoran Chen, Matt Ruffalo, and Robert F. Murphy\
 Ray and Stephanie Lane Computational Biology Department\
 School of Computer Science, Carnegie Mellon University\
-	V2.0.1 December 23, 2025
+	V2.0.3 December 23, 2025
 
 ## Description
 SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  
@@ -121,37 +121,36 @@ The jupyter notebook “visualizeSPRMoutput.ipynb” can be used to visualize th
 
 ## Simple illustration
 
-The demo folder contains two simple ways to run SPRM from the terminal. For both, begin by “cd”ing to the “demo” folder and downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing).
-
-Beforehand, run the following command to install SPRM
+The demo folder contains two simple ways to run SPRM from the terminal. For both, begin by installing SPRM, either using the install script from this repo or by manually creating an environment containing it using the `sprmpkg` package from PyPI
 
 ```bash
-pip install .
+bash install_sprm.sh
 ```
 
-### Installing with pip
+or
 
 
 ```bash
+conda create -name SPRM python==3.11 -y
+conda activate SPRM
+conda install numba
 pip install sprmpkg
 ```
 
-Even though the distribution name is `sprmpkg`, the Python import name remains:
+Even though the PyPI name is `sprmpkg`, the Python import name remains `sprm` (i.e., load using `import sprm`).
 
-```python
-import sprm
+Then download the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing) into the img and mask folders
+
+```
+bash downloaddemofiles.sh
 ```
 
-Then you can either:
+Then you can use one of the following approaches:
 
-- Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files. It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.
+- Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files. It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  You can use “visualizeSPRMoutput.ipynb” to display the important results.
 - Activate the SPRM environment (e.g., "conda activate SPRM") and then start jupyter notebook ("jupyter notebook"). Open the sprm_demo.ipynb notebook which will run SRPM on the demo files and then display the outputs in the notebook.
+- Use one of the python scripts (demo*.py) that use the individual SPRM modules.  Activate the SPRM environment (e.g., "conda activate SPRM") and run an example script (e.g., `python demo_features_only.py').  The scripts will put the outputs into the "sprm_demo_outputs" folder
 
-**EXAMPLES**
-
-We have provided you with example images and masks but feel free to use your own as well! 
-
-* downloading the demo image files from [this link](https://drive.google.com/drive/folders/1denyZ1SFoWpWrPO9UbSdcF2DvHEv6ovN?usp=sharing) and putting them in the "demo" folder into their own respective directories "img" and "mask".
 ## Prerequisites
 
 * Python 3.8 or newer

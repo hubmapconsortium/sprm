@@ -69,20 +69,12 @@ install_with_conda() {
         conda env remove -n SPRM -y
     fi
     
-    # Create conda environment with a modern Python
-    print_status "Creating conda environment 'SPRM' with Python 3.11..."
-    print_status "Using conda-forge for compiled scientific packages (avoids llvmlite/LLVM build issues)..."
-    conda create -n SPRM -y -c conda-forge --override-channels python=3.11 pip
-
-    # Pre-install numba/llvmlite from conda-forge so pip doesn't try to build llvmlite from source
-    # (common failure on macOS if LLVM dev files are not present).
-    print_status "Installing compiled dependencies (numba/llvmlite) via conda-forge..."
-    conda install -n SPRM -y -c conda-forge --override-channels numba llvmlite
-    
-    # Install SPRM itself via pip, without touching dependency resolution
-    print_status "Installing SPRM package in conda environment..."
-    conda run -n SPRM python -m pip install --upgrade pip
-    conda run -n SPRM python -m pip install . --no-deps
+    conda create -n SPRM python=3.11 -y
+    # Activate environment and install dependencies
+    print_status "Installing dependencies in conda environment..."
+    conda run -n SPRM pip install --upgrade pip
+    conda run -n SPRM conda install numba
+    conda run -n SPRM pip install .
     
     print_success "SPRM installed successfully using conda!"
     print_status "To activate the environment, run: conda activate SPRM"

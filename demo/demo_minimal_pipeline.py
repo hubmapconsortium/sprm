@@ -17,8 +17,8 @@ from sprm import modules
 # Configuration
 IMG_FILE = Path("img/image_demo.tiff")
 MASK_FILE = Path("mask/mask_demo.tiff")
-OUTPUT_DIR = Path("sprm_minimal_outputs")
-OPTIONS_FILE = Path("/hive/users/tedz/workspace/sprm/sprm/options.txt")
+OUTPUT_DIR = Path("demo_minimal_pipeline_outputs")
+OPTIONS_FILE = Path("../sprm/options.txt")
 
 
 def main():

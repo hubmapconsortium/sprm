@@ -19,8 +19,8 @@ from sprm import modules
 # Configuration
 IMG_FILE = Path("img/image_demo.ome.tiff")
 MASK_FILE = Path("mask/mask_demo.ome.tiff")
-OPTIONS_FILE = Path("options.txt")
-OUTPUT_DIR = Path("sprm_features_outputs")
+OPTIONS_FILE = Path("../sprm/options.txt")
+OUTPUT_DIR = Path("demo_features_only_outputs")
 
 def main():
     """Run SPRM pipeline to extract only mean and total features."""
