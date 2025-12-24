@@ -1,4 +1,5 @@
 import faulthandler
+import itertools
 import logging
 import tracemalloc
 from argparse import ArgumentParser
@@ -310,16 +311,25 @@ def analysis(
 
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
-            masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
-            cell_blk_sz = get_cell_blk_sz(len(masked_imgs_coord), im, options)
-            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            inCell_set = frozenset(inCells)
+            
+            cell_blk_sz = get_cell_blk_sz(len(inCells), im, options)
 
             covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
             mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
             total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+
+            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            mic_iter = masked_imgs_coord.subset_iter(inCell_set)            
             for blk_min in range(0, len(masked_imgs_coord), cell_blk_sz):
-                ROI_dict = calculations(masked_imgs_coord[blk_min: blk_min+cell_blk_sz],
-                                        im, t, bestz)
+                indexed_mic_this_block = itertools.islice(mic_iter, 0, cell_blk_sz)
+                ordered_indices = []
+                mic_list = []
+                for ii, cell_arr in indexed_mic_this_block:
+                    ordered_indices.append(ii)
+                    mic_list.append(cell_arr)
+                index_trans_tbl = {ii: elt for ii, elt in enumerate(ordered_indices)}
+                ROI_dict = calculations(mic_list, im, t, bestz)
 
                 for cell_idx in ROI_dict:
                     ROI = ROI_dict[cell_idx]
@@ -332,9 +342,10 @@ def analysis(
                     mu_v[np.isnan(mu_v)] = 0
                     total[np.isnan(total)] = 0
 
-                    covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
-                    mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
-                    total_vector[t, j, cell_idx + blk_min, :, :] = total
+                    transl_cell_idx = index_trans_tbl[cell_idx]
+                    covar_matrix[t, j, transl_cell_idx, :, :] = cov_m
+                    mean_vector[t, j, transl_cell_idx, :, :] = mu_v
+                    total_vector[t, j, transl_cell_idx, :, :] = total
 
             LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
             LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
@@ -360,11 +371,17 @@ def analysis(
 
         # Cache some values needed later, and free a large data structure
         snapshot1 = tracemalloc.take_snapshot()
-        im.cache_set("bgpixels", ROI_coords[0][0].astype(np.int32).copy())
-        im.cache_set("total_intensity_cell",
-                     np.concatenate(ROI_coords[0][1:], axis=1).astype(np.int32))
-        im.cache_set("total_intensity_nuclei",
-                     np.concatenate(ROI_coords[1][1:], axis=1).astype(np.int32))
+        im.cache_set("bgpixels", ROI_coords[0].background().astype(np.int32).copy())
+        im.cache_set(
+            "total_intensity_cell",
+            np.concatenate([arr for arr in ROI_coords[0].cells_only_iter()],
+                           axis=1).astype(np.int32)
+        )
+        im.cache_set(
+            "total_intensity_nuclei",
+            np.concatenate([arr for arr in ROI_coords[1].cells_only_iter()],
+                           axis=1).astype(np.int32)
+        )
         ROI_coords = None
         mask.set_ROI(ROI_coords)
         snapshot2 = tracemalloc.take_snapshot()
