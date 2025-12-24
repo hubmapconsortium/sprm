@@ -1,4 +1,6 @@
+from __future__ import annotations
 import logging
+import itertools
 from pathlib import Path
 from sys import getsizeof
 from typing import Dict, Union, Any
@@ -8,6 +10,99 @@ from aicsimageio import AICSImage
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
+
+
+class CellTable:
+    def __init__(self, mask: MaskStruct, cidx: int):
+        s, t, c, z, y, x = mask.get_data().shape
+        assert all([dim == 1 for dim in [s, t, z]]), "bad mask shape"
+        plane = mask.get_plane(cidx, 0)[0, :, :]
+        indices = np.indices(plane.shape).astype(np.int32)
+        recs = np.rec.fromarrays(
+            [plane, indices[1], indices[0]],
+            names="cellid, x, y")
+        recs = recs.reshape(-1)
+        LOGGER.debug(f"recs is {recs.shape} {recs.dtype}")
+        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])} {np.max(recs['y'])}")
+        recs.sort(kind="heapsort", order=["cellid", "y", "x"])
+        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])} {np.max(recs['y'])}")
+        entries, counts = np.unique(recs["cellid"], return_counts=True)
+        self.counts= counts
+        self.vals = np.vstack((recs["y"], recs["x"])).copy()
+
+    def cell_iter(self):
+        cell_offset = 0
+        coord_offset = 0
+        while cell_offset < len(self.counts):
+            cell_sz = self.counts[cell_offset]
+            yield self.vals[:, coord_offset:coord_offset+cell_sz]
+            cell_offset += 1
+            coord_offset += cell_sz
+
+    def cells_only_iter(self):
+        """
+        Like cell_iter but excludes the background "cell" at index 0
+        """
+        return itertools.islice(self.cell_iter(), 1, None)
+
+    def subset_iter(self, restriction_set: set):
+        """
+        Iterate only through the cell indices included in restriction_set.
+        Yields both the cell index and the pixel matrix, with the guarantee
+        that the cell index does exist in the set.
+        """
+        for idx, cell_mtx in enumerate(self.cell_iter()):
+            if idx in restriction_set:
+                yield idx, cell_mtx
+
+    def background(self):
+        return self.vals[:, 0:self.counts[0]]
+
+    def __len__(self):
+        return len(self.counts)
+
+
+class CellTable3D:
+    def __init__(self, mask: MaskStruct, cidx: int):
+        s, t, c, z, y, x = mask.get_data().shape
+        assert all([dim == 1 for dim in [s, t]]), "bad mask shape"
+        vol = mask.get_data()[0, 0, 0, :, :, :]
+        indices = np.indices(vol.shape).astype(np.int32)
+        recs = np.rec.fromarrays(
+            [vol, indices[2], indices[1], indices[0]],
+            names="cellid, x, y, z")
+        recs = recs.reshape(-1)
+        LOGGER.debug(f"recs is {recs.shape} {recs.dtype}")
+        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
+                    f" {np.max(recs['y'])} {np.max(recs['z'])}")
+        recs.sort(kind="heapsort", order=["cellid", "z", "y", "x"])
+        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
+                    f" {np.max(recs['y'])} {np.max(recs['z'])}")
+        entries, counts = np.unique(recs["cellid"], return_counts=True)
+        self.counts= counts
+        self.vals = np.vstack((recs["z"], recs["y"], recs["x"])).copy()
+
+    def cell_iter(self):
+        cell_offset = 0
+        coord_offset = 0
+        while cell_offset < len(self.counts):
+            cell_sz = self.counts[cell_offset]
+            yield self.vals[:, coord_offset:coord_offset+cell_sz]
+            cell_offset += 1
+            coord_offset += cell_sz
+
+    def cells_only_iter(self):
+        """
+        Like cell_iter but excludes the background "cell" at index 0
+        """
+        return itertools.islice(self.cell_iter(), 1)
+
+    def background(self):
+        return self.vals[:, 0:self.counts[0]]
+
+    def __len__(self):
+        return len(self.counts)
+
 
 class IMGstruct:
     """
@@ -78,10 +173,10 @@ class IMGstruct:
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
-            LOGGING.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
+            LOGGER.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
             return self.data[0, 0, ch_idx, slice, :, :]
         else:
-            LOGGING.debug(f"in-memory get_plane: {channel} {slice}")
+            LOGGER.debug(f"in-memory get_plane: {channel} {slice}")
             return self.data[0, 0, channel, slice, np.newaxis, :, :]
 
     def set_data(self, data):
