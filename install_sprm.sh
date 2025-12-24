@@ -69,13 +69,11 @@ install_with_conda() {
         conda env remove -n SPRM -y
     fi
     
-    # Create conda environment with Python 3.8+
-    print_status "Creating conda environment 'SPRM' with Python 3.9..."
-    conda create -n SPRM python=3.9 -y
-    
+    conda create -n SPRM python=3.11 -y
     # Activate environment and install dependencies
     print_status "Installing dependencies in conda environment..."
     conda run -n SPRM pip install --upgrade pip
+    conda run -n SPRM conda install numba
     conda run -n SPRM pip install .
     
     print_success "SPRM installed successfully using conda!"
@@ -94,15 +92,15 @@ install_with_pyenv() {
     
     # Check if pyenv-virtualenv is available
     if ! pyenv versions | grep -q "SPRM"; then
-        # Install Python 3.9 if not available
-        if ! pyenv versions | grep -q "3.9"; then
-            print_status "Installing Python 3.9 via pyenv..."
-            pyenv install 3.9.18
+        # Install Python 3.11 if not available
+        if ! pyenv versions | grep -q "3.11"; then
+            print_status "Installing Python 3.11 via pyenv..."
+            pyenv install 3.11.14
         fi
         
         # Create virtual environment
         print_status "Creating pyenv virtual environment 'SPRM'..."
-        pyenv virtualenv 3.9.18 SPRM
+        pyenv virtualenv 3.11.14 SPRM
     else
         print_warning "SPRM virtual environment already exists in pyenv"
     fi

@@ -3,6 +3,8 @@ import json
 import logging
 import math
 import time
+import re
+import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
 from contextlib import contextmanager
@@ -55,8 +57,8 @@ from .ims_sparse_allchan import reallocateIMS as reallo
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/25/2020
-Version: 1.03
+01/21/2020 - 12/23/2025
+Version: 2.0.3
 
 
 """
@@ -278,34 +280,20 @@ class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
 
     def default(self, obj):
-        if isinstance(
-            obj,
-            (
-                np.int_,
-                np.intc,
-                np.intp,
-                np.int8,
-                np.int16,
-                np.int32,
-                np.int64,
-                np.uint8,
-                np.uint16,
-                np.uint32,
-                np.uint64,
-            ),
-        ):
+        # Prefer NumPy abstract base classes for forward compatibility (NumPy 2.x).
+        if isinstance(obj, (np.integer,)):
             return int(obj)
 
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+        elif isinstance(obj, (np.floating,)):
             return float(obj)
 
-        elif isinstance(obj, (np.complex_, np.complex64, np.complex128)):
+        elif isinstance(obj, (np.complexfloating,)):
             return {"real": obj.real, "imag": obj.imag}
 
         elif isinstance(obj, (np.ndarray,)):
             return obj.tolist()
 
-        elif isinstance(obj, (np.bool_)):
+        elif isinstance(obj, (np.bool_,)):
             return bool(obj)
 
         elif isinstance(obj, (np.void)):
@@ -851,6 +839,44 @@ def get_coordinates(mask, options):
     return channel_coords
 
 
+def compute_cell_centers(ROI_coords: List[List[np.ndarray]]) -> Optional[np.ndarray]:
+    """
+    Compute per-cell centroid coordinates from ROI coordinate arrays.
+
+    Parameters
+    ----------
+    ROI_coords : List[List[np.ndarray]]
+        ROI coordinate arrays, where the first element contains cell masks.
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        Array of shape (n_cells, 3) with centroid coordinates (x, y, z).
+        Returns None if ROI coordinates are unavailable.
+    """
+    if not ROI_coords or ROI_coords[0] is None or len(ROI_coords[0]) == 0:
+        return None
+
+    cellmask = ROI_coords[0]
+    cell_center = np.zeros((len(cellmask), 3), dtype=int)
+
+    for i in range(1, len(cellmask)):
+        coords = cellmask[i]
+        if coords is None or coords.size == 0:
+            continue
+
+        mean_coords = np.mean(coords, axis=1)
+        if coords.shape[0] == 3:
+            cell_center[i, 0] = int(mean_coords[1])
+            cell_center[i, 1] = int(mean_coords[2])
+            cell_center[i, 2] = int(mean_coords[0])
+        else:
+            cell_center[i, 0] = int(mean_coords[0])
+            cell_center[i, 1] = int(mean_coords[1])
+
+    return cell_center
+
+
 def cell_graphs(
     mask: MaskStruct,
     ROI_coords: List[List[np.ndarray]],
@@ -863,33 +889,22 @@ def cell_graphs(
     Get cell centers as well as adj list of cells
     """
 
-    cellmask = ROI_coords[0]
-    cell_center = np.zeros((len(cellmask), 3))
-    # cell_idx = mask.get_cell_index()
-
-    if cellmask[0].shape[0] == 3:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[1]
-            cell_center[i, 1] = m[2]
-            cell_center[i, 2] = m[0]
-    else:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[0]
-            cell_center[i, 1] = m[1]
+    cell_center = compute_cell_centers(ROI_coords)
+    if cell_center is None:
+        print("Warning: Unable to compute cell centers from ROI coordinates.")
+        cell_center = np.zeros((0, 3), dtype=int)
 
     cell_center_df = pd.DataFrame(cell_center)
     cell_center_df.index.name = "ID"
 
     cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y", "z"])
-    adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
+    adjacency_matrix, cell_graph = adj_cell_list(
+        mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options
+    )
 
     # adj_cell_list(cellmask, fname, outputdir)
 
-    # return cell_center
+    return adjacency_matrix, cell_graph
 
 
 def adj_cell_list(
@@ -911,15 +926,23 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if options.get("image_dimension") == "2D":
-            AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+        # Default to 2D unless explicitly set to "3D"
+        image_dimension = options.get("image_dimension", "2D")
+        if image_dimension == "2D":
+            adjacency_matrix, cell_graph = AdjacencyMatrix(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
-            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            adjacency_matrix, cell_graph = AdjacencyMatrix_3D(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
         print("Runtime of adj matrix: ", time.monotonic() - stime)
+        return adjacency_matrix, cell_graph
     else:
         df = pd.DataFrame(np.zeros(1))
         df.to_csv(outputdir / (fname + "-cell_adj_list.csv"))
+        return None, {}
 
 
 @nb.njit(parallel=True)
@@ -1122,6 +1145,8 @@ def AdjacencyMatrix_3D(
         for i in range(numCells):
             print(i, file=f)
 
+    return adjacencyMatrix_csr, dict(cellGraph)
+
 
 def AdjacencyMatrix(
     mask,
@@ -1247,7 +1272,7 @@ def AdjacencyMatrix(
         for i in range(numCells):
             print(i, file=f)
 
-    # return adjacencyMatrix
+    return adjacencyMatrix_csr, dict(cellGraph)
 
 
 def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
@@ -1564,10 +1589,28 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     # Sean Donahue - 11/12/20
     key_parts = s.replace("-", "_").split("_")
     key_parts.reverse()
-    hdf_key = "/".join(key_parts)
+    # Sanitize key parts for PyTables "natural naming" (avoid dots/spaces/etc).
+    # This keeps the demo log clean and makes keys easier to access.
+    safe_parts: List[str] = []
+    for part in key_parts:
+        part = re.sub(r"[^0-9a-zA-Z_]+", "_", str(part))
+        if not part:
+            part = "x"
+        if not re.match(r"^[a-zA-Z_]", part):
+            part = "_" + part
+        safe_parts.append(part)
+    hdf_key = "/".join(safe_parts)
     with hdf5_lock:
-        with pd.HDFStore(output_dir / "out.hdf5") as store:
-            store.put(hdf_key, df)
+        with warnings.catch_warnings():
+            # Avoid noisy warnings for non-critical naming / dtype issues when writing demo HDF5.
+            try:
+                from tables.exceptions import NaturalNameWarning, PerformanceWarning
+                warnings.filterwarnings("ignore", category=NaturalNameWarning)
+                warnings.filterwarnings("ignore", category=PerformanceWarning)
+            except Exception:
+                pass
+            with pd.HDFStore(output_dir / "out.hdf5") as store:
+                store.put(hdf_key, df)
 
 
 def write_cell_polygs(
@@ -1806,28 +1849,47 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
                                   for z_idx in range(im.img.dims.Z)],
                                  axis = None)
         print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
-        snr_channels_list.append(all_pix.mean() / all_pix.std(ddof=0))
+        all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
+            np.float32, copy=False
+        )
 
-        img_2D = all_pix.astype("int")
+        mean = float(all_pix.mean()) if all_pix.size else 0.0
+        std = float(all_pix.std(ddof=0)) if all_pix.size else 0.0
+        snr = mean / std if std > 0 else 0.0
+        snr_channels_list.append(snr if np.isfinite(snr) else 0.0)
 
-        max_img = np.max(img_2D)
-        max_img_dtype = np.iinfo(img_2D.dtype).max
-        factor = np.floor(max_img_dtype / max_img)
-        img_2D_factor = img_2D * factor
+        # Robust Otsu-like foreground/background ratio (avoid NaN ranges / empty slices)
+        if all_pix.size == 0 or float(np.var(all_pix)) == 0.0:
+            channelist.append(0.0)
+            continue
 
-        thresh = max(threshold_otsu(img_2D_factor),
-                     factor)
+        max_img = float(np.max(all_pix))
+        if (not np.isfinite(max_img)) or max_img <= 0.0:
+            channelist.append(0.0)
+            continue
 
-        mean_a = np.mean(img_2D_factor[img_2D_factor > thresh])
-        mean_b = np.mean(img_2D_factor[img_2D_factor <= thresh])
-        fbr = mean_a / mean_b
-        channelist.append(fbr)
+        # Scale into a stable range for thresholding (uint16-ish), but keep float for skimage.
+        scale = 65535.0 / max_img
+        img_scaled = np.nan_to_num(all_pix * scale, nan=0.0, posinf=0.0, neginf=0.0)
+
+        try:
+            thresh = float(threshold_otsu(img_scaled))
+        except Exception as excp:
+            print(f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold")
+            thresh = float(np.median(img_scaled))
+
+        fg = img_scaled[img_scaled > thresh]
+        bg = img_scaled[img_scaled <= thresh]
+        mean_a = float(fg.mean()) if fg.size else 0.0
+        mean_b = float(bg.mean()) if bg.size else 0.0
+        fbr = (mean_a / mean_b) if mean_b > 0 else 0.0
+        channelist.append(fbr if np.isfinite(fbr) else 0.0)
 
     snrs = np.stack([np.asarray(snr_channels_list),
                      np.asarray(channelist)])
 
-    # check for nans
-    snrs[np.isnan(snrs)] = 0
+    # check for non-finites
+    snrs = np.nan_to_num(snrs, nan=0.0, posinf=0.0, neginf=0.0)
 
     # add index identifier
     row_index = 1
@@ -2029,7 +2091,6 @@ def matchNShow_markers(
     """
     get the markers to indicate what the respective clusters represent
     """
-
     markers = [features[i] for i in markerlist]
     table = clustercenters[:, markerlist]
 

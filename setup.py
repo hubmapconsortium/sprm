@@ -11,7 +11,7 @@ with open(here / "sprm/version.txt") as f:
     version = f.read().strip()
 
 setup(
-    name="SPRM",
+    name="sprmpkg",
     version=version,
     description="Spatial Process & Relationship Modeling ",
     long_description=long_description,
@@ -21,8 +21,9 @@ setup(
     author_email="tedz@andrew.cmu.edu, murphy@andrew.cmu.edu",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     keywords="sprm",
     packages=find_packages(),
@@ -30,28 +31,36 @@ setup(
         "": ["*.txt", "*.pickle"],
     },
     install_requires=[
-        "aicsimageio==4.8.0",
+        "aicsimageio>=4.14.0",
+        # aicsimageio 4.14.x requires zarr<2.16, and zarr 2.15.x requires an older
+        # numcodecs API (cbuffer_sizes/cbuffer_metainfo). Newer numcodecs releases
+        # break that import.
+        "zarr>=2.6,<2.16.0",
+        "numcodecs>=0.10.0,<0.13.0",
         "frozendict",
+        "h5py",
         "lxml",
         "manhole",
         "matplotlib",
         "notebook",
         "numba",
-        "numpy",
+        # Target modern stack: NumPy 2.x + PyTables that supports it.
+        # Keep within bounds required by common binary deps (e.g. opencv-python, numba).
+        "numpy>=2.0.0,<2.3.0",
         "opencv-python",
         "pandas",
         "pint",
-        "scikit-image==0.22.0",
-        "scikit-learn==1.5.0",
+        "scikit-image",
+        "scikit-learn>=1.5.0",
         "shapely",
-        "tables",
-        "tifffile==2022.8.12",
+        "tables>=3.10.1",
+        "tifffile>=2022.8.12",
         "xmltodict",
         "umap-learn",
         "apng",
         "threadpoolctl>3",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     entry_points={
         "console_scripts": [
             "sprm=sprm.SPRM:argparse_wrapper",
