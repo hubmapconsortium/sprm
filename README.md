@@ -83,6 +83,8 @@ clusters = modules.clustering.run(
 
 See [Modular API Documentation](docs/MODULAR_API.md) and [demo/](demo/) for more details.
 
+NOTE: Intermediate results are saved in the "checkpoints" folder to allow continuing analysis if it is interrupted.  These files in this folder can be very large and can be deleted when analysis is finished.
+
 ### Option 2: Legacy Command-Line Interface
 
 For backward compatibility, the original CLI still works:
@@ -148,8 +150,8 @@ bash downloaddemofiles.sh
 Then you can use one of the following approaches:
 
 - Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files. It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  You can use “visualizeSPRMoutput.ipynb” to display the important results.
-- Activate the SPRM environment (e.g., "conda activate SPRM") and then start jupyter notebook ("jupyter notebook"). Open the sprm_demo.ipynb notebook which will run SRPM on the demo files and then display the outputs in the notebook.
-- Use one of the python scripts (demo*.py) that use the individual SPRM modules.  Activate the SPRM environment (e.g., "conda activate SPRM") and run an example script (e.g., `python demo_features_only.py').  The scripts will put the outputs into the "sprm_demo_outputs" folder
+- Start jupyter notebook ("jupyter notebook") and open the sprm_demo.ipynb notebook which will run SRPM on the demo files and then display the outputs in the notebook.
+- Use one of the python scripts (demo*.py) that use the individual SPRM modules.  Activate the SPRM environment (e.g., "conda activate SPRM") and run an example script (e.g., `python demo_features_only.py').  The scripts will put the outputs into the "sprm_demo_outputs" folder.  See NOTE above about large files in the "checkpoints" folder that can be deleted after processing.
 
 ## Prerequisites
 

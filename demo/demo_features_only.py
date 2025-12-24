@@ -64,7 +64,7 @@ def main():
     print("\nCheckpoint saved:")
     print(f"  - {OUTPUT_DIR}/checkpoints/cell_features.h5")
     print("\nYou can load features later with:")
-    print('  features = modules.cell_features.load_checkpoint("sprm_features_outputs")')
+    print(f'  features = modules.cell_features.load_checkpoint("{OUTPUT_DIR}")')
     print("=" * 70 + "\n")
 
 
