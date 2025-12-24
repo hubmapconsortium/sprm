@@ -58,7 +58,7 @@ Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
 01/21/2020 - 12/23/2025
-Version: 2.0.1
+Version: 2.0.3
 
 
 """
