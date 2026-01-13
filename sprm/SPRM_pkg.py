@@ -1776,7 +1776,7 @@ def write_cell_polygs(
 def build_matrix(
     im: IMGstruct,
     mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
+    ncells: int,
     j: int,
     omatrix: np.ndarray,
 ) -> np.ndarray:
@@ -1785,7 +1785,7 @@ def build_matrix(
             (
                 im.img.dims.T,
                 mask.get_data().shape[2],
-                len(masked_imgs_coord),
+                ncells,
                 im.img.dims.C,
                 im.img.dims.C,
             )
@@ -1797,7 +1797,7 @@ def build_matrix(
 def build_vector(
     im: IMGstruct,
     mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
+    ncells: int,
     j: int,
     omatrix: np.ndarray,
 ) -> np.ndarray:
@@ -1806,7 +1806,7 @@ def build_vector(
             (
                 im.img.dims.T,
                 mask.get_data().shape[2],
-                len(masked_imgs_coord),
+                ncells,
                 im.img.dims.C,
                 1,
             )

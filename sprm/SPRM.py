@@ -315,13 +315,13 @@ def analysis(
             
             cell_blk_sz = get_cell_blk_sz(len(inCells), im, options)
 
-            covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
-            mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
-            total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+            covar_matrix = build_matrix(im, mask, len(inCell_set), j, covar_matrix)
+            mean_vector = build_vector(im, mask, len(inCell_set), j, mean_vector)
+            total_vector = build_vector(im, mask, len(inCell_set), j, total_vector)
 
-            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            LOGGER.debug(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
             mic_iter = masked_imgs_coord.subset_iter(inCell_set)            
-            for blk_min in range(0, len(masked_imgs_coord), cell_blk_sz):
+            for blk_min in range(0, len(inCell_set), cell_blk_sz):
                 indexed_mic_this_block = itertools.islice(mic_iter, 0, cell_blk_sz)
                 ordered_indices = []
                 mic_list = []
@@ -342,10 +342,10 @@ def analysis(
                     mu_v[np.isnan(mu_v)] = 0
                     total[np.isnan(total)] = 0
 
-                    transl_cell_idx = index_trans_tbl[cell_idx]
-                    covar_matrix[t, j, transl_cell_idx, :, :] = cov_m
-                    mean_vector[t, j, transl_cell_idx, :, :] = mu_v
-                    total_vector[t, j, transl_cell_idx, :, :] = total
+                    #transl_cell_idx = index_trans_tbl[cell_idx]
+                    covar_matrix[t, j, cell_idx, :, :] = cov_m
+                    mean_vector[t, j, cell_idx, :, :] = mu_v
+                    total_vector[t, j, cell_idx, :, :] = total
 
             LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
             LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
