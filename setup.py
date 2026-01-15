@@ -46,11 +46,11 @@ setup(
         "numba",
         # Target modern stack: NumPy 2.x + PyTables that supports it.
         # Keep within bounds required by common binary deps (e.g. opencv-python, numba).
-        "numpy==2.0.0",
+        "numpy==2.0",
         "opencv-python",
         "pandas",
         "pint",
-        "pyarrow==22.0.0",
+        "pyarrow==22.0",
         "scikit-image",
         "scikit-learn>=1.5.0",
         "shapely",
