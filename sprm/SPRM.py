@@ -31,6 +31,7 @@ Version:   2.0.3
 
 """
 
+logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
@@ -343,9 +344,9 @@ def analysis(
                     total[np.isnan(total)] = 0
 
                     #transl_cell_idx = index_trans_tbl[cell_idx]
-                    covar_matrix[t, j, cell_idx, :, :] = cov_m
-                    mean_vector[t, j, cell_idx, :, :] = mu_v
-                    total_vector[t, j, cell_idx, :, :] = total
+                    covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
+                    mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
+                    total_vector[t, j, cell_idx + blk_min, :, :] = total
 
             LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
             LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
