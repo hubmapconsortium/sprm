@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:latest
+    dockerPull: hubmap/sprm:2.0.5
   NetworkAccess:
     networkAccess: true
 baseCommand: sprm
