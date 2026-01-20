@@ -14,4 +14,6 @@ RUN cd sprm \
  && cd .. \
  && rm -rf sprm /root/cache/.pip
 
+RUN python3 -m pip install -U numexpr bottleneck
+
 CMD ["/bin/bash"]
