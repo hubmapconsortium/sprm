@@ -1,5 +1,7 @@
 import faulthandler
+import itertools
 import logging
+import tracemalloc
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
@@ -29,6 +31,7 @@ Version:   2.0.3
 
 """
 
+logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
@@ -178,7 +181,13 @@ def analysis(
             return
 
     # combination of mask_img & get_masked_imgs
+    snapshot1 = tracemalloc.take_snapshot()
     ROI_coords = get_coordinates(mask, options)
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across get_coordinates:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
     mask.set_ROI(ROI_coords)
 
     # quality control of image and mask for edge cells and best z slices +- n options
@@ -303,16 +312,25 @@ def analysis(
 
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
-            masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
-            cell_blk_sz = get_cell_blk_sz(len(masked_imgs_coord), im, options)
-            print(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            inCell_set = frozenset(inCells)
+            
+            cell_blk_sz = get_cell_blk_sz(len(inCells), im, options)
 
-            covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
-            mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
-            total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
-            for blk_min in range(0, len(masked_imgs_coord), cell_blk_sz):
-                ROI_dict = calculations(masked_imgs_coord[blk_min: blk_min+cell_blk_sz],
-                                        im, t, bestz)
+            covar_matrix = build_matrix(im, mask, len(inCell_set), j, covar_matrix)
+            mean_vector = build_vector(im, mask, len(inCell_set), j, mean_vector)
+            total_vector = build_vector(im, mask, len(inCell_set), j, total_vector)
+
+            LOGGER.debug(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            mic_iter = masked_imgs_coord.subset_iter(inCell_set)            
+            for blk_min in range(0, len(inCell_set), cell_blk_sz):
+                indexed_mic_this_block = itertools.islice(mic_iter, 0, cell_blk_sz)
+                ordered_indices = []
+                mic_list = []
+                for ii, cell_arr in indexed_mic_this_block:
+                    ordered_indices.append(ii)
+                    mic_list.append(cell_arr)
+                index_trans_tbl = {ii: elt for ii, elt in enumerate(ordered_indices)}
+                ROI_dict = calculations(mic_list, im, t, bestz)
 
                 for cell_idx in ROI_dict:
                     ROI = ROI_dict[cell_idx]
@@ -325,6 +343,7 @@ def analysis(
                     mu_v[np.isnan(mu_v)] = 0
                     total[np.isnan(total)] = 0
 
+                    #transl_cell_idx = index_trans_tbl[cell_idx]
                     covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
                     mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
                     total_vector[t, j, cell_idx + blk_min, :, :] = total
@@ -349,6 +368,30 @@ def analysis(
             norm_shape_vectors=norm_shape_vectors,
         )
 
+        print(f"tracemalloc point 10.5: {tracemalloc.get_traced_memory()}")
+
+        # Cache some values needed later, and free a large data structure
+        snapshot1 = tracemalloc.take_snapshot()
+        im.cache_set("bgpixels", ROI_coords[0].background().astype(np.int32).copy())
+        im.cache_set(
+            "total_intensity_cell",
+            np.concatenate([arr for arr in ROI_coords[0].cells_only_iter()],
+                           axis=1).astype(np.int32)
+        )
+        im.cache_set(
+            "total_intensity_nuclei",
+            np.concatenate([arr for arr in ROI_coords[1].cells_only_iter()],
+                           axis=1).astype(np.int32)
+        )
+        ROI_coords = None
+        mask.set_ROI(ROI_coords)
+        snapshot2 = tracemalloc.take_snapshot()
+        top_stats = snapshot2.compare_to(snapshot1, "lineno")
+        LOGGER.debug("Change in allocation across free:")
+        for stat in top_stats[:10]:
+            LOGGER.debug(stat)
+
+        snapshot1 = tracemalloc.take_snapshot()
         cell_analysis(
             im=im,
             mask=mask,
@@ -369,10 +412,16 @@ def analysis(
             shape_vectors=shape_vectors,
             norm_shape_vectors=norm_shape_vectors,
         )
+        snapshot2 = tracemalloc.take_snapshot()
+        top_stats = snapshot2.compare_to(snapshot1, "lineno")
+        LOGGER.debug("Top net allocations across cell_analysis:")
+        for stat in top_stats[:10]:
+            LOGGER.debug(stat)
 
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
 
+    LOGGER.debug("End of analysis()")
     return im, mask, cell_count, seg_metrics
 
 
@@ -386,6 +435,7 @@ def main(
     celltype_labels: Optional[list[Path]] = None,
     min_memory: bool = False
 ):
+    tracemalloc.start()
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
 
@@ -481,6 +531,7 @@ def main(
         quality_measures(
             im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
         )
+    LOGGER.debug("End of quality measures")
 
     if options.get("debug"):
         print(f"Total runtime: {time.monotonic() - stime}")
