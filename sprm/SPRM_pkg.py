@@ -4,6 +4,7 @@ import logging
 import math
 import time
 import re
+import tracemalloc
 import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
@@ -48,7 +49,7 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
-from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct
+from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct, CellTable, CellTable3D
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
 
@@ -68,7 +69,7 @@ Version: 2.0.3
 ###########################################
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(logging.DEBUG)
 
 hdf5_lock = Lock()
 row_index = 0
@@ -491,6 +492,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     Receives out_matrix and extracts information to output a vector:
     len # of cells with corresponding cluster number
     """
+    LOGGER.debug(f"enter cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype} seq {segnum}")
     # extracting all cells through all timepoints --> 4D matrix
     # cell_matrix = outmatrix[:,0,:,:,:]
     # dims = get_dims(cell_matrix)
@@ -525,6 +527,7 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
         #     (cell_matrix.shape[1], cell_matrix.shape[2] * cell_matrix.shape[3] * cell_matrix.shape[0]))
 
         # cell_matrix =
+    LOGGER.debug(f"exit cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype}")
     return cell_matrix
 
 
@@ -541,10 +544,12 @@ def cell_cluster(
     # kmeans clustering
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
-    print(f"Clustering cells for {s}: "
+    LOGGER.debug(f"Clustering cells for {s}: "
           f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
-    print(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
+    LOGGER.debug(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
           f" for {len(typelist)} types")
+    LOGGER.debug(f"inCells {len(inCells)} {inCells[0:4]}")
+    snapshot1 = tracemalloc.take_snapshot()
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -579,14 +584,14 @@ def cell_cluster(
             cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
-    print("cell_cluster point 1")
+    LOGGER.debug("cell_cluster point 1")
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
 
-    print("cell_cluster point 2")
+    LOGGER.debug("cell_cluster point 2")
     # sort the clusters by the largest to smallest and then reindex
     # unique_clusters = set(cellbycluster_labels)
     # cluster_counts = {cluster: (cellbycluster_labels == cluster).sum() for cluster in unique_clusters}
@@ -595,14 +600,16 @@ def cell_cluster(
     # lut = np.zeros_like(cellbycluster_labels)
     # lut[sorted_clusters] = np.arange(len(unique_clusters))
 
-    print("cell_cluster point 3")
+    LOGGER.debug("cell_cluster point 3")
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
 
-    print("cell_cluster point 4")
+    LOGGER.debug("cell_cluster point 4")
     # write out that cluster ids
     if keep and "cluster_list" in locals():
+        LOGGER.debug(f"cluster_list is {len(cluster_list)} {cluster_list[:2]}")
+        LOGGER.debug(f"First labels {cluster_list[0].labels_}")
         all_labels = [x.labels_ for x in cluster_list]
         df = pd.DataFrame(all_labels).T
         df.index = inCells
@@ -614,7 +621,12 @@ def cell_cluster(
 
         df_all_cluster_list.append(df)
 
-    print("cell_cluster point 5")
+    LOGGER.debug("cell_cluster point 5")
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("cell_cluster tracemalloc stats:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
     return cellbycluster_labels, clustercenters
 
 
@@ -749,6 +761,11 @@ def unravel_indices_3D(mask_channels, maxvalue, channel_coords):
 
 
 def unravel_indices(mask_channels, maxvalue, channel_coords):
+    """
+    mask_channels: list of n [:,:,:] arrays of ints, each a mask channel
+    maxvalue: upper limit of the range of cell indices (single int)
+    channel_coords: on entry, an empty list. returns the result.
+    """
     for j in range(0, len(mask_channels)):
         # might want to change this to pure numpy arrays
         masked_imgs_coord = [[[], []] for i in range(maxvalue)]
@@ -758,7 +775,7 @@ def unravel_indices(mask_channels, maxvalue, channel_coords):
         indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
 
         append_coord(masked_imgs_coord, rlabel_mask, indices)
-        masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
+        masked_imgs_coord = [np.asarray(elt, dtype=np.int32) for elt in masked_imgs_coord]
 
         channel_coords.append(masked_imgs_coord)
 
@@ -784,22 +801,30 @@ def nb_populate_dict(cell_num, cell_num_idx):
 
 
 def get_coordinates(mask, options):
-    mask_channels = []
     channel_coords = []
     # channel_coords_np = []
+    LOGGER.debug("Entering get_coordinates")
+    snapshot1 = tracemalloc.take_snapshot()
     s, t, c, z, y, x = mask.get_data().shape
-    mask_data = mask.get_data().copy()
+    mask_data = mask.get_data()
 
     # find cell index - if not sequential
     cell_num = np.unique(mask_data)
     maxvalue = len(cell_num)
     mask.set_cell_index(cell_num[1:])
 
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 1:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
     if maxvalue - 1 != np.max(mask_data):
+        LOGGER.debug("Conditional block start")
         cell_num_idx = np.arange(0, len(cell_num))
         # cell_num_dict = dict(zip(cell_num, cell_num_idx))
         cell_num_dict = nb_populate_dict(cell_num, cell_num_idx)
-        fmask_data = mask_data.reshape(-1)
+        fmask_data = mask_data.copy().reshape(-1)
 
         # for i in range(0, len(fmask_data)):
         #     fmask_data[i] = cell_num_dict.get(fmask_data[i])
@@ -811,35 +836,48 @@ def get_coordinates(mask, options):
 
         cell_num = np.unique(mask_data)
         maxvalue = len(cell_num)
+        LOGGER.debug("Conditional block end")
 
     assert (maxvalue - 1) == np.max(mask_data)
 
     # post-process for edge case cell coordinates - filter out cells that have less than specified pixel area threshold
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 2:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
     freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.add_bad_cells(idx)
 
     mask_4D = mask_data[0, 0, :, :, :, :]
 
-    for i in range(0, mask_4D.shape[0]):
-        mask_channels.append(mask_4D[i, :, :, :])
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 3:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
+    snapshot1 = tracemalloc.take_snapshot()
 
     # 3D case
     if mask_4D.shape[1] > 1:
-        unravel_indices_3D(mask_channels, maxvalue, channel_coords)
+        for i in range(0, mask_4D.shape[0]):
+            channel_coords.append(CellTable3D(mask, i))
     else:
-        unravel_indices(mask_channels, maxvalue, channel_coords)  # new
-    # npwhere(mask_channels, maxvalue, channel_coords_np) #old
+        for i in range(0, mask_4D.shape[0]):
+            channel_coords.append(CellTable(mask, i))
 
-    # remove idx from coords
-    # if len(idx) != 0:
-    #     for i in range(len(channel_coords)):
-    #         channel_coords[i] = [i for j, i in enumerate(channel_coords[i]) if j not in idx]
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Change in allocation across block 4:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
 
     return channel_coords
 
 
-def compute_cell_centers(ROI_coords: List[List[np.ndarray]]) -> Optional[np.ndarray]:
+def compute_cell_centers(ROI_coords: List[Union[CellTable, CellTable3D]]) -> Optional[np.ndarray]:
     """
     Compute per-cell centroid coordinates from ROI coordinate arrays.
 
@@ -860,26 +898,32 @@ def compute_cell_centers(ROI_coords: List[List[np.ndarray]]) -> Optional[np.ndar
     cellmask = ROI_coords[0]
     cell_center = np.zeros((len(cellmask), 3), dtype=int)
 
-    for i in range(1, len(cellmask)):
-        coords = cellmask[i]
-        if coords is None or coords.size == 0:
-            continue
-
-        mean_coords = np.mean(coords, axis=1)
-        if coords.shape[0] == 3:
-            cell_center[i, 0] = int(mean_coords[1])
-            cell_center[i, 1] = int(mean_coords[2])
-            cell_center[i, 2] = int(mean_coords[0])
-        else:
-            cell_center[i, 0] = int(mean_coords[0])
-            cell_center[i, 1] = int(mean_coords[1])
+    if isinstance(cellmask, CellTable3D):
+        for i, cell_mtx in enumerate(cellmask.cell_iter()):
+            if i == 0:
+                continue  # skip background
+            if cell_mtx is None or cell_mtx.size == 0:
+                continue
+            m = np.mean(cell_mtx, axis=1).astype(int)
+            cell_center[i, 0] = m[1]
+            cell_center[i, 1] = m[2]
+            cell_center[i, 2] = m[0]
+    else:
+        for i, cell_mtx in enumerate(cellmask.cell_iter()):
+            if i == 0:
+                continue  # skip background
+            if cell_mtx is None or cell_mtx.size == 0:
+                continue
+            m = np.mean(cell_mtx, axis=1).astype(int)
+            cell_center[i, 0] = m[0]
+            cell_center[i, 1] = m[1]
 
     return cell_center
 
 
 def cell_graphs(
     mask: MaskStruct,
-    ROI_coords: List[List[np.ndarray]],
+    ROI_coords: List[Union[CellTable, CellTable3D]],
     inCells: List,
     fname: str,
     outputdir: Path,
@@ -909,7 +953,7 @@ def cell_graphs(
 
 def adj_cell_list(
     mask,
-    ROI_coords: List[np.ndarray],
+    ROI_coords: List[Union[CellTable, CellTable3D]],
     cell_center: np.ndarray,
     inCells: list,
     fname: str,
@@ -977,51 +1021,40 @@ def cell_check(cc, cell):
         return False
 
 
-def CheckAdjacency_Distance(cell_center, cell, cellids, idx, adjmatrix, cellGraph, i):
-    for j in cellids[i]:
-        # if j >= idx[-1]:
-        #     continue
+def CheckAdjacency_Distance(cell_center, cell, cellids_i, idx_i, adjmatrix, cellGraph, j):
+    """
+    cell_center: an array of cell center coordinates by cellid
+    cell: a CellTable iterator output array, specific to one cellid
+    cellids_i: cellids of cells falling in the dilated footprint of cell i
+    idx_i: some strange offset numbering
+    """
 
-        k = idx[i]
+    k = idx_i
 
-        # check for edge cases in which cell centers lie within another cell
-        bool = cell_check(cell_center[j], cell[k])
-        boole = cell_check(cell_center[k], cell[j])
-
-        if bool or boole:
-            continue
-        else:
-            sub = cell_center[k] - cell_center[j]
-            distance = LA.norm(sub)
-            adjmatrix[k, j] = distance
-            adjmatrix[j, k] = distance
-            cellGraph[k].add(j)
-            cellGraph[j].add(k)
+    sub = cell_center[k] - cell_center[j]
+    distance = LA.norm(sub)
+    adjmatrix[k, j] = distance
+    adjmatrix[j, k] = distance
+    cellGraph[k].add(j)
+    cellGraph[j].add(k)
 
 
-def CheckAdjacency_Distance_new(celledge, cellids, idx, adjmatrix, cellGraph, i):
-    for j in cellids[i]:
-        # if j >= idx[-1]:
-        #     continue
+def CheckAdjacency_Distance_new(celledge, cellids_i, idx_i, adjmatrix, cellGraph, j):
+    """ i is used only to index into cellids (a list completion of short arrays)  and idx (an arange of ints)"""
 
-        k = idx[i]
+    k = idx_i
 
-        a = np.asarray(celledge[j])
-        b = np.asarray(celledge[k])
-        tree = KDTree(a.T)
-        dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
-        # res_df = df[["X1", "Y1"]]
-        # res_df[["X2", "Y2"]] = df[["X2", "Y2"]].iloc[ind].reset_index(drop=True)
-        # res_df["distance"] = dist
-        # sub = cell_center[k] - cell_center[j]
+    a = np.asarray(celledge[j])
+    b = np.asarray(celledge[k])
+    tree = KDTree(a.T)
+    dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
 
-        # distance = LA.norm(sub)
-        distance = np.argmin(dist)
+    distance = np.argmin(dist)
 
-        adjmatrix[k, j] = distance
-        adjmatrix[j, k] = distance
-        cellGraph[k].add(j)
-        cellGraph[j].add(k)
+    adjmatrix[k, j] = distance
+    adjmatrix[j, k] = distance
+    cellGraph[k].add(j)
+    cellGraph[j].add(k)
 
 
 def AdjacencyMatrix_3D(
@@ -1102,25 +1135,27 @@ def AdjacencyMatrix_3D(
         if cellids[i].size == 0:
             continue
         else:
-            CheckAdjacency_Distance(
-                cell_center,
-                ROI_coords[0],
-                cellids,
-                idx,
-                adjmatrix_avg,
-                cellGraph_avg,
-                i,
-            )
+            for j in cellids[i]:
+                # for avg dist
+                CheckAdjacency_Distance(
+                    cell_center,
+                    ROI_coords[0],
+                    cellids[i],
+                    idx[i],
+                    adjmatrix_avg,
+                    cellGraph_avg,
+                    j
+                )
 
-            # for min dist
-            CheckAdjacency_Distance_new(
-                cellEdgeList,
-                cellids,
-                idx,
-                adjacencyMatrix,
-                cellGraph,
-                i,
-            )
+                # for min dist
+                CheckAdjacency_Distance_new(
+                    cellEdgeList,
+                    cellids[i],
+                    idx[i],
+                    adjacencyMatrix,
+                    cellGraph,
+                    j
+                )
 
     AdjacencyMatrix2Graph(
         adjacencyMatrix,
@@ -1148,6 +1183,119 @@ def AdjacencyMatrix_3D(
     return adjacencyMatrix_csr, dict(cellGraph)
 
 
+def get_footprint(cell_mtx, delta, x_dim, y_dim):
+    windowCoords = []
+    windowSize = []
+    windowRange_xy = []
+
+    xmin, xmax, ymin, ymax = (
+        np.min(cell_mtx[1]),
+        np.max(cell_mtx[1]),
+        np.min(cell_mtx[0]),
+        np.max(cell_mtx[0]),
+    )
+
+    xmin = max(xmin - delta, 0)
+    xmax = min(xmax + delta + 1, x_dim)
+    ymin = max(ymin - delta, 0)
+    ymax = min(ymax + delta + 1, y_dim)
+    xy = np.array([xmin, xmax, ymin, ymax])
+
+    c = np.array([xmax - xmin, ymax - ymin])
+
+    shifted_cell_mtx = np.stack((
+        cell_mtx[1] - xmin, cell_mtx[0] - ymin
+    ))
+ 
+    return shifted_cell_mtx, c, xy
+
+
+def alt_AdjacencyMatrix(
+    mask,
+    ROI_coords,
+    cell_center: pd.DataFrame,
+    inCells: list,
+    baseoutputfilename,
+    output_dir,
+    options: Dict,
+    window=None,
+):
+    """
+    By: Young Je Lee, Ted Zhang, Matt Ruffalo, and Joel Welling
+    """
+    LOGGER.debug("AdjacencyMatrix begin")
+    interior_set = set(inCells)
+    cell_off = mask.get_labels("cells")
+    cell_boundary_off = mask.get_labels("cell_boundaries")
+    n_dilations = options.get("cell_adj_dilation_itr")
+    cell_center = cell_center.to_numpy()
+    LOGGER.debug("cell_center is {cell_center.shape} {cell_center.dtype}")
+    if window is None:
+        delta = options.get("adj_matrix_delta")
+    else:
+        delta = len(window) + options.get("adj_matrix_delta")
+    
+    # min_dist
+    adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph = defaultdict(set)
+
+    # avg dist
+    adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph_avg = defaultdict(set)
+
+    # avg dist
+    adjmatrix_avg = scipy.sparse.dok_matrix((numCells, numCells))
+    cellGraph_avg = defaultdict(set)
+
+    cell_id_mask = mask.get_data()[0, 0, cell_off, 0, :, :]
+
+    for cellid_edge, cell_edge_mtx in ROI_coords[cell_boundary_off].subset_iter(interior_set):
+        
+        win_coords, win_sz, win_xy = get_footprint(cell_edge_mtx, delta,
+                                                   mask.img.dims.X, mask.img.dims.Y)
+        tempImg = np.zeros((windowSize[i][1], windowSize[i][0]))
+        tempImg[win_coords[1, :], win_coords[0, :]] = 1
+    
+        dilated_img = binary_dilation(tempImg, iterations=thr)
+        mask_cropped = maskImg[
+            win_xy[2]:win_xy[3],
+            win_xy[0]:win_xy[1]
+        ]
+        masked_dilated_img = mask_cropped * dilaged_img  # element-wise mult
+        cellids_in_footprint = np.unique(masked_dilated_img)
+        np.delete(cellids_in_footprint, cellids_in_footprint == cellid_edge)
+
+        if cellids_in_footprint.size == 0:
+            continue  # no footprint
+        else:
+            for cellid_other in cellids_in_footprint:
+                if (cell_check(cell_id_mask,
+                               cell_center[cellid_edge], cellid_other)
+                    or cell_check(cell_id_mask,
+                                  cell_center[cellid_other], cellid_edge)):
+                    continue
+                else:
+                    sub = cell_center[cellid_edge] - cell_center[cellid_other]
+                    distance = LA.norm(sub)
+                    adjmatrix_avg[cellid_edge, cellid_other] = distance
+                    adjmatrix_avg[cellid_other, cellid_edge] = distance
+                    cellGraph_avg[cellid_edge].add(cellid_other)
+                    cellGraph_avg[cellid_other].add(cellid_edge)
+
+                    # TODO: fix this!
+                    a = np.asarray(celledge[j])
+                    b = np.asarray(celledge[k])
+                    tree = KDTree(a.T)
+                    dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
+                    distance = np.argmin(dist)
+                    adjmatrix[k, j] = distance
+                    adjmatrix[j, k] = distance
+                    cellGraph[k].add(j)
+                    cellGraph[j].add(k)
+
+                    
+        
+        
 def AdjacencyMatrix(
     mask,
     ROI_coords,
@@ -1162,23 +1310,25 @@ def AdjacencyMatrix(
     By: Young Je Lee, Ted Zhang and Matt Ruffalo
     """
 
+    LOGGER.debug("AdjacencyMatrix begin")
     ###
     # change from list[np.arrays] -> np.array
     ###
     # cel = nbList()
     thr = options.get("cell_adj_dilation_itr")
     cell_center = cell_center.to_numpy()
+    LOGGER.debug(f"cell_center {cell_center}")
 
     paraopt = options.get("cell_adj_parallel")
     loc = mask.get_labels("cell_boundaries")
     print("adjacency calculation begin")
     # start = time.perf_counter()
 
-    cellEdgeList = ROI_coords[2]
+    cellEdgeList = ROI_coords[2]  # a CellTable
 
     # numCells = len(inCells)
     numCells = len(cellEdgeList)
-    cellidx = mask.get_cell_index()
+    cellidx = mask.get_cell_index()  # an iterable of ints
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
@@ -1217,38 +1367,55 @@ def AdjacencyMatrix(
         tempImg[windowCoords[i][1, :], windowCoords[i][0, :]] = 1
         templist.append(tempImg)
 
+    LOGGER.debug(f"len(templist) = {len(templist)}")
     dimglist = [binary_dilation(x, iterations=thr) for x in templist]
     maskcrop = [maskImg[x[2] : x[3], x[0] : x[1]] for x in windowXY]
     nimglist = [x * y for x, y in zip(maskcrop, dimglist)]
     cellids = [np.unique(x)[1:] for x in nimglist]
+    LOGGER.debug(f"lengths are {len(dimglist)} {len(maskcrop)} {len(nimglist)} {len(cellids)}")
     idx = np.arange(1, len(cellids) + 1)
     cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
-
-    for i in range(len(cellids)):
-        if cellids[i].size == 0:
+    
+    LOGGER.debug(f"AdjacencyMatrix point 1; len(cellids) = {len(cellids)}")
+    cell = {ii+1:cell_mtx
+            for ii, cell_mtx in enumerate(ROI_coords[0].cells_only_iter())}
+    celledge = {ii+1:cell_mtx
+                for ii, cell_mtx in enumerate(cellEdgeList.cells_only_iter())}
+    for i, cellids_i in enumerate(cellids):
+        this_cell_ctr = cell_center[i]
+        if cellids_i.size == 0:
             continue
         else:
-            # for avg dist
-            CheckAdjacency_Distance(
-                cell_center,
-                ROI_coords[0],
-                cellids,
-                idx,
-                adjmatrix_avg,
-                cellGraph_avg,
-                i,
-            )
+            for j in cellids_i:
+                # exclude edge case where one cell's center lies in the other cell
+                if idx[i] not in cell or j not in cell:
+                    continue
+                if (cell_check(cell_center[j], cell[idx[i]])
+                    or cell_check(cell_center[idx[i]], cell[j])):
+                    continue
+                else:
+                    # for avg dist
+                    CheckAdjacency_Distance(
+                        cell_center,
+                        ROI_coords[0],
+                        cellids_i,
+                        idx[i],
+                        adjmatrix_avg,
+                        cellGraph_avg,
+                        j
+                    )
 
-            # for min dist
-            CheckAdjacency_Distance_new(
-                cellEdgeList,
-                cellids,
-                idx,
-                adjacencyMatrix,
-                cellGraph,
-                i,
-            )
+                # for min dist
+                CheckAdjacency_Distance_new(
+                    celledge,
+                    cellids_i,
+                    idx[i],
+                    adjacencyMatrix,
+                    cellGraph,
+                    j
+                )
 
+    LOGGER.debug("AdjacencyMatrix point 2")
     AdjacencyMatrix2Graph(
         adjacencyMatrix,
         cell_center,
@@ -1256,6 +1423,7 @@ def AdjacencyMatrix(
         output_dir / (baseoutputfilename + "_AdjacencyGraph.pdf"),
         thr,
     )
+    LOGGER.debug("AdjacencyMatrix point 3")
     # Remove background
     adjacencyMatrix = adjacencyMatrix[1:, 1:]
     adjmatrix_avg = adjmatrix_avg[1:, 1:]
@@ -1272,6 +1440,7 @@ def AdjacencyMatrix(
         for i in range(numCells):
             print(i, file=f)
 
+    LOGGER.debug("AdjacencyMatrix end")
     return adjacencyMatrix_csr, dict(cellGraph)
 
 
@@ -1280,15 +1449,15 @@ def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
     windowSize = []
     windowRange_xy = []
 
-    for i in range(1, numCells):
+    for cell_mtx in cellEdgeList.cells_only_iter():
         # get window ranges
         xmin, xmax, ymin, ymax, zmin, zmax = (
-            np.min(cellEdgeList[i][2]),
-            np.max(cellEdgeList[i][2]),
-            np.min(cellEdgeList[i][1]),
-            np.max(cellEdgeList[i][1]),
-            np.min(cellEdgeList[i][0]),
-            np.max(cellEdgeList[i][0]),
+            np.min(cell_mtx[2]),
+            np.max(cell_mtx[2]),
+            np.min(cell_mtx[1]),
+            np.max(cell_mtx[1]),
+            np.min(cell_mtx[0]),
+            np.max(cell_mtx[0]),
         )
 
         # padding
@@ -1307,9 +1476,9 @@ def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
         z = zmax - zmin
         d = np.array([x, y, z])
 
-        temp1 = cellEdgeList[i][2] - xmin
-        temp2 = cellEdgeList[i][1] - ymin
-        temp3 = cellEdgeList[i][0] - zmin
+        temp1 = cell_mtx[2] - xmin
+        temp2 = cell_mtx[1] - ymin
+        temp3 = cell_mtx[0] - zmin
 
         temp = np.stack((temp1, temp2, temp3))
         windowCoords.append(temp)
@@ -1323,16 +1492,13 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
     windowSize = []
     windowRange_xy = []
 
-    for i in range(1, numCells):
-        # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-        # xmin, xmax, ymin, ymax = np.min(cellEdgeList[inCells[i]][0]), np.max(cellEdgeList[inCells[i]][0]), np.min(
-        #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
+    for cell_mtx in cellEdgeList.cells_only_iter():
 
         xmin, xmax, ymin, ymax = (
-            np.min(cellEdgeList[i][1]),
-            np.max(cellEdgeList[i][1]),
-            np.min(cellEdgeList[i][0]),
-            np.max(cellEdgeList[i][0]),
+            np.min(cell_mtx[1]),
+            np.max(cell_mtx[1]),
+            np.min(cell_mtx[0]),
+            np.max(cell_mtx[0]),
         )
 
         xmin = xmin - delta if xmin - delta > 0 else 0
@@ -1347,8 +1513,8 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
         y = ymax - ymin
         c = np.array([x, y])
 
-        temp1 = cellEdgeList[i][1] - xmin
-        temp2 = cellEdgeList[i][0] - ymin
+        temp1 = cell_mtx[1] - xmin
+        temp2 = cell_mtx[0] - ymin
 
         temp = np.stack((temp1, temp2))
         windowCoords.append(temp)
@@ -1655,7 +1821,7 @@ def write_cell_polygs(
 def build_matrix(
     im: IMGstruct,
     mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
+    ncells: int,
     j: int,
     omatrix: np.ndarray,
 ) -> np.ndarray:
@@ -1664,7 +1830,7 @@ def build_matrix(
             (
                 im.img.dims.T,
                 mask.get_data().shape[2],
-                len(masked_imgs_coord),
+                ncells,
                 im.img.dims.C,
                 im.img.dims.C,
             )
@@ -1676,7 +1842,7 @@ def build_matrix(
 def build_vector(
     im: IMGstruct,
     mask: MaskStruct,
-    masked_imgs_coord: List[np.ndarray],
+    ncells: int,
     j: int,
     omatrix: np.ndarray,
 ) -> np.ndarray:
@@ -1685,7 +1851,7 @@ def build_vector(
             (
                 im.img.dims.T,
                 mask.get_data().shape[2],
-                len(masked_imgs_coord),
+                ncells,
                 im.img.dims.C,
                 1,
             )
@@ -2920,6 +3086,7 @@ def cell_analysis(
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
+    snapshot1 = tracemalloc.take_snapshot()
     (
         clustercells_tsneAll,
         clustercells_tsneAllcenters,
@@ -2940,6 +3107,11 @@ def cell_analysis(
         matrix_texture=texture_matrix,
         matrix_shape=norm_shape_vectors,
     )
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, "lineno")
+    LOGGER.debug("Memory change across DR_AllFeatures:")
+    for stat in top_stats[:10]:
+        LOGGER.debug(stat)
 
     # tsne
     # cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
@@ -2948,6 +3120,7 @@ def cell_analysis(
 
     # for each channel in the mask
     for i in range(len(maskchs)):
+        LOGGER.debug(f"starting mask channel {i}")
         # for i in range(1):
         seg_n = mask.get_labels(maskchs[i])
 
@@ -3085,6 +3258,7 @@ def cell_analysis(
             list_of_cluster_imgs,
         )
 
+    LOGGER.debug("finished mask channel loop")
     if options.get("debug"):
         print("Elapsed time for cluster img saving: ", time.monotonic() - stime)
 
@@ -3280,9 +3454,6 @@ def quality_measures(
         #print(f"shape info: im_data {im_data.shape}")
         #print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
         pixels = im_dims[-2] * im_dims[-1]
-        bgpixels = ROI_coords[0][0]
-        cells = ROI_coords[0][1:]
-        nuclei = ROI_coords[1][1:]
 
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"] = dict()
@@ -3295,9 +3466,12 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        bgpixels = im.cache_get("bgpixels")
+        total_intensity_cell = im.cache_get("total_intensity_cell")
+        total_intensity_nuclei = im.cache_get("total_intensity_nuclei")
         total_intensity_per_chan = np.zeros((im.img.dims.C,))
+        LOGGER.debug(f"total_intensity_cell is {total_intensity_cell.shape} {total_intensity_cell.dtype}")
+        LOGGER.debug(f"total_intensity_cell[0] is a {type(total_intensity_cell[0])}")
         total_intensity_per_chancell = np.zeros((im.img.dims.C,))
         total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
         total_intensity_nuclei_per_chan = np.zeros((im.img.dims.C,))
@@ -3878,11 +4052,12 @@ def normalize_background(im, mask, ROI_coords):
         img = im.get_data().copy()
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
+            bg_pix = ROI_coords[0].background()
             bg_img_ch = img_ch[
-                ROI_coords[0][0][0, :], ROI_coords[0][0][1, :], ROI_coords[0][0][2, :]
+                bg_pix[0, :], bg_pix[1, :], bg_pix[2, :]
             ]
 
-            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+            avg = np.sum(bg_img_ch) / bg_pix.shape[1]
 
             if avg == 0:
                 continue
@@ -3896,9 +4071,10 @@ def normalize_background(im, mask, ROI_coords):
         img = None
         for i in range(im.img.dims.C):
             img_ch = im.get_plane(i, 0)[0]
-            bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
+            bg_pix = ROI_coords[0].background()
+            bg_img_ch = img_ch[bg_pix[0, :], bg_pix[1, :]]
 
-            avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
+            avg = np.sum(bg_img_ch) / bg_pix.shape[1]
 
             if avg == 0:
                 continue
@@ -4194,6 +4370,7 @@ def DR_AllFeatures(
     """
     By: Young Je Lee and Ted Zhang
     """
+    LOGGER.debug(f"DR_AllFeatures point 0: {matrix_total.shape} {matrix_total.dtype}")
     # get features into correct shapes - cov, total
     # matrix_mean = matrix_mean[0]
     matrix_cov = matrix_cov[0]
@@ -4228,6 +4405,7 @@ def DR_AllFeatures(
     learning_rate = 1
     matrix_texture = matrix_texture[:, : int(len(matrix_texture[0]) / 2)]
 
+    LOGGER.debug("DR_AllFeatures point 1")
     if options.get("tSNE_texture_calculation_skip"):
         matrix_all_OnlyCell_original = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
@@ -4248,6 +4426,7 @@ def DR_AllFeatures(
         else:
             raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
+    LOGGER.debug("DR_AllFeatures point 2")
     matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":
         matrix_all_OnlyCell = np.asarray(matrix_all_OnlyCell, dtype=float)
@@ -4269,6 +4448,7 @@ def DR_AllFeatures(
             axis=1,
         )
 
+    LOGGER.debug("DR_AllFeatures point 3")
     matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # tol
     if tSNEInitialization == "pca":
@@ -4294,6 +4474,7 @@ def DR_AllFeatures(
 
         matrix_all_OnlyCell = m.transform(matrix_all_OnlyCell_full)
 
+    LOGGER.debug("DR_AllFeatures point 4")
     t_matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # init tSNE
     tsne = TSNE(
@@ -4306,6 +4487,7 @@ def DR_AllFeatures(
         random_state=0,
     )
 
+    LOGGER.debug("DR_AllFeatures point 5")
     while True:
         try:
             tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
@@ -4323,11 +4505,13 @@ def DR_AllFeatures(
     plt.clf()
     plt.close()
 
+    LOGGER.debug("DR_AllFeatures point 6")
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
         header, tsne_all_OnlyCell, filename + "-tSNE_allfeatures", output_dir, cellidx, options
     )
 
+    LOGGER.debug("DR_AllFeatures point 7")
     clustercells_all, clustercells_allcenters = cell_cluster(
         tsne_all_OnlyCell,
         types_list,
@@ -4341,23 +4525,27 @@ def DR_AllFeatures(
     # clusterMembership_descending=np.argsort(np.bincount(clustercells_all))
     # for i in range(len(clustercells_all)):
     #    clustercells_all[i]=len(clustercells_allcenters)-1-np.where(clusterMembership_descending==clustercells_all[i])[0]
+    LOGGER.debug("DR_AllFeatures point 8")
 
     # umap
     reducer = umap.UMAP()
     umap_features = matrix_all_OnlyCell_full.copy()
     umap_embed = reducer.fit_transform(umap_features)
 
+    LOGGER.debug("DR_AllFeatures point 9")
     # 2D umap
     plt.scatter(umap_embed[:, 0], umap_embed[:, 1], marker=".")
     plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"), bbox_inches="tight")
     plt.clf()
     plt.close()
 
+    LOGGER.debug("DR_AllFeatures point 10")
     umap_header = [x for x in range(1, umap_embed.shape[1] + 1)]
     write_2_csv(
         umap_header, umap_embed, filename + "-UMAP_allfeatures", output_dir, cellidx, options
     )
 
+    LOGGER.debug("DR_AllFeatures point 11")
     clustercells_all_umap, clustercells_allcenters_umap = cell_cluster(
         umap_embed,
         types_list,
@@ -4369,6 +4557,7 @@ def DR_AllFeatures(
         df_all_cluster_list,
     )
 
+    LOGGER.debug("DR_AllFeatures point 12")
     return (
         clustercells_all,
         clustercells_allcenters,
