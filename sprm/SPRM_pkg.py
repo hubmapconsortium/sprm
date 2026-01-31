@@ -4379,7 +4379,7 @@ def solve_svd(mtx_full, numComp, pcaMethod):
     return m.transform(mtx_full)
 
 
-def solve_tsne(mtx_full):
+def solve_tsne(tsne, mtx_full):
     mtx_full_0 = mtx_full.shape[0]
     n_samples = int(mtx_full_0)
     idx = np.arange(mtx_full_0)
