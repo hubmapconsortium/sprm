@@ -3,7 +3,10 @@ from sklearn.decomposition import PCA as PCA_raw
 from sklearn.cluster import KMeans as KMeans_raw
 from sklearn.manifold import TSNE as TSNE_raw
 
+# Force random_state to be a fixed int to stabilize algorithms
+# for debugging
 ADDL_OPTS = {"random_state": 42}
+#ADDL_OPTS = {}
 
 UMAP_ADDL_OPTS = ADDL_OPTS
 PCA_ADDL_OPTS = ADDL_OPTS
