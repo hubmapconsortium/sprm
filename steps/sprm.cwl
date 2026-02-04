@@ -35,11 +35,21 @@ inputs:
     inputBinding:
       position: 4
       prefix: "--enable-faulthandler"
+  threadpool_limit:
+    type: int?
+    inputBinding:
+      position: 5
+      prefix: "--threadpool-limit"
   verbose:
     type: boolean?
     inputBinding:
-      position: 5
+      position: 6
       prefix: "--verbose"
+  min_memory:
+    type: boolean?
+    inputBinding:
+      position: 7
+      prefix: "--min-memory"
   cell_types_directory:
     type:
       - "null"

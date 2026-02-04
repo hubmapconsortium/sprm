@@ -11,9 +11,11 @@ Spatial Process & Relationship Modeling Documentation
    :caption: Contents:
 
    ./sections/introduction
+   ./sections/modular_api
    ./sections/release_notes
    ./sections/analysis_sequence
    ./sections/outputs.md
+   ./sections/options.md
 
 Indices and tables
 ==================

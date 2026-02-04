@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Spatial Process & Relationship Modeling"
-copyright = "2023, Ted Zhang, Bob Murphy"
+copyright = "2020-2025, Ted Zhang, Bob Murphy"
 author = "Ted Zhang, Bob Murphy"
-release = "11/02/2023"
+release = "12/23/2025"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -45,10 +45,10 @@ html_theme_options = {
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = "SPRM v1.4.4 documentation"
+html_title = "SPRM v2.0.3 documentation"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = "SPRM v1.4.4"
+html_short_title = "SPRM v2.0.3"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.

@@ -25,8 +25,14 @@ inputs:
   enable_faulthandler:
     label: "Whether to enable the Python 'faulthandler' module"
     type: boolean?
+  threadpool_limit:
+    label: "Whether to enable the Python 'faulthandler' module"
+    type: int?
   verbose:
     label: "Whether to enable verbose/debug mode"
+    type: boolean?
+  min_memory:
+    label: "Whether to conserve memory by leaving large arrays on disk"
     type: boolean?
   processes:
     label: "Number of images to process in parallel (default: 1)"
@@ -73,8 +79,12 @@ steps:
         source: enable_manhole
       enable_faulthandler:
         source: enable_faulthandler
+      threadpool_limit:
+        source: threadpool_limit
       verbose:
         source: verbose
+      min_memory:
+        source: min_memory
       processes:
         source: processes
     out: [output_dir]

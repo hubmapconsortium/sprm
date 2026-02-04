@@ -1,7 +1,10 @@
 import io
 import json
+import logging
 import math
 import time
+import re
+import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
 from contextlib import contextmanager
@@ -47,7 +50,7 @@ from sklearn.metrics import silhouette_score
 from spatialdata.models import Image2DModel, Labels2DModel, PointsModel, TableModel
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
-from .data_structures import IMGstruct, MaskStruct
+from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
 
@@ -56,8 +59,8 @@ from .ims_sparse_allchan import reallocateIMS as reallo
 Companion to SPRM.py
 Package functions that are integral to running main script
 Author: Ted Zhang & Robert F. Murphy
-01/21/2020 - 06/25/2020
-Version: 1.03
+01/21/2020 - 12/23/2025
+Version: 2.0.3
 
 
 """
@@ -65,6 +68,9 @@ Version: 1.03
 ###########################################
 ########## GLOBAL VARIABLES ###############
 ###########################################
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 hdf5_lock = Lock()
 row_index = 0
@@ -276,34 +282,20 @@ class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
 
     def default(self, obj):
-        if isinstance(
-            obj,
-            (
-                np.int_,
-                np.intc,
-                np.intp,
-                np.int8,
-                np.int16,
-                np.int32,
-                np.int64,
-                np.uint8,
-                np.uint16,
-                np.uint32,
-                np.uint64,
-            ),
-        ):
+        # Prefer NumPy abstract base classes for forward compatibility (NumPy 2.x).
+        if isinstance(obj, (np.integer,)):
             return int(obj)
 
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+        elif isinstance(obj, (np.floating,)):
             return float(obj)
 
-        elif isinstance(obj, (np.complex_, np.complex64, np.complex128)):
+        elif isinstance(obj, (np.complexfloating,)):
             return {"real": obj.real, "imag": obj.imag}
 
         elif isinstance(obj, (np.ndarray,)):
             return obj.tolist()
 
-        elif isinstance(obj, (np.bool_)):
+        elif isinstance(obj, (np.bool_,)):
             return bool(obj)
 
         elif isinstance(obj, (np.void)):
@@ -458,43 +450,42 @@ def save_image(
 
 
 def calculations(
-    coord, im: IMGstruct, t: int, i: int, bestz: int
-) -> (np.ndarray, np.ndarray, np.ndarray):
+    coord_all, im: IMGstruct, t: int, bestz: List[int]
+) -> Dict[int, np.ndarray]:
     """
     Returns covariance matrix, mean vector, and total vector
     """
 
-    if i == 0:
-        print("Performing statistical analyses on ROIs...")
+    print("Performing statistical analyses on ROIs...")
 
-    if coord.shape[0] > 2:
-        z, y, x = coord[0], coord[1], coord[2]
-        z = z.astype(int)
-    else:
-        y, x = coord[0], coord[1]
-        z = bestz
+    ROI_dict = {}  # ROI matrices by cell ID
+    channels_this_cell_dict = defaultdict(list)
+    for ch_idx in range(im.img.dims.C):
+        cell_plane_dict = defaultdict(list) # planes of this channel by cell ID
+        for z_idx in range(im.img.dims.Z):
+            slice = im.get_plane(ch_idx, z_idx)
+            for cell_idx in range(len(coord_all)):
+                coord = coord_all[cell_idx]
+                if coord.shape[0] > 2:
+                    z, y, x = coord[0], coord[1], coord[2]
+                    z = z.astype(int)
+                else:
+                    y, x = coord[0], coord[1]
+                    z = bestz
+                y = y.astype(int)
+                x = x.astype(int)
+                if z_idx in z:
+                    pix_array = slice[0, y, x].copy().ravel()
+                    cell_plane_dict[cell_idx].append(pix_array)
+        for cell_idx in cell_plane_dict:
+            channels_this_cell_dict[cell_idx].append(
+                np.concatenate(cell_plane_dict[cell_idx])
+            )
+    for cell_idx in channels_this_cell_dict:
+        ROI = np.vstack(channels_this_cell_dict[cell_idx])
+        ROI_dict[cell_idx] = ROI
 
-    y = y.astype(int)
-    x = x.astype(int)
-
-    temp = im.get_data()
-
-    channel_all_mask = temp[0, t, :, z, y, x]
-    ROI = np.transpose(channel_all_mask)
-
-    cov_m = np.cov(ROI)
-    mu_v = np.reshape(np.mean(ROI, axis=1), (ROI.shape[0], 1))
-    total = np.reshape(np.sum(ROI, axis=1), (ROI.shape[0], 1))
-
-    # filter for NaNs
-    cov_m[np.isnan(cov_m)] = 0
-    mu_v[np.isnan(mu_v)] = 0
-    total[np.isnan(total)] = 0
-
-    # if not cov_m.shape:
-    # cov_m = np.array([cov_m])
-
-    return cov_m, mu_v, total
+    return ROI_dict
 
 
 def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> np.array:
@@ -550,9 +541,12 @@ def cell_cluster(
     df_all_cluster_list: list[pd.DataFrame],
 ) -> np.ndarray:
     # kmeans clustering
-    print("Clustering cells...")
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
+    print(f"Clustering cells for {s}: "
+          f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
+    print(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
+          f" for {len(typelist)} types")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -582,15 +576,19 @@ def cell_cluster(
             cellbycluster = cellbycluster.fit(cell_matrix)
 
         else:
+            #TODO: num_cellclusters and cluster_score are undefined on this branch
+            raise NotImplementedError("Only silhouette is currently supported")
             cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
+    print("cell_cluster point 1")
     cellbycluster_labels = cellbycluster.labels_
     clustercenters = cellbycluster.cluster_centers_
     if options.get("debug"):
         print(clustercenters.shape)
         print(cellbycluster_labels.shape)
 
+    print("cell_cluster point 2")
     # sort the clusters by the largest to smallest and then reindex
     # unique_clusters = set(cellbycluster_labels)
     # cluster_counts = {cluster: (cellbycluster_labels == cluster).sum() for cluster in unique_clusters}
@@ -599,10 +597,12 @@ def cell_cluster(
     # lut = np.zeros_like(cellbycluster_labels)
     # lut[sorted_clusters] = np.arange(len(unique_clusters))
 
+    print("cell_cluster point 3")
     # save score and type it was
     typelist.append(s)
     all_clusters.append(cluster_score)
 
+    print("cell_cluster point 4")
     # write out that cluster ids
     if keep and "cluster_list" in locals():
         all_labels = [x.labels_ for x in cluster_list]
@@ -616,6 +616,7 @@ def cell_cluster(
 
         df_all_cluster_list.append(df)
 
+    print("cell_cluster point 5")
     return cellbycluster_labels, clustercenters
 
 
@@ -840,6 +841,44 @@ def get_coordinates(mask, options):
     return channel_coords
 
 
+def compute_cell_centers(ROI_coords: List[List[np.ndarray]]) -> Optional[np.ndarray]:
+    """
+    Compute per-cell centroid coordinates from ROI coordinate arrays.
+
+    Parameters
+    ----------
+    ROI_coords : List[List[np.ndarray]]
+        ROI coordinate arrays, where the first element contains cell masks.
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        Array of shape (n_cells, 3) with centroid coordinates (x, y, z).
+        Returns None if ROI coordinates are unavailable.
+    """
+    if not ROI_coords or ROI_coords[0] is None or len(ROI_coords[0]) == 0:
+        return None
+
+    cellmask = ROI_coords[0]
+    cell_center = np.zeros((len(cellmask), 3), dtype=int)
+
+    for i in range(1, len(cellmask)):
+        coords = cellmask[i]
+        if coords is None or coords.size == 0:
+            continue
+
+        mean_coords = np.mean(coords, axis=1)
+        if coords.shape[0] == 3:
+            cell_center[i, 0] = int(mean_coords[1])
+            cell_center[i, 1] = int(mean_coords[2])
+            cell_center[i, 2] = int(mean_coords[0])
+        else:
+            cell_center[i, 0] = int(mean_coords[0])
+            cell_center[i, 1] = int(mean_coords[1])
+
+    return cell_center
+
+
 def cell_graphs(
     mask: MaskStruct,
     ROI_coords: List[List[np.ndarray]],
@@ -852,33 +891,22 @@ def cell_graphs(
     Get cell centers as well as adj list of cells
     """
 
-    cellmask = ROI_coords[0]
-    cell_center = np.zeros((len(cellmask), 3))
-    # cell_idx = mask.get_cell_index()
-
-    if cellmask[0].shape[0] == 3:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[1]
-            cell_center[i, 1] = m[2]
-            cell_center[i, 2] = m[0]
-    else:
-        for i in range(1, len(cellmask)):
-            # m = (np.sum(cellmask[i], axis=1) / cellmask[i].shape[1]).astype(int)
-            m = np.mean(cellmask[i], axis=1).astype(int)
-            cell_center[i, 0] = m[0]
-            cell_center[i, 1] = m[1]
+    cell_center = compute_cell_centers(ROI_coords)
+    if cell_center is None:
+        print("Warning: Unable to compute cell centers from ROI coordinates.")
+        cell_center = np.zeros((0, 3), dtype=int)
 
     cell_center_df = pd.DataFrame(cell_center)
     cell_center_df.index.name = "ID"
 
     cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y", "z"])
-    adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
+    adjacency_matrix, cell_graph = adj_cell_list(
+        mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options
+    )
 
     # adj_cell_list(cellmask, fname, outputdir)
 
-    # return cell_center
+    return adjacency_matrix, cell_graph
 
 
 def adj_cell_list(
@@ -900,15 +928,23 @@ def adj_cell_list(
     stime = time.monotonic()
 
     if options.get("cell_graph") == 1:
-        if options.get("image_dimension") == "2D":
-            AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+        # Default to 2D unless explicitly set to "3D"
+        image_dimension = options.get("image_dimension", "2D")
+        if image_dimension == "2D":
+            adjacency_matrix, cell_graph = AdjacencyMatrix(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
-            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            adjacency_matrix, cell_graph = AdjacencyMatrix_3D(
+                mask, ROI_coords, cell_center, inCells, fname, outputdir, options
+            )
         print("Runtime of adj matrix: ", time.monotonic() - stime)
+        return adjacency_matrix, cell_graph
     else:
         df = pd.DataFrame(np.zeros(1))
         df.to_csv(outputdir / (fname + "-cell_adj_list.csv"))
+        return None, {}
 
 
 @nb.njit(parallel=True)
@@ -1111,6 +1147,8 @@ def AdjacencyMatrix_3D(
         for i in range(numCells):
             print(i, file=f)
 
+    return adjacencyMatrix_csr, dict(cellGraph)
+
 
 def AdjacencyMatrix(
     mask,
@@ -1236,7 +1274,7 @@ def AdjacencyMatrix(
         for i in range(numCells):
             print(i, file=f)
 
-    # return adjacencyMatrix
+    return adjacencyMatrix_csr, dict(cellGraph)
 
 
 def get_windows_3D(numCells, cellEdgeList, delta, a, b, c):
@@ -1553,10 +1591,28 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
     # Sean Donahue - 11/12/20
     key_parts = s.replace("-", "_").split("_")
     key_parts.reverse()
-    hdf_key = "/".join(key_parts)
+    # Sanitize key parts for PyTables "natural naming" (avoid dots/spaces/etc).
+    # This keeps the demo log clean and makes keys easier to access.
+    safe_parts: List[str] = []
+    for part in key_parts:
+        part = re.sub(r"[^0-9a-zA-Z_]+", "_", str(part))
+        if not part:
+            part = "x"
+        if not re.match(r"^[a-zA-Z_]", part):
+            part = "_" + part
+        safe_parts.append(part)
+    hdf_key = "/".join(safe_parts)
     with hdf5_lock:
-        with pd.HDFStore(output_dir / "out.hdf5") as store:
-            store.put(hdf_key, df)
+        with warnings.catch_warnings():
+            # Avoid noisy warnings for non-critical naming / dtype issues when writing demo HDF5.
+            try:
+                from tables.exceptions import NaturalNameWarning, PerformanceWarning
+                warnings.filterwarnings("ignore", category=NaturalNameWarning)
+                warnings.filterwarnings("ignore", category=PerformanceWarning)
+            except Exception:
+                pass
+            with pd.HDFStore(output_dir / "out.hdf5") as store:
+                store.put(hdf_key, df)
 
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
@@ -1608,11 +1664,11 @@ def build_matrix(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
-                im.get_data().shape[2],
+                im.img.dims.C,
+                im.img.dims.C,
             )
         )
     else:
@@ -1629,10 +1685,10 @@ def build_vector(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
+                im.img.dims.T,
                 mask.get_data().shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
+                im.img.dims.C,
                 1,
             )
         )
@@ -1785,60 +1841,57 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
 
     global row_index
 
+    # min-memory mode
     print("Calculating Signal to Noise Ratio in image...")
-    channvals = im.get_data()[0, 0, :, :, :, :]
     zlist = []
     channelist = []
+    snr_channels_list = []
+    for ch_idx in range(im.img.dims.C):
+        all_pix = np.concatenate([im.get_plane(ch_idx, z_idx).copy()
+                                  for z_idx in range(im.img.dims.Z)],
+                                 axis = None)
+        print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
+        all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
+            np.float32, copy=False
+        )
 
-    channvals_z = channvals.reshape(
-        channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
-    )
-    channvals_z = channvals_z.transpose()
+        mean = float(all_pix.mean()) if all_pix.size else 0.0
+        std = float(all_pix.std(ddof=0)) if all_pix.size else 0.0
+        snr = mean / std if std > 0 else 0.0
+        snr_channels_list.append(snr if np.isfinite(snr) else 0.0)
 
-    m = channvals_z.mean(0)
-    sd = channvals_z.std(axis=0, ddof=0)
-    # snr_channels = np.where(sd == 0, 0, m / sd)
-    snr_channels = m / sd
-    # snr_channels = snr_channels[np.newaxis, :]
-    # snr_channels = snr_channels.tolist()
+        # Robust Otsu-like foreground/background ratio (avoid NaN ranges / empty slices)
+        if all_pix.size == 0 or float(np.var(all_pix)) == 0.0:
+            channelist.append(0.0)
+            continue
 
-    # define otsu threshold
-    for i in range(0, channvals.shape[0]):
-        img_2D = channvals[i, :, :, :].astype("int")
-        img_2D = img_2D.reshape((img_2D.shape[0] * img_2D.shape[1], img_2D.shape[2]))
+        max_img = float(np.max(all_pix))
+        if (not np.isfinite(max_img)) or max_img <= 0.0:
+            channelist.append(0.0)
+            continue
 
-        # try:
-        # nbins implement
-        max_img = np.max(img_2D)
-        max_img_dtype = np.iinfo(img_2D.dtype).max
-        factor = np.floor(max_img_dtype / max_img)
-        img_2D_factor = img_2D * factor
+        # Scale into a stable range for thresholding (uint16-ish), but keep float for skimage.
+        scale = 65535.0 / max_img
+        img_scaled = np.nan_to_num(all_pix * scale, nan=0.0, posinf=0.0, neginf=0.0)
 
-        thresh = threshold_otsu(img_2D_factor)
-        thresh = max(thresh, factor)
+        try:
+            thresh = float(threshold_otsu(img_scaled))
+        except Exception as excp:
+            print(f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold")
+            thresh = float(np.median(img_scaled))
 
-        above_th = img_2D_factor > thresh
-        below_th = img_2D_factor <= thresh
-        # if thresh == 0:
-        #     print('Otsu threshold returned 0')
-        #     fbr = 'N/A'
-        # else:
-        mean_a = np.mean(img_2D_factor[above_th])
-        mean_b = np.mean(img_2D_factor[below_th])
-        # take ratio above thresh / below thresh
-        fbr = mean_a / mean_b
-        # except ValueError:
-        #     print('Value Error encountered')
-        #     fbr = 0
+        fg = img_scaled[img_scaled > thresh]
+        bg = img_scaled[img_scaled <= thresh]
+        mean_a = float(fg.mean()) if fg.size else 0.0
+        mean_b = float(bg.mean()) if bg.size else 0.0
+        fbr = (mean_a / mean_b) if mean_b > 0 else 0.0
+        channelist.append(fbr if np.isfinite(fbr) else 0.0)
 
-        channelist.append(fbr)
+    snrs = np.stack([np.asarray(snr_channels_list),
+                     np.asarray(channelist)])
 
-    channelist = np.asarray(channelist)
-
-    snrs = np.stack([snr_channels, channelist])
-
-    # check for nans
-    snrs[np.isnan(snrs)] = 0
+    # check for non-finites
+    snrs = np.nan_to_num(snrs, nan=0.0, posinf=0.0, neginf=0.0)
 
     # add index identifier
     row_index = 1
@@ -2040,7 +2093,6 @@ def matchNShow_markers(
     """
     get the markers to indicate what the respective clusters represent
     """
-
     markers = [features[i] for i in markerlist]
     table = clustercenters[:, markerlist]
 
@@ -3221,10 +3273,14 @@ def quality_measures(
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
 
-        im_data = im.get_data()
-        im_dims = im_data.shape
+        #im_data = im.get_data()
+        im_dims = (1, 1,
+                   im.img.dims.C, im.img.dims.Z,
+                   im.img.dims.Y, im.img.dims.X)
 
-        im_channels = im_data[0, 0, :, bestz, :, :]
+        #im_channels = im_data[0, 0, :, bestz, :, :]
+        #print(f"shape info: im_data {im_data.shape}")
+        #print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
         pixels = im_dims[-2] * im_dims[-1]
         bgpixels = ROI_coords[0][0]
         cells = ROI_coords[0][1:]
@@ -3241,15 +3297,21 @@ def quality_measures(
         channels = im.get_channel_labels()
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
-        total_intensity_per_chan = im_channels[0, :, :, :]
-        total_intensity_per_chan = np.reshape(
-            total_intensity_per_chan,
-            (
-                total_intensity_per_chan.shape[0],
-                total_intensity_per_chan.shape[1] * total_intensity_per_chan.shape[2],
-            ),
-        )
-        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
+        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        total_intensity_per_chan = np.zeros((im.img.dims.C,))
+        total_intensity_per_chancell = np.zeros((im.img.dims.C,))
+        total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
+        total_intensity_nuclei_per_chan = np.zeros((im.img.dims.C,))
+        for c_idx, z_idx, slice in im.get_img_channel_generator(bestz):
+            total_intensity_per_chan[c_idx] += np.sum(slice)
+            total_intensity_per_chancell[c_idx] += np.sum(
+                slice[0, 0, total_intensity_cell[0], total_intensity_cell[1]]
+            )
+            total_intensity_per_chanbg[c_idx] += np.sum(slice[0, 0, bgpixels[0], bgpixels[1]])
+            total_intensity_nuclei_per_chan[c_idx] += np.sum(
+                slice[0, 0, total_intensity_nuclei[0], total_intensity_nuclei[1]]
+            )
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -3262,13 +3324,7 @@ def quality_measures(
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
         # total_intensity_file = get_paths(total_intensity_path)
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        total_intensity_per_chancell = np.sum(
-            im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
-        )
         # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
-
-        total_intensity_per_chanbg = np.sum(im_channels[0, :, bgpixels[0], bgpixels[1]], axis=0)
 
         # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
         # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
@@ -3276,10 +3332,6 @@ def quality_measures(
         # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
 
         # nuclei total intensity per channel
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
-        total_intensity_nuclei_per_chan = np.sum(
-            im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0
-        )
 
         # cytoplasm total intensity per channel
         # cytoplasm_all = np.concatenate(cytoplasm, axis=1)
@@ -3630,8 +3682,8 @@ def check_shape(im, mask):
     # put in check here for matching dims
 
     return (
-        im.get_data().shape[4] != mask.get_data().shape[4]
-        or im.get_data().shape[5] != mask.get_data().shape[5]
+        (im.img.dims.X != mask.img.dims.X)
+        or (im.img.dims.Y != mask.img.dims.Y)
     )
 
 
@@ -3687,10 +3739,15 @@ def reallocate_and_merge_intensities(
         im.set_channel_labels(channel_list)
 
     # prune for NaNs
-    im_prune = im.get_data()
-    nan_find = np.isnan(im_prune)
-    im_prune[nan_find] = 0
-    im.set_data(im_prune)
+    nan_count = 0
+    for c_idx, z_idx, slice in im.get_img_channel_generator():
+        nan_count += np.isnan(slice).sum()
+        print(f"nan scan: {c_idx} {z_idx} {nan_count}")
+    if nan_count > 0:
+        im_prune = im.get_data()
+        nan_find = np.isnan(im_prune)
+        im_prune[nan_find] = 0
+        im.set_data(im_prune)
 
 
 # def generate_fake_stackimg(im, mask, opt_img_file, options):
@@ -3793,28 +3850,34 @@ def normalize_image(img):
     """
     basic normalization of averaging negative values and setting that as background
     """
-    if (img.data < 0).any():
-        # find a boolean matrix of negative values
-        nbool = img.data < 0
+    neg_count = 0
+    neg_sum = 0.0
+    for chan_idx, z_idx, slice in img.get_img_channel_generator():
+        nbool = slice < 0.0
+        neg_count += nbool.sum()
+        neg_sum += slice[nbool].sum()
+    print(f"normalize_image: neg_count {neg_count} neg_sum {neg_sum}")
+    if neg_count:
+        # fail cleanly if we can't adjust the image values
+        if img.data is None:
+            raise RuntimeError("Image bias normalization is not supported"
+                               " in min-memory mode")
 
         # get average of negative and set that as the background or 0
-        n_avg = -np.average(img.data[nbool])
+        n_avg = -(neg_sum / neg_count)
         img.data = img.data + n_avg
 
         # everything that is < 0 is background
         img.data[img.data < 0] = 0
-        return
-    else:
-        return
 
 
 def normalize_background(im, mask, ROI_coords):
     # pass
-    img = im.get_data().copy()
-    # img = img.astype("int64")
     dims = mask.get_data().shape
 
+    # img = img.astype("int64")
     if dims[3] > 1:  # 3D
+        img = im.get_data().copy()
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
             bg_img_ch = img_ch[
@@ -3829,9 +3892,12 @@ def normalize_background(im, mask, ROI_coords):
                 avg = 1
 
             img[0, 0, i, :, :, :] = img_ch / avg
+        im.set_data(img)
+
     else:
-        for i in range(img.shape[2]):
-            img_ch = img[0, 0, i, 0, :, :]
+        img = None
+        for i in range(im.img.dims.C):
+            img_ch = im.get_plane(i, 0)[0]
             bg_img_ch = img_ch[ROI_coords[0][0][0, :], ROI_coords[0][0][1, :]]
 
             avg = np.sum(bg_img_ch) / ROI_coords[0][0].shape[1]
@@ -3840,13 +3906,12 @@ def normalize_background(im, mask, ROI_coords):
                 continue
             elif avg < 1:
                 avg = 1
-
-            img[0, 0, i, 0, :, :] = img_ch / avg
-
-    im.set_data(img)
+            print(f"avg for channel {i} is {avg}")
+            im.apply_scale(i, 1.0/avg)
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
+    print("starting set_zdims")
     bound = options.get("zslices")
     bestz = mask.get_bestz()
     z = mask.get_data().shape[3]
@@ -3860,12 +3925,15 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_bestz(idx)
         return
     else:
-        new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
-        new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+        if lower_bound == bestz[0] and upper_bound == lower_bound+1:
+            return  # no change
+        else:
+            new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+            new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
 
-        mask.set_data(new_mask)
-        mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
-        img.set_data(new_img)
+            mask.set_data(new_mask)
+            mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
+            img.set_data(new_img)
 
 
 def find_edge_cells(mask):
@@ -4235,7 +4303,7 @@ def DR_AllFeatures(
         perplexity=perplexity,
         early_exaggeration=early_exaggeration,
         learning_rate=learning_rate,
-        n_iter=n_iter,
+        max_iter=n_iter,
         init="random",
         random_state=0,
     )

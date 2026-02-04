@@ -1,9 +1,13 @@
+import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 from aicsimageio import AICSImage
+from aicsimageio.readers import OmeTiffReader, TiffReader
 
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 class IMGstruct:
     """
@@ -21,6 +25,51 @@ class IMGstruct:
         self.path = path
         self.name = path.name
         self.channel_labels = self.read_channel_names()
+        self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+
+    def get_img_channel_generator(self, z=None):
+        if z is not None:
+            if isinstance(z, int):
+                for chan in range(self.img.dims.C):
+                    rslt = np.expand_dims(self.get_plane(chan, z), axis=0)
+                    LOGGER.debug(f"generator: {z} -> {chan} {z} {rslt.shape}")
+                    yield chan, z, rslt
+            elif isinstance(z, list):
+                for chan in range(self.img.dims.C):
+                    for z_idx in z:
+                        rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
+                        LOGGER.debug(f"generator: {z} -> {chan} {z_idx} {rslt.shape}")
+                        yield chan, z_idx, rslt
+            else:
+                raise RuntimeError(f"z parameter is neither an int nor a list: {z}")
+        else:
+            for chan in range(self.img.dims.C):
+                for z_idx in range(self.img.dims.Z):
+                    rslt = np.expand_dims(self.get_plane(chan, z_idx), axis=0)
+                    LOGGER.debug(f"generator: {z} -> {chan} {z_idx} {rslt.shape}")
+                    yield chan, z_idx, rslt
+
+    def apply_scale(self, channel: Union[int, str], factor: float) -> None:
+        if factor == 1.0:
+            return  # because the scaling has no effect
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+        else:
+            ch_idx = channel
+        img = self.get_data().copy()
+        img_ch = img[0, 0, ch_idx, :, :, :]
+        img[0, 0, ch_idx, :, :, :] = img_ch * factor
+        self.set_data(img)
+
+    def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+            LOGGER.debug(f"in-memory get_plane: {channel} -> {ch_idx} {slice}")
+            # Always return (1, Y, X) for consistent downstream indexing.
+            return self.data[0, 0, ch_idx, slice, np.newaxis, :, :]
+        else:
+            LOGGER.debug(f"in-memory get_plane: {channel} {slice}")
+            return self.data[0, 0, channel, slice, np.newaxis, :, :]
 
     def set_data(self, data):
         self.data = data
@@ -43,7 +92,14 @@ class IMGstruct:
 
     @staticmethod
     def read_img(path: Path, options: Dict) -> AICSImage:
-        img = AICSImage(path)
+        # Avoid bfio dependency for (OME-)TIFF by selecting readers that don't require it.
+        # This prevents noisy "No module named 'bfio'" messages for OmeTiledTiffReader.
+        suffix = path.name.lower()
+        if suffix.endswith((".tif", ".tiff")):
+            reader = OmeTiffReader if ".ome." in suffix else TiffReader
+            img = AICSImage(path, reader=reader)
+        else:
+            img = AICSImage(path)
         if not img.metadata:
             print("Metadata not found in input image")
             # might be a case-by-basis
@@ -83,8 +139,10 @@ class IMGstruct:
             )
 
         # convert data to a float for normalization downstream
-        data = data.astype("float")
-        assert data.dtype == "float"
+        # data = data.astype("float")
+        # assert data.dtype == "float"
+        data = data.astype(np.float32)
+        assert data.dtype == np.float32
 
         return data
 
@@ -192,8 +250,10 @@ class MaskStruct(IMGstruct):
         self.set_bestz(bestz)
 
         # check to make sure is int64
-        data = data.astype(int)
-        assert data.dtype == "int"
+        # data = data.astype(int)
+        # assert data.dtype == "int"
+        data = data.astype(np.int32)
+        assert data.dtype == np.int32
 
         return data
 
@@ -248,3 +308,45 @@ class MaskStruct(IMGstruct):
     #     self.bad_cells = None
     #     self.cell_index = None
     #     self.ROI = None
+
+
+class DiskIMGstruct(IMGstruct):
+
+    def __init__(self, path:Path, options):
+        self.img = self.read_img(path, options)
+        self.data = None
+        self.path = path
+        self.name = path.name
+        self.channel_labels = self.read_channel_names()
+        self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
+        self.scale_factors = np.ones((self.img.dims.C))
+        LOGGER.debug(f"dask image data: {self.img.xarray_dask_data}")
+        LOGGER.debug(f"dask image chunk_size: {self.img.xarray_dask_data.chunksizes}")
+        LOGGER.debug(f"scale_factors: {self.scale_factors}")
+
+    def get_data(self):
+        raise(NotImplementedError("Disk-based images are a work in progress!"))
+
+    def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+            LOGGER.debug(f"Accessing {channel} -> {ch_idx} {slice} from dims {self.img.dims}")
+            return self.scale_factors[ch_idx] * self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
+        else:
+            ch_name = self.img.channel_names[channel]
+            LOGGER.debug(f"Accessing {channel} ({ch_name}) {slice} dims {self.img.dims}")
+            return (self.scale_factors[channel]
+                    * self.img.get_image_dask_data(
+                        "ZYX", T=0, C=channel, Z=[slice]
+                    ).compute().astype(np.float32))
+
+    def apply_scale(self, channel: Union[int, str], factor: float) -> None:
+        if factor == 1.0:
+            return  # because the scaling has no effect
+        if isinstance(channel, str):
+            ch_idx = self.channel_dict[channel]
+        else:
+            ch_idx = channel
+        LOGGER.debug(f"scaling channel {ch_idx} by {factor}")
+        self.scale_factors[ch_idx] *= factor
+

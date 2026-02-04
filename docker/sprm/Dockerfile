@@ -14,6 +14,6 @@ RUN cd sprm \
  && cd .. \
  && rm -rf sprm /root/cache/.pip
 
-ENV OPENBLAS_NUM_THREADS=64
+RUN python3 -m pip install -U numexpr bottleneck
 
 CMD ["/bin/bash"]

@@ -1,10 +1,12 @@
 import importlib.resources
+import logging
 import pickle
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import aicsimageio
 import numpy as np
@@ -21,13 +23,19 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
+from threadpoolctl import threadpool_info
+from pprint import pprint
+
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
 Author: Haoran Chen and Ted Zhang
-Version: 1.5
-09/08/2021
+Version: 2.0.1
+09/08/2021 - 12/23/2025
 """
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 schema_url_pattern = re.compile(r"\{(.+)\}OME")
 
@@ -45,65 +53,103 @@ def fraction(img_bi, mask_bi):
     mask_all = np.sum(mask_bi)
     background = len(np.where(mask_bi - img_bi == 1)[0])
     foreground = np.sum(mask_bi * img_bi)
-    return foreground / foreground_all, background / background_all, foreground / mask_all
+    # Robustness: avoid NaNs from divide-by-zero when image/mask are empty.
+    # Use 0.0 for undefined fractions (e.g., no foreground pixels).
+    foreground_fraction = float(foreground / foreground_all) if foreground_all else 0.0
+    background_fraction = float(background / background_all) if background_all else 0.0
+    mask_foreground_fraction = float(foreground / mask_all) if mask_all else 0.0
+    return foreground_fraction, background_fraction, mask_foreground_fraction
 
 
 def foreground_separation(img_thre):
+    img_thre = img_thre.astype(np.int16)
+    print(f"foreground_sep point 1 {img_thre.shape} {img_thre.dtype}")
     contour_ref = img_thre.copy()
+    print(f"foreground_sep point 2 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(1))
 
     img_thre = -img_thre + 1
+    print(f"foreground_sep point 3 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(2))
     img_thre = -img_thre + 1
 
+    print(f"foreground_sep point 4 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(20))
 
     img_thre = -img_thre + 1
+    print(f"foreground_sep point 5 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(10))
     img_thre = -img_thre + 1
 
+    print(f"foreground_sep point 6 {img_thre.shape} {img_thre.dtype}")
     img_thre = area_closing(img_thre, 20000, connectivity=2)
     contour_ref = contour_ref.astype(float)
     img_thre = img_thre.astype(float)
+    print(f"foreground_sep point 7 {img_thre.shape} {img_thre.dtype}")
     img_binary = MorphGAC(
         -contour_ref + 1, 5, -img_thre + 1, smoothing=1, balloon=0.8, threshold=0.5
     )
+    img_binary = img_binary.astype(np.int16)
+    print(f"foreground_sep point 8 {img_binary.shape} {img_binary.dtype}")
     img_binary = area_closing(img_binary, 1000, connectivity=2)
+    print(f"foreground_sep point 9 {img_binary.shape} {img_binary.dtype}")
 
     return -img_binary + 1
 
 
-def uniformity_CV(loc, channels):
+def uniformity_CV(is_foreground, img, bestz):
     CV = []
-    n = len(channels)
-    for i in range(n):
-        channel = channels[i]
-        channel = channel / np.mean(channel)
-        intensity = channel[tuple(loc.T)]
-        CV.append(np.std(intensity))
-    return np.average(CV)
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
+        channel = channel.astype(np.float32, copy=False)
+        mean = float(np.mean(channel))
+        if mean and np.isfinite(mean):
+            channel = channel / mean
+        plane = channel[0, 0]
+        intensity = plane[is_foreground]
+        if intensity.size == 0:
+            CV.append(0.0)
+        else:
+            CV.append(float(np.std(intensity)))
+    if len(CV) == 0:
+        return 0.0
+    val = float(np.average(CV))
+    return val if np.isfinite(val) else 0.0
 
 
-def uniformity_fraction(loc, channels) -> float:
-    n = len(channels)
+def uniformity_fraction(is_foreground, img, bestz) -> float:
+    # If there are no selected pixels, the "uniformity fraction" is undefined.
+    # Return 0.0 to keep downstream metrics finite and conservative.
+    if np.count_nonzero(is_foreground) == 0:
+        return 0.0
     feature_matrix_pieces = []
-    for i in range(n):
-        channel = channels[i]
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         ss = StandardScaler()
-        channel_z = ss.fit_transform(channel.copy())
-        intensity = channel_z[tuple(loc.T)]
+        channel_z = ss.fit_transform(channel[0, 0].copy())
+        intensity = channel_z[is_foreground]
         feature_matrix_pieces.append(intensity)
     feature_matrix = np.vstack(feature_matrix_pieces)
+    print(f"feature matrix: {feature_matrix.shape} {feature_matrix.dtype}")
+    if feature_matrix.shape[1] < 2:
+        # Too few samples for PCA to be meaningful.
+        return 0.0
+    # If there's effectively no variance, PCA will warn and return NaN ratios.
+    if float(np.var(feature_matrix)) == 0.0:
+        return 0.0
     pca = PCA(n_components=1)
     model = pca.fit(feature_matrix.T)
     fraction = model.explained_variance_ratio_[0]
-    return fraction
+    print(f"uniformity_fraction returning {fraction}")
+    fraction = float(fraction)
+    return fraction if np.isfinite(fraction) else 0.0
 
 
-def foreground_uniformity(img_bi, mask, channels):
-    foreground_loc = np.argwhere((img_bi - mask) == 1)
-    CV = uniformity_CV(foreground_loc, channels)
-    foreground_pixel_num = foreground_loc.shape[0]
+def foreground_uniformity(img_bi, mask, img, bestz):
+    # foreground_loc = np.argwhere((img_bi - mask) == 1)
+    is_foreground = (img_bi - mask) == 1
+    CV = uniformity_CV(is_foreground, img, bestz)
+    print(f"CV is {type(CV)} {CV}")
+    foreground_pixel_num = is_foreground.sum()
+    print(f"foreground_pixel_num = {foreground_pixel_num}")
     foreground_loc_fraction = 1
     fraction = None
 
@@ -111,26 +157,41 @@ def foreground_uniformity(img_bi, mask, channels):
         print("no pixels in the foreground")
         return CV, None
 
+    print(f"img_bi is {img_bi.shape}, mask is {mask.shape}, bestz is {bestz}")
     while foreground_loc_fraction > 0:
         try:
-            foreground_loc_sampled = foreground_loc[
-                np.random.randint(
-                    foreground_pixel_num,
-                    size=round(foreground_pixel_num * foreground_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(foreground_loc_sampled, channels)
+            is_foreground_sampled = np.logical_and(
+                is_foreground,
+                np.random.choice([True, False],
+                                 size=is_foreground.shape,
+                                 p=[foreground_loc_fraction,
+                                    1.0 - foreground_loc_fraction])
+            )
+            # foreground_loc_sampled = foreground_loc[
+            #     np.random.randint(
+            #         foreground_pixel_num,
+            #         size=round(foreground_pixel_num * foreground_loc_fraction),
+            #     ),
+            #     :,
+            # ]
+            print(f"randomization worked with {foreground_loc_fraction}")
+            fraction = uniformity_fraction(is_foreground_sampled, img, bestz)
+            print(f"uniformity_fraction worked with {foreground_loc_fraction}")
             break
-        except:
+        except Exception as excp:
+            print(f"got expected exception {excp}")
             foreground_loc_fraction = foreground_loc_fraction / 2
+    print(f"CV: {CV}, fraction: {fraction}")
     return CV, fraction
 
 
-def background_uniformity(img_bi, channels):
-    background_loc = np.argwhere(img_bi == 0)
-    CV = uniformity_CV(background_loc, channels)
-    background_pixel_num = background_loc.shape[0]
+def background_uniformity(img_bi, img, bestz):
+    # background_loc = np.argwhere(img_bi == 0)
+    is_background = (img_bi == 0)
+    CV = uniformity_CV(is_background, img, bestz)
+    print(f"CV for background is {CV}")
+
+    background_pixel_num = is_background.sum()
     background_loc_fraction = 1
     fraction = None
 
@@ -140,16 +201,26 @@ def background_uniformity(img_bi, channels):
 
     while background_loc_fraction > 0:
         try:
-            background_loc_sampled = background_loc[
-                np.random.randint(
-                    background_pixel_num,
-                    size=round(background_pixel_num * background_loc_fraction),
-                ),
-                :,
-            ]
-            fraction = uniformity_fraction(background_loc_sampled, channels)
+            # background_loc_sampled = background_loc[
+            #     np.random.randint(
+            #         background_pixel_num,
+            #         size=round(background_pixel_num * background_loc_fraction),
+            #     ),
+            #     :,
+            # ]
+            is_background_sampled = np.logical_and(
+                is_background,
+                np.random.choice([True, False],
+                                 size=is_background.shape,
+                                 p=[background_loc_fraction,
+                                    1.0 - background_loc_fraction])
+            )
+            print(f"background randomization worked with {background_loc_fraction}")
+            fraction = uniformity_fraction(is_background_sampled, img, bestz)
+            print(f"background uniformity_fraction worked with {background_loc_fraction}")
             break
-        except:
+        except Exception as excp:
+            print(f"bacground got expected exception {excp}")
             background_loc_fraction = background_loc_fraction / 2
     return CV, fraction
 
@@ -172,10 +243,13 @@ def cell_uniformity_fraction(feature_matrix):
     if np.sum(feature_matrix) == 0 or feature_matrix.shape[0] == 1:
         return 1
     else:
+        if float(np.var(feature_matrix)) == 0.0:
+            return 0.0
         pca = PCA(n_components=1)
         model = pca.fit(feature_matrix)
         fraction = model.explained_variance_ratio_[0]
-        return fraction
+        fraction = float(fraction)
+        return fraction if np.isfinite(fraction) else 0.0
 
 
 def weighted_by_cluster(vector, labels):
@@ -193,20 +267,21 @@ def cell_size_uniformity(mask):
         cell_size_current = len(cell_coord[i][0])
         if cell_size_current != 0:
             cell_size.append(cell_size_current)
-    cell_size_std = np.std(np.expand_dims(np.array(cell_size), 1))
-    return cell_size_std
+    if len(cell_size) == 0:
+        return 0.0
+    cell_size_std = float(np.std(np.expand_dims(np.array(cell_size), 1)))
+    return cell_size_std if np.isfinite(cell_size_std) else 0.0
 
 
-def cell_type(mask, channels):
+def cell_type(mask, img, bestz):
     label_list = []
-    n = len(channels)
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
+        channel_z = ss.fit_transform(channel[0,0])
+        print(f"channel_z is {channel_z.shape} {channel_z.dtype}")
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
@@ -218,28 +293,52 @@ def cell_type(mask, channels):
         feature_matrix_z_pieces.append(cell_intensity_z)
 
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
+    n_cells = feature_matrix_z.shape[0]
+    # If points are highly duplicated, KMeans can only produce fewer distinct clusters
+    # and will emit ConvergenceWarning; avoid fitting impossible cluster counts.
+    try:
+        n_unique = np.unique(feature_matrix_z, axis=0).shape[0]
+    except Exception:
+        n_unique = n_cells
+    # Ensure we ALWAYS return 10 label arrays since downstream code assumes this.
+    # When clustering is degenerate (e.g., all points identical) or impossible
+    # (e.g., n_cells < c), we reuse the last valid labels.
+    prev_labels = np.zeros(n_cells, dtype=int)
     for c in range(1, 11):
-        model = KMeans(n_clusters=c).fit(feature_matrix_z)
-        label_list.append(model.labels_.astype(int))
+        if n_cells < 2 or n_cells < c or n_unique < c:
+            label_list.append(prev_labels.copy())
+            continue
+        try:
+            with warnings.catch_warnings():
+                try:
+                    from sklearn.exceptions import ConvergenceWarning
+                    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+                except Exception:
+                    pass
+                model = KMeans(n_clusters=c, n_init="auto", random_state=0).fit(feature_matrix_z)
+            labels = model.labels_.astype(int)
+            prev_labels = labels
+            label_list.append(labels)
+        except Exception as excp:
+            print(f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels")
+            label_list.append(prev_labels.copy())
     return label_list
 
 
-def cell_uniformity(mask, channels, label_list):
-    n = len(channels)
+def cell_uniformity(mask, img, bestz, label_list):
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
     feature_matrix_pieces = []
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
-        channel_z = ss.fit_transform(channel)
+    for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
+        channel_z = ss.fit_transform(channel[0, 0])
         cell_intensity = []
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
             if cell_size_current != 0:
-                single_cell_intensity = np.sum(channel[tuple(cell_coord[j])]) / cell_size_current
+                single_cell_intensity = np.sum(channel[0,0][tuple(cell_coord[j])]) / cell_size_current
                 single_cell_intensity_z = (
                     np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
                 )
@@ -250,6 +349,8 @@ def cell_uniformity(mask, channels, label_list):
 
     feature_matrix = np.vstack(feature_matrix_pieces).T
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
+    print(f"cell_uniformity: feature_matrix {feature_matrix.shape} {feature_matrix.dtype}")
+    print(f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}")
     CV = []
     fraction = []
     silhouette = []
@@ -261,7 +362,18 @@ def cell_uniformity(mask, channels, label_list):
         if c == 1:
             silhouette.append(1)
         else:
-            silhouette.append(silhouette_score(feature_matrix_z, labels))
+            # silhouette_score requires 2..(n_samples-1) distinct labels. KMeans can
+            # legitimately return only 1 distinct label (e.g., all points identical).
+            try:
+                n_labels = np.unique(labels).size
+                n_samples = feature_matrix_z.shape[0]
+                if n_labels < 2 or n_labels >= n_samples:
+                    silhouette.append(0.0)
+                else:
+                    silhouette.append(float(silhouette_score(feature_matrix_z, labels)))
+            except Exception as excp:
+                print(f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0")
+                silhouette.append(0.0)
         for i in range(c):
             cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
             cluster_feature_matrix_z = feature_matrix_z[np.where(labels == i)[0], :]
@@ -349,60 +461,111 @@ def get_physical_dimension_func(
 get_pixel_area = get_physical_dimension_func(2)
 
 
+def _get_metadata_xml(metadata: Any) -> Optional[Union[str, bytes]]:
+    """
+    Return OME-XML as a string/bytes from various aicsimageio metadata forms.
+
+    Depending on aicsimageio version/reader, `AICSImage.metadata` can be:
+    - an OME object with `.to_xml()`
+    - a raw XML string/bytes
+    - None/other (no parseable metadata)
+    """
+    if metadata is None:
+        return None
+    if isinstance(metadata, (str, bytes)):
+        return metadata
+    to_xml = getattr(metadata, "to_xml", None)
+    if callable(to_xml):
+        return to_xml()
+    return None
+
+
 def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
+    # Compatibility: older pickled PCA objects may be missing newer attributes that
+    # scikit-learn expects to exist (e.g. in __sklearn_tags__ on newer versions).
+    # Without this, pca.transform() can raise AttributeError on newer sklearn.
+    if not hasattr(pca, "power_iteration_normalizer"):
+        # sklearn default for PCA(randomized) is "auto" in modern versions.
+        pca.power_iteration_normalizer = "auto"
     features_scaled = ss.transform(features)
-    score = (
-        pca.transform(features_scaled)[0, 0] * pca.explained_variance_ratio_[0]
-        + pca.transform(features_scaled)[0, 1] * pca.explained_variance_ratio_[1]
-    )
-    return score
+    # Robustness: older metric code paths can produce NaN/inf; keep scoring finite.
+    features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=0.0, neginf=0.0)
+    comps = pca.transform(features_scaled)[0]
+    evr = np.nan_to_num(pca.explained_variance_ratio_, nan=0.0, posinf=0.0, neginf=0.0)
+    # pca.pickle is expected to have at least 2 components; be defensive anyway.
+    score = float(np.dot(comps[:2], evr[:2]))
+    return score if np.isfinite(score) else 0.0
 
 
 def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
+    assert isinstance(bestz, list), "bestz is not a list?"
+    if img.data is None:
+        if len(bestz) > 1:
+            raise RuntimeError("Only a single bestz is currently"
+                               " suppored in min-memory mode")
+        if img.img.dims.Z != 1:
+            raise RuntimeError("Only a single slice is currently"
+                               " suppoerted in min-memory mode")
 
     # get compartment masks
     matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
+    np.save(output_dir / "test_matched_mask.npy", matched_mask)
     cell_matched_mask = matched_mask[0]
     nuclear_matched_mask = matched_mask[1]
     cell_outside_nucleus_mask = cell_matched_mask - nuclear_matched_mask
+    np.save(output_dir / "test_cell_outside_nucleus_mask.npy", cell_outside_nucleus_mask)
 
     metric_mask = np.expand_dims(cell_matched_mask, 0)
     metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_matched_mask, 0)))
     metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
+    np.save(output_dir / "test_metric_mask.npy", metric_mask)
 
     # separate image foreground background
+    print("single method point 1")
+    pprint(threadpool_info())
     try:
-        img_xmldict = xmltodict.parse(img.img.metadata.to_xml())
+        img_xml = _get_metadata_xml(img.img.metadata)
+        if img_xml is None:
+            raise ValueError("No parseable OME-XML metadata found on image")
+        img_xmldict = xmltodict.parse(img_xml)
         seg_channel_names = img_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"]["Value"][
             "OriginalMetadata"
         ]["Value"]
-        all_channel_names = img.img.get_channel_names()
+        all_channel_names = img.get_channel_labels()
         nuclear_channel_index = all_channel_names.index(seg_channel_names["Nucleus"])
         cell_channel_index = all_channel_names.index(seg_channel_names["Cell"])
         thresholding_channels = [nuclear_channel_index, cell_channel_index]
         seg_channel_provided = True
     except:
-        thresholding_channels = range(img.data.shape[2])
+        print("single method point 1b")
+        thresholding_channels = range(len(img.get_channel_labels()))
         seg_channel_provided = False
-    img_thresholded = sum(
-        thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
-        for c in thresholding_channels
-    )
+    print("single method point 2")
+    img_thresholded = np.zeros_like(img.get_plane(0, bestz[0]))
+    for c in thresholding_channels:
+        img_thresholded += thresholding(img.get_plane(c, bestz[0]))
+    print("single method point 3")
     if not seg_channel_provided:
-        img_thresholded[img_thresholded <= round(img.data.shape[2] * 0.2)] = 0
+        thresh_lim = round(len(img.get_channel_labels()) * 0.2)
+        img_thresholded[img_thresholded <= thresh_lim] = 0
+    img_thresholded = img_thresholded[0, :, :]
+    np.save(output_dir / "test_img_thresholded.npy", img_thresholded)
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
+    print(f"img_binary {img_binary.shape} {img_binary.dtype}")
+    np.save(output_dir / "test_img_binary.npy", img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
     # np.savetxt(output_dir / f"{img.name}_img_binary.txt.gz", img_binary)
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
+    print(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
     # set mask channel names
     channel_names = [
         "Matched Cell",
@@ -411,11 +574,14 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     ]
     metrics = {}
     for channel in range(metric_mask.shape[0]):
+        print(f"single method point 5 {channel} of {metric_mask.shape[0]}")
         current_mask = metric_mask[channel]
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
-            mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
+            print(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
+            mask_xml = _get_metadata_xml(mask.img.metadata)
+            mask_xmldict = xmltodict.parse(mask_xml) if mask_xml is not None else {}
             try:
                 matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
                     "Value"
@@ -424,6 +590,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 matched_fraction = 1.0
 
             units, pixel_size = get_pixel_area(img.img)
+            print(f"units {units} pixel_size {pixel_size}")
 
             pixel_num = mask_binary.shape[0] * mask_binary.shape[1]
             total_area = pixel_size * pixel_num
@@ -444,12 +611,10 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 img_binary, mask_binary
             )
 
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
-
             foreground_CV, foreground_PCA = foreground_uniformity(
-                img_binary, mask_binary, img_channels
+                img_binary, mask_binary, img, bestz
             )
-            background_CV, background_PCA = background_uniformity(img_binary, img_channels)
+            background_CV, background_PCA = background_uniformity(img_binary, img, bestz)
             metrics[channel_names[channel]][
                 "NumberOfCellsPer100SquareMicrons"
             ] = cell_num_normalized.magnitude
@@ -471,15 +636,15 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             )
             metrics[channel_names[channel]][
                 "FractionOfFirstPCForegroundOutsideCells"
-            ] = foreground_PCA
+            ] = 0.0 if foreground_PCA is None else float(foreground_PCA)
 
-            # get cell type labels
-            cell_type_labels = cell_type(current_mask, img_channels)
+            cell_type_labels = cell_type(current_mask, img, bestz)
         else:
-            img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
+            print(f"single method point 5 case 2 {channel_names[channel]}")
+            #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
-                current_mask, img_channels, cell_type_labels
+                current_mask, img, bestz, cell_type_labels
             )
             avg_cell_CV = np.average(cell_CV)
             avg_cell_fraction = np.average(cell_fraction)
@@ -495,11 +660,21 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 "AvgSilhouetteOver2~10NumberOfClusters"
             ] = avg_cell_silhouette
 
+    print("single method point 6")
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
-    with importlib.resources.open_binary("sprm", "pca.pickle") as f:
-        PCA_model = pickle.load(f)
+    # Loading pickled sklearn models can emit InconsistentVersionWarning. It's noisy
+    # during CLI runs and does not affect our ability to compute a score here.
+    with warnings.catch_warnings():
+        try:
+            from sklearn.exceptions import InconsistentVersionWarning
+            warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+        except Exception:
+            pass
+        with importlib.resources.open_binary("sprm", "pca.pickle") as f:
+            PCA_model = pickle.load(f)
 
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 
+    print("single method point 7")
     return metrics, fraction_background, 1 / (background_CV + 1), background_PCA
