@@ -3,9 +3,13 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:2.0.6
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
+requirements:
+  EnvVarRequirement:
+    envDef:
+      OPENBLAS_NUM_THREADS: $(inputs.threadpool_limit)
 baseCommand: sprm
 
 inputs:
