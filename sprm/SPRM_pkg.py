@@ -1790,7 +1790,7 @@ def write_cell_polygs(
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str(
-            [[round(i, 4), round(j, 4)] for i, j in zip(polyg_list[i][:, 0], polyg_list[i][:, 1])]
+            [[round(float(i), 4), round(float(j), 4)] for i, j in zip(polyg_list[i][:, 0], polyg_list[i][:, 1])]
         )
         coord_pairs.append(tlist)
 
