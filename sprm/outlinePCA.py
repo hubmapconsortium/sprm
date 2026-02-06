@@ -382,13 +382,16 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     cell_boundary = ROI_by_CH[2]
 
     # for i in range(1, np.amax(cellmask)+1):
-    for i in range(len(interiorCells)):
-        # if i not in cellmask:
-        #    continue
-        # coor = np.where(cellmask == i)
-
-        ROI_coords = cell_coords[interiorCells[i]]
-
+    interior_set = frozenset(interiorCells)
+    i = 0  # offset into interiorCells, since they are in the same order
+    for icell, (ROI_coords, CB_coords) in enumerate(
+            zip(
+                cell_coords.cell_iter(),
+                cell_boundary.cell_iter()
+            )
+    ):
+        if icell not in interior_set:
+            continue
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
         # tmask[ROI_coords[0], ROI_coords[1]] = 1
         # ly_connected='low', positive_orientation='low')
@@ -541,7 +544,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
         y = aligned_outline[0][:, 1] + tminy
 
         x, y = linear_interpolation(x, y, npoints)
-        yb, xb = cell_boundary[interiorCells[i]]
+        yb, xb = CB_coords
 
         # save the 100
         bxy = np.column_stack((xb, yb))
@@ -575,6 +578,8 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
         pts[i, 1:] = flatxy
 
         # pts[i - 1, :] = paramshape(cmask, npoints, polyg)
+
+        i += 1  # next interior cell
 
     if bad_cell_found:
         update_mask_struct(mask)
