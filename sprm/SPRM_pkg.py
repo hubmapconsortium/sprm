@@ -25,7 +25,6 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
-import spatialdata as sd
 import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
@@ -48,7 +47,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, PCA
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
-from spatialdata.models import Image2DModel, Labels2DModel, PointsModel, TableModel
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct, CellTable, CellTable3D
