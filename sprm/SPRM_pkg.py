@@ -2608,12 +2608,19 @@ def transform_df(df, ignore_column=None):
             drop_rows.append(i)
             continue
 
+        df_copy_T = df_copy.transpose()
         for col in match_counter.index:
+            LOGGER.debug(f"transform_df i={i} col={col} match_counter[col]={match_counter[col]}")
             if i != match_counter[col]:
-                mapping = {i: match_counter[col], match_counter[col]: i}
-                df_copy.loc[:, col] = df_copy.loc[:, col].map(lambda x: mapping.get(x, x))
+                target_dtype = type(i)
+                mapping = {i: target_dtype(match_counter[col]), target_dtype(match_counter[col]): i}
+                elts_mapped = df_copy_T.loc[col].map(lambda x: mapping.get(x, x))
+                df_copy_T.loc[col] = elts_mapped
+        df_copy = df_copy_T.transpose()
 
         drop_rows.append(i)
+
+    LOGGER.debug(f"transform_df inner loops complete; drop_rows={drop_rows}")
 
     if ignore_column is not None:
         # merge the dropped column back to the new one
