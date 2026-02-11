@@ -1776,7 +1776,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             except Exception:
                 pass
             with pd.HDFStore(output_dir / "out.hdf5") as store:
-                store.put(hdf_key, df)
+                store.put(hdf_key, df, format="table")
 
 
 def write_cell_polygs(
