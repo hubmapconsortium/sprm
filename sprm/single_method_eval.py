@@ -18,13 +18,13 @@ from scipy.stats import variation
 from skimage.filters import threshold_mean
 from skimage.morphology import area_closing, closing, disk
 from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from threadpoolctl import threadpool_info
 from pprint import pprint
+
+from .wrapped_functions import PCA, KMeans
 
 """
 Companion to SPRM.py
@@ -315,7 +315,7 @@ def cell_type(mask, img, bestz):
                     warnings.filterwarnings("ignore", category=ConvergenceWarning)
                 except Exception:
                     pass
-                model = KMeans(n_clusters=c, n_init="auto", random_state=0).fit(feature_matrix_z)
+                model = KMeans(n_clusters=c, n_init="auto", random_state=1).fit(feature_matrix_z)
             labels = model.labels_.astype(int)
             prev_labels = labels
             label_list.append(labels)

@@ -25,7 +25,6 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
-import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from apng import APNG, PNG
@@ -43,11 +42,10 @@ from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
 from skimage.feature.texture import graycomatrix, graycoprops
 from skimage.filters import threshold_otsu
-from sklearn.cluster import KMeans
-from sklearn.decomposition import NMF, PCA
-from sklearn.manifold import TSNE
+from sklearn.decomposition import NMF
 from sklearn.metrics import silhouette_score
 
+from .wrapped_functions import UMAP, PCA, KMeans, TSNE
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct, CellTable, CellTable3D
 from .ims_sparse_allchan import findpixelfractions
@@ -4484,7 +4482,6 @@ def DR_AllFeatures(
         learning_rate=learning_rate,
         max_iter=n_iter,
         init="random",
-        random_state=0,
     )
 
     LOGGER.debug("DR_AllFeatures point 5")
@@ -4528,7 +4525,7 @@ def DR_AllFeatures(
     LOGGER.debug("DR_AllFeatures point 8")
 
     # umap
-    reducer = umap.UMAP()
+    reducer = UMAP()
     umap_features = matrix_all_OnlyCell_full.copy()
     umap_embed = reducer.fit_transform(umap_features)
 
