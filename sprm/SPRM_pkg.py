@@ -25,7 +25,6 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
-import umap
 from aicsimageio import AICSImage
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 from apng import APNG, PNG
@@ -43,11 +42,10 @@ from scipy.ndimage import binary_dilation
 from scipy.spatial import KDTree
 from skimage.feature.texture import graycomatrix, graycoprops
 from skimage.filters import threshold_otsu
-from sklearn.cluster import KMeans
-from sklearn.decomposition import NMF, PCA
-from sklearn.manifold import TSNE
+from sklearn.decomposition import NMF
 from sklearn.metrics import silhouette_score
 
+from .wrapped_functions import UMAP, PCA, KMeans, TSNE
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct, CellTable, CellTable3D
 from .ims_sparse_allchan import findpixelfractions
@@ -556,7 +554,7 @@ def cell_cluster(
 
     # skipping clustering because all 0s of texture
     if options.get("texture_flag"):
-        cellbycluster = KMeans(n_clusters=1, random_state=0).fit(cell_matrix)
+        cellbycluster = KMeans(n_clusters=1).fit(cell_matrix)
         options.pop("texture_flag", None)
         cluster_score = []
     else:
@@ -564,8 +562,7 @@ def cell_cluster(
             cluster_list = []
             cluster_score = []
             for i in range(min_cluster, max_cluster + 1):
-                # cellbycluster = KMeans(n_clusters=i, random_state=0)
-                cellbycluster = KMeans(n_clusters=i, random_state=0, tol=1e-6)
+                cellbycluster = KMeans(n_clusters=i, tol=1e-6)
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
@@ -581,7 +578,7 @@ def cell_cluster(
         else:
             #TODO: num_cellclusters and cluster_score are undefined on this branch
             raise NotImplementedError("Only silhouette is currently supported")
-            cellbycluster = KMeans(n_clusters=num_cellclusters, random_state=0).fit(cell_matrix)
+            cellbycluster = KMeans(n_clusters=num_cellclusters).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
     LOGGER.debug("cell_cluster point 1")
@@ -2110,7 +2107,7 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     #     cluster_score = []
     #
     #     for i in range(2, num_voxelclusters + 1):
-    #         voxelbycluster = KMeans(n_clusters=num_voxelclusters, random_state = 0)
+    #         voxelbycluster = KMeans(n_clusters=num_voxelclusters)
     #         preds = voxelbycluster.fit_predict(channvals_random)
     #         cluster_list.append(voxelbycluster)
     #
@@ -2124,7 +2121,7 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     #     voxelbycluster = voxelbycluster.fit(channvals_random)
     # else:
 
-    voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters"), random_state=0).fit(
+    voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters")).fit(
         channvals_random
     )
 
@@ -2137,12 +2134,11 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     voxelbycluster = KMeans(
         n_clusters=options.get("num_voxelclusters"),
         init=cluster_centers,
-        random_state=0,
         max_iter=100,
         verbose=0,
         n_init=1,
     ).fit(channvals)
-    # voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters"), random_state=0).fit(channvals)
+    # voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters")).fit(channvals)
     if options.get("debug"):
         print("Voxel cluster runtime: ", time.monotonic() - stime)
     # returns a vector of len number of voxels and the vals are the cluster numbers
@@ -4491,7 +4487,6 @@ def DR_AllFeatures(
         learning_rate=learning_rate,
         max_iter=n_iter,
         init="random",
-        random_state=0,
     )
 
     LOGGER.debug("DR_AllFeatures point 5")
@@ -4535,7 +4530,7 @@ def DR_AllFeatures(
     LOGGER.debug("DR_AllFeatures point 8")
 
     # umap
-    reducer = umap.UMAP()
+    reducer = UMAP()
     umap_features = matrix_all_OnlyCell_full.copy()
     umap_embed = reducer.fit_transform(umap_features)
 
