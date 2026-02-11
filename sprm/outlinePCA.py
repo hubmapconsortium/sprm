@@ -39,7 +39,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
         cluster_list = []
         cluster_score = []
         for i in range(min_cluster, max_cluster + 1):
-            cellbycluster = KMeans(n_clusters=i, random_state=1)
+            cellbycluster = KMeans(n_clusters=i)
             preds = cellbycluster.fit_predict(cell_matrix)
             cluster_list.append(cellbycluster)
 
@@ -53,7 +53,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
         cellbycluster = cellbycluster.fit(cell_matrix)
 
     else:
-        cellbycluster = KMeans(n_clusters=num_shapeclusters, random_state=1).fit(cell_matrix)
+        cellbycluster = KMeans(n_clusters=num_shapeclusters).fit(cell_matrix)
 
     # returns a vector of len cells and the vals are the cluster numbers
     cellbycluster_labels = cellbycluster.labels_

@@ -12,7 +12,7 @@ ADDL_OPTS = {}
 
 UMAP_ADDL_OPTS = ADDL_OPTS
 PCA_ADDL_OPTS = ADDL_OPTS
-KMEANS_ADDL_OPTS = ADDL_OPTS
+KMEANS_ADDL_OPTS = ADDL_OPTS.copy() | {"random_state": 1}
 
 def UMAP(*argv, **argc):
     my_argc = UMAP_ADDL_OPTS.copy()
