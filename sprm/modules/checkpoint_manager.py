@@ -160,7 +160,7 @@ class CheckpointManager:
             for i, coords in enumerate(data.roi_coords):
                 if coords is not None and len(coords) > 0:
                     # Each coords is a list of cell coordinates
-                    for j, cell_coords in enumerate(coords):
+                    for j, cell_coords in enumerate(coords.cell_iter()):
                         if cell_coords is not None and len(cell_coords) > 0:
                             f.create_dataset(
                                 f"channel_{i}/cell_{j}",
