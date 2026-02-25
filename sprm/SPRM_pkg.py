@@ -2592,13 +2592,14 @@ def transform_df(df, ignore_column=None):
 
         row, column = find_max_value_drop_rows(values_counter, drop_rows)
         indices = df_copy[df_copy[column] == row].index.tolist()
-        match_counter = (
-            df_copy.apply(lambda x: x.loc[indices].value_counts())
-            .drop(drop_rows, errors="ignore")
-            .idxmax()
-            .dropna()
-            .astype("int")
+        vc = df_copy.apply(lambda x: x.loc[indices].value_counts()).drop(
+            drop_rows, errors="ignore"
         )
+        # Drop columns that are entirely NA before idxmax(); these arise when
+        # no remaining cluster labels appear in a column's filtered subset.
+        # Without this, idxmax() on all-NA columns raises ValueError in
+        # pandas >= 2.1.
+        match_counter = vc.dropna(how="all", axis=1).idxmax().dropna().astype("int")
 
         if (match_counter.values == i).all():
             drop_rows.append(i)
