@@ -62,7 +62,7 @@ class CellTable:
                 yield cell_id, cell_mtx
 
     def background(self):
-        return self.vals[:, 0:self.counts[0]]
+        return self.vals[:, 0:self.counts[0][1]]
 
     def __len__(self):
         return len(self.counts)
@@ -74,20 +74,20 @@ class CellTable:
             and np.array_equal(self.vals, other.vals)
         )
 
-    def save(self, file: IO[AnyStr]):
-        np.savez(file, vals=self.vals, counts=self.counts)
+    def save(self, fname: str):
+        np.savez(fname, vals=self.vals, counts=self.counts)
 
     @classmethod
-    def load(cls, file: IO):
-        npzfile = np.load(file)
+    def load(cls, fname: str):
+        npzfile = np.load(fname)
         if ("vals" not in npzfile.files
             or "counts" not in npzfile.files):
             raise RuntimeError(
-                f"{file.name} is not a {cls.__name__}"
+                f"{fname} is not a {cls.__name__}"
             )
         inst = cls.__new__(cls)
-        inst.vals = npzfile.vals
-        inst.counts = npzfile.counts
+        inst.vals = npzfile["vals"].copy()
+        inst.counts = npzfile["counts"].copy()
         return inst
 
 
