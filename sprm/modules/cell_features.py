@@ -181,7 +181,7 @@ def run(
         for j in range(0, mask.get_data().shape[2]):
             masked_imgs_coord = roi_coords[j]
             # Filter to only interior cells
-            masked_imgs_coord = list(masked_imgs_coord.subset_iter(set(interior_cells)))
+            masked_imgs_coord = [cell_mtx for cell_idx, cell_mtx in masked_imgs_coord.subset_iter(set(interior_cells))]
 
             # Build matrices for this mask channel
             covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
