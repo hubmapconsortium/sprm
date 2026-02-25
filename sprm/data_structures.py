@@ -87,7 +87,7 @@ class CellTable:
             )
         inst = cls.__new__(cls)
         inst.vals = npzfile["vals"].copy()
-        if inst.vals.shape[0] != 3:
+        if inst.vals.shape[0] != 2:
             raise RuntimeError(
                 f"{fname} has the wrong shape to be a {cls.__name__}"
             )
