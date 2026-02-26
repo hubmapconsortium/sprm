@@ -1044,7 +1044,7 @@ def AdjacencyMatrix_3D(
 
     paraopt = options.get("cell_adj_parallel")
     loc = mask.get_labels("cell_boundaries")
-    print("adjacency calculation begin")
+    LOGGER.debug("adjacency calculation begin")
     # start = time.perf_counter()
 
     cellEdgeList = ROI_coords[2]
@@ -1978,7 +1978,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         all_pix = np.concatenate([im.get_plane(ch_idx, z_idx).copy()
                                   for z_idx in range(im.img.dims.Z)],
                                  axis = None)
-        print(f"all_pix is {all_pix.shape} {all_pix.dtype}")
+        LOGGER.debug(f"all_pix is {all_pix.shape} {all_pix.dtype}")
         all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
             np.float32, copy=False
         )
