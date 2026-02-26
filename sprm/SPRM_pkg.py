@@ -4,7 +4,6 @@ import logging
 import math
 import time
 import re
-import tracemalloc
 import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
@@ -547,7 +546,6 @@ def cell_cluster(
     LOGGER.debug(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
           f" for {len(typelist)} types")
     LOGGER.debug(f"inCells {len(inCells)} {inCells[0:4]}")
-    snapshot1 = tracemalloc.take_snapshot()
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
         num_cellclusters = cell_matrix.shape[0]
@@ -619,11 +617,6 @@ def cell_cluster(
         df_all_cluster_list.append(df)
 
     LOGGER.debug("cell_cluster point 5")
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("cell_cluster tracemalloc stats:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
     return cellbycluster_labels, clustercenters
 
 
@@ -801,7 +794,6 @@ def get_coordinates(mask, options):
     channel_coords = []
     # channel_coords_np = []
     LOGGER.debug("Entering get_coordinates")
-    snapshot1 = tracemalloc.take_snapshot()
     s, t, c, z, y, x = mask.get_data().shape
     mask_data = mask.get_data()
 
@@ -810,12 +802,6 @@ def get_coordinates(mask, options):
     maxvalue = len(cell_num)
     mask.set_cell_index(cell_num[1:])
 
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("Change in allocation across block 1:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
-    snapshot1 = tracemalloc.take_snapshot()
     if maxvalue - 1 != np.max(mask_data):
         LOGGER.debug("Conditional block start")
         cell_num_idx = np.arange(0, len(cell_num))
@@ -838,24 +824,11 @@ def get_coordinates(mask, options):
     assert (maxvalue - 1) == np.max(mask_data)
 
     # post-process for edge case cell coordinates - filter out cells that have less than specified pixel area threshold
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("Change in allocation across block 2:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
-    snapshot1 = tracemalloc.take_snapshot()
     freq = np.unique(mask_data[0, 0, 0, :, :, :], return_counts=True)
     idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
     mask.add_bad_cells(idx)
 
     mask_4D = mask_data[0, 0, :, :, :, :]
-
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("Change in allocation across block 3:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
-    snapshot1 = tracemalloc.take_snapshot()
 
     # 3D case
     if mask_4D.shape[1] > 1:
@@ -864,12 +837,6 @@ def get_coordinates(mask, options):
     else:
         for i in range(0, mask_4D.shape[0]):
             channel_coords.append(CellTable(mask, i))
-
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("Change in allocation across block 4:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
 
     return channel_coords
 
@@ -3090,7 +3057,6 @@ def cell_analysis(
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
 
-    snapshot1 = tracemalloc.take_snapshot()
     (
         clustercells_tsneAll,
         clustercells_tsneAllcenters,
@@ -3111,11 +3077,6 @@ def cell_analysis(
         matrix_texture=texture_matrix,
         matrix_shape=norm_shape_vectors,
     )
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, "lineno")
-    LOGGER.debug("Memory change across DR_AllFeatures:")
-    for stat in top_stats[:10]:
-        LOGGER.debug(stat)
 
     # tsne
     # cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
