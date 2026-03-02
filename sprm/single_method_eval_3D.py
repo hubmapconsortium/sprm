@@ -5,8 +5,6 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import xmltodict
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
@@ -24,6 +22,7 @@ from .single_method_eval import (
     uniformity_CV,
     weighted_by_cluster,
 )
+from .wrapped_functions import PCA, KMeans
 
 """
 Companion to SPRM.py
