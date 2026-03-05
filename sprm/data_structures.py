@@ -6,8 +6,7 @@ from sys import getsizeof
 from typing import Dict, Union, Any
 
 import numpy as np
-from aicsimageio import AICSImage
-from aicsimageio.readers import OmeTiffReader, TiffReader
+from bioio import BioImage
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -110,7 +109,7 @@ class IMGstruct:
     Main Struct for IMG information
     """
 
-    img: AICSImage
+    img: BioImage
     data: np.ndarray
     path: Path
     name: str
@@ -201,15 +200,12 @@ class IMGstruct:
     #     self.channel_labels = None
 
     @staticmethod
-    def read_img(path: Path, options: Dict) -> AICSImage:
+    def read_img(path: Path, options: Dict) -> BioImage:
         # Avoid bfio dependency for (OME-)TIFF by selecting readers that don't require it.
         # This prevents noisy "No module named 'bfio'" messages for OmeTiledTiffReader.
         suffix = path.name.lower()
-        if suffix.endswith((".tif", ".tiff")):
-            reader = OmeTiffReader if ".ome." in suffix else TiffReader
-            img = AICSImage(path, reader=reader)
-        else:
-            img = AICSImage(path)
+        img = BioImage(path)
+
         if not img.metadata:
             print("Metadata not found in input image")
             # might be a case-by-basis
@@ -257,7 +253,7 @@ class IMGstruct:
         return data
 
     def read_channel_names(self):
-        img: AICSImage = self.img
+        img: BioImage = self.img
         # cn = get_channel_names(img)
         cn = img.channel_names
         print("Channel names:")
@@ -290,7 +286,7 @@ class MaskStruct(IMGstruct):
         self.ROI = []
 
     def read_channel_names(self):
-        img: AICSImage = self.img
+        img: BioImage = self.img
         # cn = get_channel_names(img)
         cn = img.channel_names
         print("Channel names:")
