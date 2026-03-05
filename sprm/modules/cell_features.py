@@ -184,9 +184,9 @@ def run(
             masked_imgs_coord = [cell_mtx for cell_idx, cell_mtx in masked_imgs_coord.subset_iter(set(interior_cells))]
 
             # Build matrices for this mask channel
-            covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
-            mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
-            total_vector = build_vector(im, mask, masked_imgs_coord, j, total_vector)
+            covar_matrix = build_matrix(im, mask, len(masked_imgs_coord), j, covar_matrix)
+            mean_vector = build_vector(im, mask, len(masked_imgs_coord), j, mean_vector)
+            total_vector = build_vector(im, mask, len(masked_imgs_coord), j, total_vector)
 
             # Extract ROI pixel intensity matrices for all cells in this mask channel.
             # `calculations` returns {cell_idx -> ROI} where ROI has shape (C, Npix).
