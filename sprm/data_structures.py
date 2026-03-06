@@ -27,17 +27,22 @@ class CellTable:
         recs.sort(kind="heapsort", order=["cellid", "y", "x"])
         LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])} {np.max(recs['y'])}")
         entries, counts = np.unique(recs["cellid"], return_counts=True)
-        self.counts= counts
+        self.counts= np.stack((entries, counts), axis=1).copy()
         self.vals = np.vstack((recs["y"], recs["x"])).copy()
 
-    def cell_iter(self):
+    def __iter__(self):
         cell_offset = 0
         coord_offset = 0
         while cell_offset < len(self.counts):
-            cell_sz = self.counts[cell_offset]
-            yield self.vals[:, coord_offset:coord_offset+cell_sz]
+            cell_id, cell_sz = self.counts[cell_offset]
+            yield (cell_id,
+                   self.vals[:, coord_offset:coord_offset+cell_sz])
             cell_offset += 1
             coord_offset += cell_sz
+
+    def cell_iter(self):
+        for cell_id, cell_mtx in self:
+            yield cell_mtx
 
     def cells_only_iter(self):
         """
@@ -51,15 +56,42 @@ class CellTable:
         Yields both the cell index and the pixel matrix, with the guarantee
         that the cell index does exist in the set.
         """
-        for idx, cell_mtx in enumerate(self.cell_iter()):
-            if idx in restriction_set:
-                yield idx, cell_mtx
+        for cell_id, cell_mtx in self:
+            if cell_id in restriction_set:
+                yield cell_id, cell_mtx
 
     def background(self):
-        return self.vals[:, 0:self.counts[0]]
+        return self.vals[:, 0:self.counts[0][1]]
 
     def __len__(self):
         return len(self.counts)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, type(self))
+            and np.array_equal(self.counts, other.counts)
+            and np.array_equal(self.vals, other.vals)
+        )
+
+    def save(self, fname: str):
+        np.savez(fname, vals=self.vals, counts=self.counts)
+
+    @classmethod
+    def load(cls, fname: str):
+        npzfile = np.load(fname)
+        if ("vals" not in npzfile.files
+            or "counts" not in npzfile.files):
+            raise RuntimeError(
+                f"{fname} is not a {cls.__name__}"
+            )
+        inst = cls.__new__(cls)
+        inst.vals = npzfile["vals"].copy()
+        if inst.vals.shape[0] != 2:
+            raise RuntimeError(
+                f"{fname} has the wrong shape to be a {cls.__name__}"
+            )
+        inst.counts = npzfile["counts"].copy()
+        return inst
 
 
 class CellTable3D:
@@ -79,17 +111,22 @@ class CellTable3D:
         LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
                     f" {np.max(recs['y'])} {np.max(recs['z'])}")
         entries, counts = np.unique(recs["cellid"], return_counts=True)
-        self.counts= counts
+        self.counts= np.stack((entries, counts), axis=1).copy()
         self.vals = np.vstack((recs["z"], recs["y"], recs["x"])).copy()
 
-    def cell_iter(self):
+    def __iter__(self):
         cell_offset = 0
         coord_offset = 0
         while cell_offset < len(self.counts):
-            cell_sz = self.counts[cell_offset]
-            yield self.vals[:, coord_offset:coord_offset+cell_sz]
+            cell_id, cell_sz = self.counts[cell_offset]
+            yield (cell_id,
+                   self.vals[:, coord_offset:coord_offset+cell_sz])
             cell_offset += 1
             coord_offset += cell_sz
+
+    def cell_iter(self):
+        for cell_id, cell_mtx in self:
+            yield cell_mtx
 
     def cells_only_iter(self):
         """
@@ -97,11 +134,48 @@ class CellTable3D:
         """
         return itertools.islice(self.cell_iter(), 1)
 
+    def subset_iter(self, restriction_set: set):
+        """
+        Iterate only through the cell indices included in restriction_set.
+        Yields both the cell index and the pixel matrix, with the guarantee
+        that the cell index does exist in the set.
+        """
+        for cell_id, cell_mtx in self:
+            if cell_id in restriction_set:
+                yield cell_id, cell_mtx
+
     def background(self):
         return self.vals[:, 0:self.counts[0]]
 
     def __len__(self):
         return len(self.counts)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, type(self))
+            and np.array_equal(self.counts, other.counts)
+            and np.array_equal(self.vals, other.vals)
+        )
+
+    def save(self, fname: str):
+        np.savez(fname, vals=self.vals, counts=self.counts)
+
+    @classmethod
+    def load(cls, fname: str):
+        npzfile = np.load(fname)
+        if ("vals" not in npzfile.files
+            or "counts" not in npzfile.files):
+            raise RuntimeError(
+                f"{fname} is not a {cls.__name__}"
+            )
+        inst = cls.__new__(cls)
+        inst.vals = npzfile["vals"].copy()
+        if inst.vals.shape[0] != 3:
+            raise RuntimeError(
+                f"{fname} has the wrong shape to be a {cls.__name__}"
+            )
+        inst.counts = npzfile["counts"].copy()
+        return inst
 
 
 class IMGstruct:
