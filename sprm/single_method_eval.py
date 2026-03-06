@@ -22,7 +22,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from threadpoolctl import threadpool_info
-from pprint import pprint
+from pprint import pformat
 
 from .wrapped_functions import PCA, KMeans
 
@@ -63,36 +63,36 @@ def fraction(img_bi, mask_bi):
 
 def foreground_separation(img_thre):
     img_thre = img_thre.astype(np.int16)
-    print(f"foreground_sep point 1 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 1 {img_thre.shape} {img_thre.dtype}")
     contour_ref = img_thre.copy()
-    print(f"foreground_sep point 2 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 2 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(1))
 
     img_thre = -img_thre + 1
-    print(f"foreground_sep point 3 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 3 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(2))
     img_thre = -img_thre + 1
 
-    print(f"foreground_sep point 4 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 4 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(20))
 
     img_thre = -img_thre + 1
-    print(f"foreground_sep point 5 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 5 {img_thre.shape} {img_thre.dtype}")
     img_thre = closing(img_thre, disk(10))
     img_thre = -img_thre + 1
 
-    print(f"foreground_sep point 6 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 6 {img_thre.shape} {img_thre.dtype}")
     img_thre = area_closing(img_thre, 20000, connectivity=2)
     contour_ref = contour_ref.astype(float)
     img_thre = img_thre.astype(float)
-    print(f"foreground_sep point 7 {img_thre.shape} {img_thre.dtype}")
+    LOGGER.debug(f"foreground_sep point 7 {img_thre.shape} {img_thre.dtype}")
     img_binary = MorphGAC(
         -contour_ref + 1, 5, -img_thre + 1, smoothing=1, balloon=0.8, threshold=0.5
     )
     img_binary = img_binary.astype(np.int16)
-    print(f"foreground_sep point 8 {img_binary.shape} {img_binary.dtype}")
+    LOGGER.debug(f"foreground_sep point 8 {img_binary.shape} {img_binary.dtype}")
     img_binary = area_closing(img_binary, 1000, connectivity=2)
-    print(f"foreground_sep point 9 {img_binary.shape} {img_binary.dtype}")
+    LOGGER.debug(f"foreground_sep point 9 {img_binary.shape} {img_binary.dtype}")
 
     return -img_binary + 1
 
@@ -128,7 +128,7 @@ def uniformity_fraction(is_foreground, img, bestz) -> float:
         intensity = channel_z[is_foreground]
         feature_matrix_pieces.append(intensity)
     feature_matrix = np.vstack(feature_matrix_pieces)
-    print(f"feature matrix: {feature_matrix.shape} {feature_matrix.dtype}")
+    LOGGER.debug(f"feature matrix: {feature_matrix.shape} {feature_matrix.dtype}")
     if feature_matrix.shape[1] < 2:
         # Too few samples for PCA to be meaningful.
         return 0.0
@@ -138,7 +138,7 @@ def uniformity_fraction(is_foreground, img, bestz) -> float:
     pca = PCA(n_components=1)
     model = pca.fit(feature_matrix.T)
     fraction = model.explained_variance_ratio_[0]
-    print(f"uniformity_fraction returning {fraction}")
+    LOGGER.debug(f"uniformity_fraction returning {fraction}")
     fraction = float(fraction)
     return fraction if np.isfinite(fraction) else 0.0
 
@@ -147,9 +147,9 @@ def foreground_uniformity(img_bi, mask, img, bestz):
     # foreground_loc = np.argwhere((img_bi - mask) == 1)
     is_foreground = (img_bi - mask) == 1
     CV = uniformity_CV(is_foreground, img, bestz)
-    print(f"CV is {type(CV)} {CV}")
+    LOGGER.debug(f"CV is {type(CV)} {CV}")
     foreground_pixel_num = is_foreground.sum()
-    print(f"foreground_pixel_num = {foreground_pixel_num}")
+    LOGGER.debug(f"foreground_pixel_num = {foreground_pixel_num}")
     foreground_loc_fraction = 1
     fraction = None
 
@@ -157,7 +157,7 @@ def foreground_uniformity(img_bi, mask, img, bestz):
         print("no pixels in the foreground")
         return CV, None
 
-    print(f"img_bi is {img_bi.shape}, mask is {mask.shape}, bestz is {bestz}")
+    LOGGER.debug(f"img_bi is {img_bi.shape}, mask is {mask.shape}, bestz is {bestz}")
     while foreground_loc_fraction > 0:
         try:
             is_foreground_sampled = np.logical_and(
@@ -174,14 +174,14 @@ def foreground_uniformity(img_bi, mask, img, bestz):
             #     ),
             #     :,
             # ]
-            print(f"randomization worked with {foreground_loc_fraction}")
+            LOGGER.debug(f"randomization worked with {foreground_loc_fraction}")
             fraction = uniformity_fraction(is_foreground_sampled, img, bestz)
-            print(f"uniformity_fraction worked with {foreground_loc_fraction}")
+            LOGGER.debug(f"uniformity_fraction worked with {foreground_loc_fraction}")
             break
         except Exception as excp:
-            print(f"got expected exception {excp}")
+            LOGGER.debug(f"got expected exception {excp}")
             foreground_loc_fraction = foreground_loc_fraction / 2
-    print(f"CV: {CV}, fraction: {fraction}")
+    LOGGER.debug(f"CV: {CV}, fraction: {fraction}")
     return CV, fraction
 
 
@@ -189,7 +189,7 @@ def background_uniformity(img_bi, img, bestz):
     # background_loc = np.argwhere(img_bi == 0)
     is_background = (img_bi == 0)
     CV = uniformity_CV(is_background, img, bestz)
-    print(f"CV for background is {CV}")
+    LOGGER.debug(f"CV for background is {CV}")
 
     background_pixel_num = is_background.sum()
     background_loc_fraction = 1
@@ -215,12 +215,12 @@ def background_uniformity(img_bi, img, bestz):
                                  p=[background_loc_fraction,
                                     1.0 - background_loc_fraction])
             )
-            print(f"background randomization worked with {background_loc_fraction}")
+            LOGGER.debug(f"background randomization worked with {background_loc_fraction}")
             fraction = uniformity_fraction(is_background_sampled, img, bestz)
-            print(f"background uniformity_fraction worked with {background_loc_fraction}")
+            LOGGER.debug(f"background uniformity_fraction worked with {background_loc_fraction}")
             break
         except Exception as excp:
-            print(f"bacground got expected exception {excp}")
+            LOGGER.debug(f"bacground got expected exception {excp}")
             background_loc_fraction = background_loc_fraction / 2
     return CV, fraction
 
@@ -281,7 +281,7 @@ def cell_type(mask, img, bestz):
     feature_matrix_z_pieces = []
     for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
         channel_z = ss.fit_transform(channel[0,0])
-        print(f"channel_z is {channel_z.shape} {channel_z.dtype}")
+        LOGGER.debug(f"channel_z is {channel_z.shape} {channel_z.dtype}")
         cell_intensity_z = []
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
@@ -320,7 +320,7 @@ def cell_type(mask, img, bestz):
             prev_labels = labels
             label_list.append(labels)
         except Exception as excp:
-            print(f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels")
+            LOGGER.warn(f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels")
             label_list.append(prev_labels.copy())
     return label_list
 
@@ -349,8 +349,8 @@ def cell_uniformity(mask, img, bestz, label_list):
 
     feature_matrix = np.vstack(feature_matrix_pieces).T
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
-    print(f"cell_uniformity: feature_matrix {feature_matrix.shape} {feature_matrix.dtype}")
-    print(f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}")
+    LOGGER.debug(f"cell_uniformity: feature_matrix {feature_matrix.shape} {feature_matrix.dtype}")
+    LOGGER.debug(f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}")
     CV = []
     fraction = []
     silhouette = []
@@ -372,7 +372,7 @@ def cell_uniformity(mask, img, bestz, label_list):
                 else:
                     silhouette.append(float(silhouette_score(feature_matrix_z, labels)))
             except Exception as excp:
-                print(f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0")
+                LOGGER.warn(f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0")
                 silhouette.append(0.0)
         for i in range(c):
             cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
@@ -526,8 +526,8 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     np.save(output_dir / "test_metric_mask.npy", metric_mask)
 
     # separate image foreground background
-    print("single method point 1")
-    pprint(threadpool_info())
+    LOGGER.debug("single method point 1")
+    LOGGER.debug(pformat(threadpool_info()))
     try:
         img_xml = _get_metadata_xml(img.img.metadata)
         if img_xml is None:
@@ -542,14 +542,14 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         thresholding_channels = [nuclear_channel_index, cell_channel_index]
         seg_channel_provided = True
     except:
-        print("single method point 1b")
+        LOGGER.debug("single method point 1b")
         thresholding_channels = range(len(img.get_channel_labels()))
         seg_channel_provided = False
-    print("single method point 2")
+    LOGGER.debug("single method point 2")
     img_thresholded = np.zeros_like(img.get_plane(0, bestz[0]))
     for c in thresholding_channels:
         img_thresholded += thresholding(img.get_plane(c, bestz[0]))
-    print("single method point 3")
+    LOGGER.debug("single method point 3")
     if not seg_channel_provided:
         thresh_lim = round(len(img.get_channel_labels()) * 0.2)
         img_thresholded[img_thresholded <= thresh_lim] = 0
@@ -557,7 +557,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     np.save(output_dir / "test_img_thresholded.npy", img_thresholded)
     img_binary = foreground_separation(img_thresholded)
     img_binary = np.sign(img_binary)
-    print(f"img_binary {img_binary.shape} {img_binary.dtype}")
+    LOGGER.debug(f"img_binary {img_binary.shape} {img_binary.dtype}")
     np.save(output_dir / "test_img_binary.npy", img_binary)
     background_pixel_num = np.argwhere(img_binary == 0).shape[0]
     fraction_background = background_pixel_num / (img_binary.shape[0] * img_binary.shape[1])
@@ -565,7 +565,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
-    print(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
+    LOGGER.debug(f"single method point 4; metric_mask {metric_mask.shape} {metric_mask.dtype}")
     # set mask channel names
     channel_names = [
         "Matched Cell",
@@ -574,12 +574,12 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     ]
     metrics = {}
     for channel in range(metric_mask.shape[0]):
-        print(f"single method point 5 {channel} of {metric_mask.shape[0]}")
+        LOGGER.debug(f"single method point 5 {channel} of {metric_mask.shape[0]}")
         current_mask = metric_mask[channel]
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
-            print(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
+            LOGGER.debug(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
             mask_xml = _get_metadata_xml(mask.img.metadata)
             mask_xmldict = xmltodict.parse(mask_xml) if mask_xml is not None else {}
             try:
@@ -640,7 +640,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
             cell_type_labels = cell_type(current_mask, img, bestz)
         else:
-            print(f"single method point 5 case 2 {channel_names[channel]}")
+            LOGGER.debug(f"single method point 5 case 2 {channel_names[channel]}")
             #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
@@ -660,7 +660,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 "AvgSilhouetteOver2~10NumberOfClusters"
             ] = avg_cell_silhouette
 
-    print("single method point 6")
+    LOGGER.debug("single method point 6")
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
     # Loading pickled sklearn models can emit InconsistentVersionWarning. It's noisy
     # during CLI runs and does not affect our ability to compute a score here.
@@ -676,5 +676,5 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     quality_score = get_quality_score(metrics_flat, PCA_model)
     metrics["QualityScore"] = quality_score
 
-    print("single method point 7")
+    LOGGER.debug("single method point 7")
     return metrics, fraction_background, 1 / (background_CV + 1), background_PCA
