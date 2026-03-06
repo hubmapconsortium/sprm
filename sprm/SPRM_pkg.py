@@ -1742,7 +1742,6 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             with pd.HDFStore(output_dir / "out.hdf5") as store:
                 store.put(hdf_key, df, format="table")
 
-
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
     pts: np.ndarray,
@@ -1750,7 +1749,7 @@ def write_cell_polygs(
     filename: str,
     output_dir: Path,
     options: Dict,
-):
+)->np.ndarray:
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str(
@@ -1780,6 +1779,7 @@ def write_cell_polygs(
     for i in range(1, 201):
         header.append(i)
     write_2_csv(header, pts, filename + "-normalized_cell_outlines", output_dir, cellidx, options)
+    return pts
 
 
 def build_matrix(
