@@ -8,7 +8,7 @@ from math import prod
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
-import aicsimageio
+import bioio
 import numpy as np
 import xmltodict
 from PIL import Image
@@ -420,10 +420,10 @@ def get_schema_url(ome_xml_root_node: ET.Element) -> str:
 
 def get_physical_dimension_func(
     dimensions: Literal[2, 3],
-) -> Callable[[aicsimageio.AICSImage], Tuple[UnitRegistry, Quantity]]:
+) -> Callable[[bioio.BioImage], Tuple[UnitRegistry, Quantity]]:
     dimension_names = "XYZ"
 
-    def physical_dimension_func(img: aicsimageio.AICSImage) -> Tuple[UnitRegistry, Quantity]:
+    def physical_dimension_func(img: bioio.BioImage) -> Tuple[UnitRegistry, Quantity]:
         """
         Returns area of each pixel (if dimensions == 2) or volume of each
         voxel (if dimensions == 3) as a pint.Quantity. Also returns the

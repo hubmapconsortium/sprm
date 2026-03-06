@@ -14,7 +14,7 @@ from os import walk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
-import aicsimageio
+import bioio
 import lxml
 import matplotlib
 import matplotlib.cm
@@ -24,8 +24,8 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
-from aicsimageio import AICSImage
-from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
+from bioio import BioImage
+from bioio import Writer
 from apng import APNG, PNG
 from lxml import etree
 from matplotlib import collections as mc
@@ -256,8 +256,8 @@ def NMF_calc(im, fname, output_dir, options):
 
 
 # for aicsimageio<4
-def get_channel_names(image: aicsimageio.AICSImage) -> List[str]:
-    if isinstance(image.metadata, aicsimageio.vendor.omexml.OMEXML):
+def get_channel_names(image: bioio.BioImage) -> List[str]:
+    if isinstance(image.metadata, bioio.vendor.omexml.OMEXML):
         # aicsimageio<4 doesn't allow overriding whether to include
         # an encoding declaration or to skip decoding to text from bytes,
         # so re-encode to UTF-8 bytes ourselves
@@ -694,7 +694,7 @@ def cell_map(
         # xml_string = generate_ome_xml_for_channels(map_legend)
 
         # convert to array C Z Y X
-        writer = OmeTiffWriter()
+        writer = Writer()
         writer.save(
             subtype_arr_np,
             output_dir / (mask.get_name() + "_subtype.ome.tiff"),
@@ -2260,9 +2260,9 @@ def write_ometiff(
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = OmeTiffWriter()
+    writer = Writer()
     writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order=pca_dim_order)
-    writer = OmeTiffWriter()
+    writer = Writer()
     writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 

@@ -31,12 +31,14 @@ setup(
         "": ["*.txt", "*.pickle"],
     },
     install_requires=[
-        "aicsimageio>=4.14.0",
         # aicsimageio 4.14.x requires zarr<2.16, and zarr 2.15.x requires an older
         # numcodecs API (cbuffer_sizes/cbuffer_metainfo). Newer numcodecs releases
         # break that import.
-        "zarr>=2.6,<2.16.0",
-        "numcodecs>=0.10.0,<0.13.0",
+        "zarr>=3.0",
+        "bioio",
+        "bioio-ome-tiff",
+        "bioio-tifffile",
+        "numcodecs",
         "frozendict",
         "h5py",
         "lxml",
