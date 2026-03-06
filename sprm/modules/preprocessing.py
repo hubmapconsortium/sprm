@@ -4,7 +4,7 @@ Module 1: Core Preprocessing
 Loads images, extracts ROI coordinates, performs quality control.
 This module is required for all other modules.
 """
-
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -20,6 +20,8 @@ from ..SPRM_pkg import (
 )
 from .checkpoint_manager import CheckpointManager, CoreData
 
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
     """
@@ -162,15 +164,20 @@ def run(
 
     # Extract ROI coordinates for all channels in mask
     print("Extracting cell ROI coordinates...")
+    LOGGER.debug("starting get_coordinates")
     ROI_coords = get_coordinates(mask, options)
+    LOGGER.debug("calling mask.set_ROI")
     mask.set_ROI(ROI_coords)
+    LOGGER.debug("calling compute_cell_centers")
     cell_centers = compute_cell_centers(ROI_coords)
 
     # Quality control: identify edge cells, bad cells, best z-planes
     print("Performing quality control...")
+    LOGGER.debug("calling quality_control")
     quality_control(mask, im, ROI_coords, options)
 
     # Get cell lists
+    LOGGER.debug("getting cell lists")
     interior_cells = mask.get_interior_cells()
     edge_cells = mask.get_edge_cells()
     cell_index = mask.get_cell_index()
