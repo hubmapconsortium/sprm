@@ -38,7 +38,6 @@ setup(
         "bioio",
         "bioio-ome-tiff",
         "bioio-tifffile",
-        "dask==2026.1.2",
         "numcodecs",
         "frozendict",
         "h5py",
