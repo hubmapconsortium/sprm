@@ -315,7 +315,7 @@ def cell_type(mask, img, bestz):
                     warnings.filterwarnings("ignore", category=ConvergenceWarning)
                 except Exception:
                     pass
-                model = KMeans(n_clusters=c, n_init="auto", random_state=1).fit(feature_matrix_z)
+                model = KMeans(n_clusters=c, n_init="auto").fit(feature_matrix_z)
             labels = model.labels_.astype(int)
             prev_labels = labels
             label_list.append(labels)
