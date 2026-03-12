@@ -4343,7 +4343,7 @@ def solve_svd(mtx_full, numComp, pcaMethod):
                 n_samples /= 2
                 idx = np.random.choice(mtx_full_0, n_samples, replace=False)
 
-    return m.transform(mtx_full)
+    return m
 
 
 def solve_tsne(tsne, mtx_full):
@@ -4462,9 +4462,10 @@ def DR_AllFeatures(
     # tol
     matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     if tSNEInitialization == "pca":
-        matrix_all_OnlyCell = solve_svd(matrix_all_OnlyCell,
-                                        numComp=numComp,
-                                        pcaMethod=pcaMethod)
+        svd_mtx = solve_svd(matrix_all_OnlyCell,
+                            numComp=numComp,
+                            pcaMethod=pcaMethod)
+        matrix_all_OnlyCell = svd_mtx.transform(matrix_all_OnlyCell)
 
     LOGGER.debug("DR_AllFeatures point 4")
     # init tSNE
