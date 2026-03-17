@@ -7,8 +7,8 @@ from sklearn.manifold import TSNE as TSNE_raw
 # Uncomment the following to set random seeds. This
 # helps to reduce run-to-run variability.
 #
-ADDL_OPTS = {"random_state": 42}
-#ADDL_OPTS = {}
+#ADDL_OPTS = {"random_state": 42}
+ADDL_OPTS = {}
 
 UMAP_ADDL_OPTS = ADDL_OPTS
 PCA_ADDL_OPTS = ADDL_OPTS
