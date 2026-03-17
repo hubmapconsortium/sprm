@@ -16,7 +16,6 @@ from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
 from .constants import figure_save_params
 from .data_structures import MaskStruct
 from .wrapped_functions import PCA, KMeans
-from .wrapped_functions import PCA, KMeans
 
 """
 
