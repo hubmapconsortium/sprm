@@ -31,15 +31,9 @@ setup(
         "": ["*.txt", "*.pickle"],
     },
     install_requires=[
-        # aicsimageio 4.14.x requires zarr<2.16, and zarr 2.15.x requires an older
-        # numcodecs API (cbuffer_sizes/cbuffer_metainfo). Newer numcodecs releases
-        # break that import.
-        "zarr>=3.0",
         "bioio",
         "bioio-ome-tiff",
         "bioio-tifffile",
-        "dask==2026.1.2",
-        "numcodecs",
         "frozendict",
         "h5py",
         "lxml",
@@ -47,19 +41,16 @@ setup(
         "matplotlib",
         "notebook",
         "numba",
-        # Target modern stack: NumPy 2.x + PyTables that supports it.
-        # Keep within bounds required by common binary deps (e.g. opencv-python, numba).
-        "numpy==2.0",
+        "numpy",
         "opencv-python",
         "pandas",
         "pint",
-        "pyarrow==22.0",
-        "scikit-image==0.24.0",
-        "scikit-learn>=1.5.0",
+        "scikit-image",
+        "scikit-learn",
         "shapely",
-        "tables>=3.10.1",
-        "tifffile>=2022.8.12",
-        "xarray==2025.12.0",
+        "tables",
+        "tifffile",
+        "xarray",
         "xmltodict",
         "umap-learn",
         "apng",

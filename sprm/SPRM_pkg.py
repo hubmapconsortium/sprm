@@ -564,7 +564,11 @@ def cell_cluster(
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
-                score = silhouette_score(cell_matrix, preds)
+                try:
+                    score = silhouette_score(cell_matrix, preds)
+                except ValueError as e:
+                    LOGGER.exception("silhouette_score failed")
+                    score = -math.inf
                 cluster_score.append(score)
 
             max_value = max(cluster_score)
@@ -4355,10 +4359,14 @@ def solve_tsne(tsne, mtx_full):
             tsne_all_OnlyCell = tsne.fit_transform(mtx_full[idx, :])
             break
         except Exception as e:
-            LOGGER.info(f"Exception: {e} in solve_tsne"
-                        f" using {n_samples} of {mtx_full_0}")
+            LOGGER.exception(f"Caught exception using {n_samples} of {mtx_full_0}")
             LOGGER.info("halving dataset in tSNE for tSNE fit...")
             n_samples /= 2
+            if n_samples == 0:
+                # not much else to do here
+                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
+                tsne_all_OnlyCell = np.zeros((len(mtx_full_0), numComp))
+                break
             idx = np.random.choice(mtx_full_0, n_samples, replace=False)
 
     return tsne_all_OnlyCell
