@@ -1,0 +1,35 @@
+# Specific verison pins go here, to ensure a working environment
+# in the Docker image. Duplicate all requirements, though, to ensure
+# that pip has a full view of which packages are necessary and the
+# verison requirements between them. Installation of SPRM itself, via
+# `pip install .` in its directory, should install *no* packages
+# beyond SPRM iteslf.
+bioio
+bioio-ome-tiff
+bioio-tifffile
+frozendict
+h5py
+lxml
+manhole
+matplotlib
+notebook
+numba
+opencv-python
+pandas
+pint
+shapely
+xmltodict
+umap-learn
+apng
+threadpoolctl>3
+zarr>=3.0
+bottleneck>=1.6.0
+dask>=2026.1.2
+imagecodecs>=2026.3.6
+numpy>=2.0
+pyarrow>=22.0
+scikit-image>=0.24.0
+scikit-learn>=1.5.0
+tables>=3.10.1
+tifffile>=2022.8.12
+xarray>=2025.12.0
