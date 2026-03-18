@@ -4352,8 +4352,12 @@ def solve_svd(mtx_full, numComp, pcaMethod):
 
 def solve_tsne(tsne, mtx_full):
     mtx_full_0 = mtx_full.shape[0]
+    LOGGER.debug(f'{mtx_full_0=}')
     n_samples = int(mtx_full_0)
+    LOGGER.debug(f'{n_samples=}')
     idx = np.arange(mtx_full_0)
+    LOGGER.debug(f'{idx=}')
+    LOGGER.debug(f'{tsne.n_components=}')
     while True:
         try:
             tsne_all_OnlyCell = tsne.fit_transform(mtx_full[idx, :])
@@ -4361,7 +4365,7 @@ def solve_tsne(tsne, mtx_full):
         except Exception as e:
             LOGGER.exception(f"Caught exception using {n_samples} of {mtx_full_0}")
             LOGGER.info("halving dataset in tSNE for tSNE fit...")
-            n_samples /= 2
+            n_samples //= 2
             if n_samples == 0:
                 # not much else to do here
                 LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
