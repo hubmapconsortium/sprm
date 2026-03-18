@@ -4369,7 +4369,7 @@ def solve_tsne(tsne, mtx_full):
             if n_samples == 0:
                 # not much else to do here
                 LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
-                tsne_all_OnlyCell = np.zeros((len(mtx_full_0), tsne.n_components))
+                tsne_all_OnlyCell = np.zeros((mtx_full_0, tsne.n_components))
                 break
             idx = np.random.choice(mtx_full_0, n_samples, replace=False)
 
