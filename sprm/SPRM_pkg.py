@@ -25,7 +25,7 @@ import pandas as pd
 import scipy.io
 import scipy.sparse
 from bioio import BioImage
-from bioio import Writer
+from bioio.writers import OmeTiffWriter
 from apng import APNG, PNG
 from lxml import etree
 from matplotlib import collections as mc
@@ -698,7 +698,7 @@ def cell_map(
         # xml_string = generate_ome_xml_for_channels(map_legend)
 
         # convert to array C Z Y X
-        writer = Writer()
+        writer = OmeTiffWriter()
         writer.save(
             subtype_arr_np,
             output_dir / (mask.get_name() + "_subtype.ome.tiff"),
@@ -2264,9 +2264,9 @@ def write_ometiff(
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order=pca_dim_order)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 
