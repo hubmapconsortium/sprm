@@ -9,13 +9,13 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from .single_method_eval import (
+    _get_metadata_xml,
     cell_size_uniformity,
     cell_uniformity_CV,
     cell_uniformity_fraction,
     flatten_dict,
     foreground_separation,
     get_indices_sparse,
-    _get_metadata_xml,
     get_physical_dimension_func,
     get_quality_score,
     thresholding,

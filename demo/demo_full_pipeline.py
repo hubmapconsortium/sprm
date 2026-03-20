@@ -16,6 +16,7 @@ MASK_FILE = Path("mask/mask_demo.tiff")
 OUTPUT_DIR = Path("demo_full_pipeline_outputs")
 OPTIONS_FILE = Path("../sprm/options.txt")
 
+
 def main():
     """Run complete SPRM pipeline with all modules."""
 
@@ -31,15 +32,11 @@ def main():
 
     # Module 2: Segmentation Evaluation (Optional)
     print("\nStep 2/6: Segmentation Evaluation")
-    seg_metrics = modules.segmentation_eval.run(
-        core_data=core, output_dir=OUTPUT_DIR
-    )
+    seg_metrics = modules.segmentation_eval.run(core_data=core, output_dir=OUTPUT_DIR)
 
     # Module 3: Shape Analysis (Optional)
     print("\nStep 3/6: Shape Analysis")
-    shape = modules.shape_analysis.run(
-        core_data=core, output_dir=OUTPUT_DIR, n_outline_points=100
-    )
+    shape = modules.shape_analysis.run(core_data=core, output_dir=OUTPUT_DIR, n_outline_points=100)
 
     # Module 4a: Spatial Graphs (Optional)
     print("\nStep 4a/6: Spatial Graphs")
@@ -84,4 +81,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

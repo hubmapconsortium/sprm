@@ -95,7 +95,7 @@ def analysis(
     output_dir: Path,
     options: Dict[str, Any],
     celltype_labels: Optional[pd.DataFrame],
-    min_memory: bool
+    min_memory: bool,
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
 
@@ -306,7 +306,7 @@ def analysis(
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
             inCell_set = frozenset(inCells)
-            
+
             cell_blk_sz = get_cell_blk_sz(len(inCells), im, options)
 
             covar_matrix = build_matrix(im, mask, len(inCell_set), j, covar_matrix)
@@ -314,7 +314,7 @@ def analysis(
             total_vector = build_vector(im, mask, len(inCell_set), j, total_vector)
 
             LOGGER.debug(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
-            mic_iter = masked_imgs_coord.subset_iter(inCell_set)            
+            mic_iter = masked_imgs_coord.subset_iter(inCell_set)
             for blk_min in range(0, len(inCell_set), cell_blk_sz):
                 indexed_mic_this_block = itertools.islice(mic_iter, 0, cell_blk_sz)
                 ordered_indices = []
@@ -336,14 +336,18 @@ def analysis(
                     mu_v[np.isnan(mu_v)] = 0
                     total[np.isnan(total)] = 0
 
-                    #transl_cell_idx = index_trans_tbl[cell_idx]
+                    # transl_cell_idx = index_trans_tbl[cell_idx]
                     covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
                     mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
                     total_vector[t, j, cell_idx + blk_min, :, :] = total
 
-            LOGGER.debug(f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}")
+            LOGGER.debug(
+                f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}"
+            )
             LOGGER.debug(f"cell stats info: mean_vector {mean_vector.shape} {mean_vector.dtype}")
-            LOGGER.debug(f"cell stats info: total_vector {total_vector.shape} {total_vector.dtype}")
+            LOGGER.debug(
+                f"cell stats info: total_vector {total_vector.shape} {total_vector.dtype}"
+            )
 
         # save the means, covars, shape and total for each cell
         save_all(
@@ -365,13 +369,15 @@ def analysis(
         im.cache_set("bgpixels", ROI_coords[0].background().astype(np.int32).copy())
         im.cache_set(
             "total_intensity_cell",
-            np.concatenate([arr for arr in ROI_coords[0].cells_only_iter()],
-                           axis=1).astype(np.int32)
+            np.concatenate([arr for arr in ROI_coords[0].cells_only_iter()], axis=1).astype(
+                np.int32
+            ),
         )
         im.cache_set(
             "total_intensity_nuclei",
-            np.concatenate([arr for arr in ROI_coords[1].cells_only_iter()],
-                           axis=1).astype(np.int32)
+            np.concatenate([arr for arr in ROI_coords[1].cells_only_iter()], axis=1).astype(
+                np.int32
+            ),
         )
         ROI_coords = None
         mask.set_ROI(ROI_coords)
@@ -412,7 +418,7 @@ def main(
     options_path: Path = DEFAULT_OPTIONS_FILE,
     optional_img_dir: Optional[Path] = None,
     celltype_labels: Optional[list[Path]] = None,
-    min_memory: bool = False
+    min_memory: bool = False,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -533,8 +539,9 @@ def argparse_wrapper():
         help="Limit the number of threads used by BLAS/OpenMP libraries (e.g., MKL)",
     )
     p.add_argument("--celltype-labels", type=Path, action="append")
-    p.add_argument("--min-memory", action="store_true",
-                   help="keep large arrays on disk where possible")
+    p.add_argument(
+        "--min-memory", action="store_true", help="keep large arrays on disk where possible"
+    )
 
     options_file_group = p.add_mutually_exclusive_group()
     options_file_group.add_argument("--options-file", type=Path, default=DEFAULT_OPTIONS_FILE)

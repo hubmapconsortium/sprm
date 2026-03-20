@@ -384,10 +384,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     interior_set = frozenset(interiorCells)
     i = 0  # offset into interiorCells, since they are in the same order
     for icell, (ROI_coords, CB_coords) in enumerate(
-            zip(
-                cell_coords.cell_iter(),
-                cell_boundary.cell_iter()
-            )
+        zip(cell_coords.cell_iter(), cell_boundary.cell_iter())
     ):
         if icell not in interior_set:
             continue

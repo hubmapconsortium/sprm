@@ -6,6 +6,7 @@ import warnings
 import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
+from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import bioio
@@ -20,9 +21,7 @@ from skimage.morphology import area_closing, closing, disk
 from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
-
 from threadpoolctl import threadpool_info
-from pprint import pformat
 
 from .wrapped_functions import PCA, KMeans
 
@@ -162,10 +161,11 @@ def foreground_uniformity(img_bi, mask, img, bestz):
         try:
             is_foreground_sampled = np.logical_and(
                 is_foreground,
-                np.random.choice([True, False],
-                                 size=is_foreground.shape,
-                                 p=[foreground_loc_fraction,
-                                    1.0 - foreground_loc_fraction])
+                np.random.choice(
+                    [True, False],
+                    size=is_foreground.shape,
+                    p=[foreground_loc_fraction, 1.0 - foreground_loc_fraction],
+                ),
             )
             # foreground_loc_sampled = foreground_loc[
             #     np.random.randint(
@@ -187,7 +187,7 @@ def foreground_uniformity(img_bi, mask, img, bestz):
 
 def background_uniformity(img_bi, img, bestz):
     # background_loc = np.argwhere(img_bi == 0)
-    is_background = (img_bi == 0)
+    is_background = img_bi == 0
     CV = uniformity_CV(is_background, img, bestz)
     LOGGER.debug(f"CV for background is {CV}")
 
@@ -210,10 +210,11 @@ def background_uniformity(img_bi, img, bestz):
             # ]
             is_background_sampled = np.logical_and(
                 is_background,
-                np.random.choice([True, False],
-                                 size=is_background.shape,
-                                 p=[background_loc_fraction,
-                                    1.0 - background_loc_fraction])
+                np.random.choice(
+                    [True, False],
+                    size=is_background.shape,
+                    p=[background_loc_fraction, 1.0 - background_loc_fraction],
+                ),
             )
             LOGGER.debug(f"background randomization worked with {background_loc_fraction}")
             fraction = uniformity_fraction(is_background_sampled, img, bestz)
@@ -280,7 +281,7 @@ def cell_type(mask, img, bestz):
     ss = StandardScaler()
     feature_matrix_z_pieces = []
     for ch_idx, z_idx, channel in img.get_img_channel_generator(z=bestz[0]):
-        channel_z = ss.fit_transform(channel[0,0])
+        channel_z = ss.fit_transform(channel[0, 0])
         LOGGER.debug(f"channel_z is {channel_z.shape} {channel_z.dtype}")
         cell_intensity_z = []
         for j in range(cell_coord_num):
@@ -312,6 +313,7 @@ def cell_type(mask, img, bestz):
             with warnings.catch_warnings():
                 try:
                     from sklearn.exceptions import ConvergenceWarning
+
                     warnings.filterwarnings("ignore", category=ConvergenceWarning)
                 except Exception:
                     pass
@@ -320,7 +322,9 @@ def cell_type(mask, img, bestz):
             prev_labels = labels
             label_list.append(labels)
         except Exception as excp:
-            LOGGER.warn(f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels")
+            LOGGER.warn(
+                f"cell_type: KMeans failed for c={c} (n_cells={n_cells}): {excp}; reusing previous labels"
+            )
             label_list.append(prev_labels.copy())
     return label_list
 
@@ -338,7 +342,9 @@ def cell_uniformity(mask, img, bestz, label_list):
         for j in range(cell_coord_num):
             cell_size_current = len(cell_coord[j][0])
             if cell_size_current != 0:
-                single_cell_intensity = np.sum(channel[0,0][tuple(cell_coord[j])]) / cell_size_current
+                single_cell_intensity = (
+                    np.sum(channel[0, 0][tuple(cell_coord[j])]) / cell_size_current
+                )
                 single_cell_intensity_z = (
                     np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
                 )
@@ -350,7 +356,9 @@ def cell_uniformity(mask, img, bestz, label_list):
     feature_matrix = np.vstack(feature_matrix_pieces).T
     feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
     LOGGER.debug(f"cell_uniformity: feature_matrix {feature_matrix.shape} {feature_matrix.dtype}")
-    LOGGER.debug(f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}")
+    LOGGER.debug(
+        f"cell_uniformity: feature_matrix_z {feature_matrix_z.shape} {feature_matrix_z.dtype}"
+    )
     CV = []
     fraction = []
     silhouette = []
@@ -372,7 +380,9 @@ def cell_uniformity(mask, img, bestz, label_list):
                 else:
                     silhouette.append(float(silhouette_score(feature_matrix_z, labels)))
             except Exception as excp:
-                LOGGER.warn(f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0")
+                LOGGER.warn(
+                    f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0"
+                )
                 silhouette.append(0.0)
         for i in range(c):
             cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
@@ -506,11 +516,9 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     assert isinstance(bestz, list), "bestz is not a list?"
     if img.data is None:
         if len(bestz) > 1:
-            raise RuntimeError("Only a single bestz is currently"
-                               " suppored in min-memory mode")
+            raise RuntimeError("Only a single bestz is currently" " suppored in min-memory mode")
         if img.img.dims.Z != 1:
-            raise RuntimeError("Only a single slice is currently"
-                               " suppoerted in min-memory mode")
+            raise RuntimeError("Only a single slice is currently" " suppoerted in min-memory mode")
 
     # get compartment masks
     matched_mask = np.squeeze(mask.data[0, 0, :, bestz, :, :], axis=0)
@@ -579,7 +587,9 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
         mask_binary = np.sign(current_mask)
         metrics[channel_names[channel]] = {}
         if channel_names[channel] == "Matched Cell":
-            LOGGER.debug(f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}")
+            LOGGER.debug(
+                f"single method point 5 case 1 {channel_names[channel]} {mask_binary.dtype}"
+            )
             mask_xml = _get_metadata_xml(mask.img.metadata)
             mask_xmldict = xmltodict.parse(mask_xml) if mask_xml is not None else {}
             try:
@@ -634,14 +644,14 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             metrics[channel_names[channel]]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (
                 foreground_CV + 1
             )
-            metrics[channel_names[channel]][
-                "FractionOfFirstPCForegroundOutsideCells"
-            ] = 0.0 if foreground_PCA is None else float(foreground_PCA)
+            metrics[channel_names[channel]]["FractionOfFirstPCForegroundOutsideCells"] = (
+                0.0 if foreground_PCA is None else float(foreground_PCA)
+            )
 
             cell_type_labels = cell_type(current_mask, img, bestz)
         else:
             LOGGER.debug(f"single method point 5 case 2 {channel_names[channel]}")
-            #img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
+            # img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
                 current_mask, img, bestz, cell_type_labels
@@ -667,6 +677,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     with warnings.catch_warnings():
         try:
             from sklearn.exceptions import InconsistentVersionWarning
+
             warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
         except Exception:
             pass
