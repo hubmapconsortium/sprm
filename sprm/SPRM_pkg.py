@@ -1728,7 +1728,11 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             except Exception:
                 pass
             with pd.HDFStore(output_dir / "out.hdf5") as store:
-                store.put(hdf_key, df, format="table")
+                store_put_kwargs = {}
+                if len(set(df.columns)) < df.shape[1]:
+                    # duplicate columns; need different output format
+                    store_put_kwargs["format"] = "table"
+                store.put(hdf_key, df, **store_put_kwargs)
 
 
 def write_cell_polygs(
