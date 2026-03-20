@@ -17,6 +17,7 @@ MASK_FILE = Path("mask/mask_demo.tiff")
 OUTPUT_DIR = Path("demo_segmentation_only_outputs")
 OPTIONS_FILE = Path("../sprm/options.txt")
 
+
 def main():
     """Run only segmentation evaluation."""
 
@@ -48,4 +49,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

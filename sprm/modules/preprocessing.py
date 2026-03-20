@@ -4,6 +4,7 @@ Module 1: Core Preprocessing
 Loads images, extracts ROI coordinates, performs quality control.
 This module is required for all other modules.
 """
+
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -22,6 +23,7 @@ from .checkpoint_manager import CheckpointManager, CoreData
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
+
 
 def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
     """
@@ -145,9 +147,7 @@ def run(
         if "valid_cell_threshold" not in options:
             options["valid_cell_threshold"] = 10
     else:
-        raise TypeError(
-            f"options must be None, Path, str, or dict, got {type(options)}"
-        )
+        raise TypeError(f"options must be None, Path, str, or dict, got {type(options)}")
 
     # Load image and mask
     print(f"Reading image file: {img_file.name}")
@@ -234,4 +234,3 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> CoreData:
     )
     _ensure_cell_centers(core_data, checkpoint_dir)
     return core_data
-

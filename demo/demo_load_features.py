@@ -6,7 +6,9 @@ This script loads the features saved in the checkpoint folder and just
 prints some basic info.
 
 """
+
 from pathlib import Path
+
 from sprm import modules
 
 OUTPUT_DIR = Path("demo_features_only_outputs")

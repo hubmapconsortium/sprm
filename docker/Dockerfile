@@ -6,14 +6,16 @@ RUN apt-get update \
  && apt-get -y install libgl1-mesa-glx \
  && rm -rf /var/cache/apt/*
 
+COPY docker/requirements.txt /opt
+RUN pip install -r /opt/requirements.txt \
+ && rm -rf /root/.cache/pip
+
 WORKDIR /opt
 COPY . /opt/sprm
 RUN cd sprm \
  && cp sprm-git-revision.json /opt \
  && python3 -m pip install . \
  && cd .. \
- && rm -rf sprm /root/cache/.pip
-
-RUN python3 -m pip install -U numexpr bottleneck
+ && rm -rf sprm /root/.cache/pip
 
 CMD ["/bin/bash"]

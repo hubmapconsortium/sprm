@@ -122,7 +122,9 @@ def run(
         adjacency_matrix, cell_graph = cell_graphs(
             mask, roi_coords, interior_cells, baseoutputfilename, output_dir, options
         )
-        print(f"  Adjacency matrix shape: {adjacency_matrix.shape if hasattr(adjacency_matrix, 'shape') else 'N/A'}")
+        print(
+            f"  Adjacency matrix shape: {adjacency_matrix.shape if hasattr(adjacency_matrix, 'shape') else 'N/A'}"
+        )
     else:
         print("Skipping cell graph computation")
         adjacency_matrix = None
@@ -175,4 +177,3 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> SpatialData:
     return CheckpointManager.load_spatial_data(
         CheckpointManager.get_checkpoint_dir(checkpoint_dir)
     )
-

@@ -19,7 +19,6 @@ from ..SPRM_pkg import (
 )
 from .checkpoint_manager import CheckpointManager, CoreData, ImageAnalysisData
 
-
 DEFAULT_OPTIONS_FILE = Path(__file__).resolve().parents[1] / "options.txt"
 
 
@@ -159,9 +158,7 @@ def run(
 
     # Channel PCA
     print(f"Computing channel PCA (n_components={n_channel_pca_components})...")
-    reducedim = clusterchannels(
-        im, baseoutputfilename, output_dir, interior_cells, compat_options
-    )
+    reducedim = clusterchannels(im, baseoutputfilename, output_dir, interior_cells, compat_options)
     print(f"  PCA reduced dimensions: {reducedim.shape}")
 
     # Visualize top 3 PCA components
@@ -214,4 +211,3 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> ImageAnalysisData:
     return CheckpointManager.load_image_analysis_data(
         CheckpointManager.get_checkpoint_dir(checkpoint_dir)
     )
-
