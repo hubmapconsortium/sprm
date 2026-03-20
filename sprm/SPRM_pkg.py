@@ -25,7 +25,7 @@ import pandas as pd
 import scipy.io
 import scipy.sparse
 from bioio import BioImage
-from bioio import Writer
+from bioio.writers import OmeTiffWriter
 from apng import APNG, PNG
 from lxml import etree
 from matplotlib import collections as mc
@@ -698,7 +698,7 @@ def cell_map(
         # xml_string = generate_ome_xml_for_channels(map_legend)
 
         # convert to array C Z Y X
-        writer = Writer()
+        writer = OmeTiffWriter()
         writer.save(
             subtype_arr_np,
             output_dir / (mask.get_name() + "_subtype.ome.tiff"),
@@ -1849,6 +1849,7 @@ def clusterchannels(
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+    channvals[np.where(np.isnan(channvals))] = 0
 
     channvals_full = channvals.copy()
     tries = 0
@@ -1863,10 +1864,12 @@ def clusterchannels(
                 pca_channels = PCA(
                     n_components=options.get("num_channelPCA_components"), svd_solver="randomized"
                 )
-                tries += 1
             else:
                 print("halving the dataset...")
                 n_samples = int(channvals.shape[0] / 2)
+                if n_samples == 0:
+                    LOGGER.error("PCA failed repeatedly; giving up")
+                    break
                 idx = np.random.choice(channvals_full.shape[0], n_samples, replace=False)
                 channvals = channvals_full[idx, :]
                 # keepshape[1] = int(keepshape[1]/2) + 1
@@ -1874,6 +1877,7 @@ def clusterchannels(
                 # keepshape[3] = keepshape[3]/2
                 # pca_channels.fit(reduced_channvals)
                 # reducedim = pca_channels.transform(channvals)
+            tries += 1
 
     reducedim = m.transform(channvals_full)
     if options.get("debug"):
@@ -2052,11 +2056,12 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
     )
     channvals = channvals.transpose()
-    # for some reason, voxel values are occasionally NaNs (especially edge rows)
-    channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+
+    # for some reason, voxel values are occasionally NaNs (especially edge rows)
+    channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("debug"):
         print("Multichannel dimensions: ", channvals.shape)
@@ -2264,9 +2269,9 @@ def write_ometiff(
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order=pca_dim_order)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 
