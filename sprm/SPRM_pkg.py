@@ -4327,6 +4327,56 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return texture, texture_featureNames
 
 
+def solve_svd(mtx_full, numComp, pcaMethod):
+    mtx_full_0 = mtx_full.shape[0]
+    n_samples = int(mtx_full_0)
+    idx = np.arange(mtx_full_0)
+    # try to solve full svd
+    tries = 0
+    while True:
+        try:
+            m = (PCA(n_components=numComp, svd_solver=pcaMethod)
+                 .fit(mtx_full[idx, :]))
+            break
+        except Exception as e:
+            LOGGER.info(f"Exception: {e} at try {tries} in solve_svd"
+                        f" using {n_samples} of {mtx_full_0}")
+
+            if tries == 0:
+                m = (PCA(n_components=numComp,
+                         svd_solver="randomized")
+                     .fit(mtx_full[idx, :]))
+                tries += 1
+            else:
+                LOGGER.info("halving the features in tSNE for PCA fit...")
+                n_samples /= 2
+                idx = np.random.choice(mtx_full_0, n_samples, replace=False)
+
+    return m
+
+
+def solve_tsne(tsne, mtx_full):
+    mtx_full_0 = mtx_full.shape[0]
+    n_samples = int(mtx_full_0)
+    idx = np.arange(mtx_full_0)
+    while True:
+        try:
+            tsne_all_OnlyCell = tsne.fit_transform(mtx_full[idx, :])
+            break
+        except Exception as e:
+            LOGGER.exception(f"Caught exception using {n_samples} of {mtx_full_0}")
+            LOGGER.info("halving dataset in tSNE for tSNE fit...")
+            n_samples //= 2
+            if n_samples == 0:
+                # not much else to do here
+                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
+                tsne_all_OnlyCell = np.zeros((mtx_full_0, tsne.n_components))
+                break
+            idx = np.random.choice(mtx_full_0, n_samples, replace=False)
+
+    return tsne_all_OnlyCell
+
+
 def DR_AllFeatures(
     all_clusters,
     types_list,
@@ -4381,12 +4431,12 @@ def DR_AllFeatures(
 
     LOGGER.debug("DR_AllFeatures point 1")
     if options.get("tSNE_texture_calculation_skip"):
-        matrix_all_OnlyCell_original = np.concatenate(
+        matrix_all_OnlyCell = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
             axis=1,
         )
     else:
-        matrix_all_OnlyCell_original = np.concatenate(
+        matrix_all_OnlyCell = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
             axis=1,
         )
@@ -4396,12 +4446,11 @@ def DR_AllFeatures(
         early_exaggeration = float(tsne_ee)
     except ValueError:
         if tsne_ee == "default":
-            early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+            early_exaggeration = len(matrix_all_OnlyCell) / 10
         else:
             raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
     LOGGER.debug("DR_AllFeatures point 2")
-    matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":
         matrix_all_OnlyCell = np.asarray(matrix_all_OnlyCell, dtype=float)
         matrix_all_OnlyCell = stats.zscore(matrix_all_OnlyCell, axis=0)
@@ -4423,33 +4472,15 @@ def DR_AllFeatures(
         )
 
     LOGGER.debug("DR_AllFeatures point 3")
-    matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # tol
+    matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     if tSNEInitialization == "pca":
-        # try to solve full svd
-        tries = 0
-        while True:
-            try:
-                m = PCA(n_components=numComp, svd_solver=pcaMethod).fit(matrix_all_OnlyCell)
-                break
-            except Exception as e:
-                print(e)
-                print("Exceptions caught: ", tries)
-                if tries == 0:
-                    m = PCA(n_components=numComp, svd_solver="randomized").fit(matrix_all_OnlyCell)
-                    tries += 1
-                else:
-                    print("halving the features in tSNE for PCA fit...")
-                    n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
-                    idx = np.random.choice(
-                        matrix_all_OnlyCell_full.shape[0], n_samples, replace=False
-                    )
-                    matrix_all_OnlyCell = matrix_all_OnlyCell_full[idx, :]
-
-        matrix_all_OnlyCell = m.transform(matrix_all_OnlyCell_full)
+        svd_mtx = solve_svd(matrix_all_OnlyCell,
+                            numComp=numComp,
+                            pcaMethod=pcaMethod)
+        matrix_all_OnlyCell = svd_mtx.transform(matrix_all_OnlyCell)
 
     LOGGER.debug("DR_AllFeatures point 4")
-    t_matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # init tSNE
     tsne = TSNE(
         n_components=numComp,
@@ -4461,21 +4492,7 @@ def DR_AllFeatures(
     )
 
     LOGGER.debug("DR_AllFeatures point 5")
-    while True:
-        try:
-            tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
-            break
-        except Exception as e:
-            print(e)
-            print("halving dataset in tSNE for tSNE fit...")
-            n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
-            if n_samples == 0:
-                # not much else to do here
-                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
-                tsne_all_OnlyCell = np.zeros((len(cellidx), numComp))
-                break
-            idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
-            matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
+    tsne_all_OnlyCell = solve_tsne(tsne, matrix_all_OnlyCell)
 
     # 2D - Scatterplot
     plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1], marker=".")
@@ -4486,7 +4503,9 @@ def DR_AllFeatures(
     LOGGER.debug("DR_AllFeatures point 6")
     header = [x for x in range(1, tsne_all_OnlyCell.shape[1] + 1)]
     write_2_csv(
-        header, tsne_all_OnlyCell, filename + "-tSNE_allfeatures", output_dir, cellidx, options
+        header, tsne_all_OnlyCell,
+        filename + "-tSNE_allfeatures",
+        output_dir, cellidx, options
     )
 
     LOGGER.debug("DR_AllFeatures point 7")
@@ -4507,20 +4526,22 @@ def DR_AllFeatures(
 
     # umap
     reducer = UMAP()
-    umap_features = matrix_all_OnlyCell_full.copy()
-    umap_embed = reducer.fit_transform(umap_features)
+    umap_embed = reducer.fit_transform(matrix_all_OnlyCell_full)
 
     LOGGER.debug("DR_AllFeatures point 9")
     # 2D umap
     plt.scatter(umap_embed[:, 0], umap_embed[:, 1], marker=".")
-    plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"), bbox_inches="tight")
+    plt.savefig(output_dir / (filename + "-UMAP_allfeatures.png"),
+                bbox_inches="tight")
     plt.clf()
     plt.close()
 
     LOGGER.debug("DR_AllFeatures point 10")
     umap_header = [x for x in range(1, umap_embed.shape[1] + 1)]
     write_2_csv(
-        umap_header, umap_embed, filename + "-UMAP_allfeatures", output_dir, cellidx, options
+        umap_header, umap_embed,
+        filename + "-UMAP_allfeatures",
+        output_dir, cellidx, options
     )
 
     LOGGER.debug("DR_AllFeatures point 11")
