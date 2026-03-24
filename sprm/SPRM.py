@@ -1,6 +1,6 @@
 import faulthandler
 import itertools
-import logging
+import multiprocessing as mp
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
@@ -475,9 +475,15 @@ def main(
 
     ### CWL RUNS ###
     use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    print("Using", processes, "worker(s) with executor", executor.__name__)
-    with executor(max_workers=processes) as executor:
+    if use_subprocess_isolation:
+        executor = ProcessPoolExecutor(
+            max_workers=processes,
+            mp_context=mp.get_context("forkserver"),
+        )
+    else:
+        executor = ThreadPoolExecutor(max_workers=processes)
+    print("Using", processes, "worker(s) with executor", type(executor).__name__)
+    with executor:
         futures = []
         for img_file, mask_file, opt_img_file, cell_types in zip(
             img_files, mask_files, opt_img_files, cell_types_by_image
