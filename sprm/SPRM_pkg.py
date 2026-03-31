@@ -2572,16 +2572,20 @@ def transform_df(df, ignore_column=None):
             continue
 
         df_copy_T = df_copy.transpose()
+        target_dtype = type(i)
+        mapping_array = np.array(range(clusters.max() + 1), dtype=target_dtype)
+        LOGGER.debug(f"mapping_array is {mapping_array.shape} {mapping_array.dtype}")
         for col in match_counter.index:
             LOGGER.debug(f"transform_df i={i} col={col} match_counter[col]={match_counter[col]}")
             if i != match_counter[col]:
-                target_dtype = type(i)
-                mapping = {
-                    i: target_dtype(match_counter[col]),
-                    target_dtype(match_counter[col]): i,
-                }
-                elts_mapped = df_copy_T.loc[col].map(lambda x: mapping.get(x, x))
-                df_copy_T.loc[col] = elts_mapped
+                repl_arr = mapping_array.copy()
+                repl_arr[i] = target_dtype(match_counter[col])
+                repl_arr[target_dtype(match_counter[col])] = i
+                raw_data = df_copy_T.loc[col].values  # view of the underlying numpy array
+                df_copy_T.loc[col] = repl_arr[raw_data]
+            else:
+                LOGGER.debug(f"i = {i} no action")
+            LOGGER.debug(f"transform_df col {col} complete")
         df_copy = df_copy_T.transpose()
 
         drop_rows.append(i)

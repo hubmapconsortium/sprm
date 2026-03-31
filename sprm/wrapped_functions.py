@@ -1,9 +1,9 @@
 import logging
 
 from frozendict import frozendict
+from sklearn.cluster import KMeans as KMeans_raw
 
-# from sklearn.cluster import KMeans as KMeans_raw
-from sklearn.cluster import MiniBatchKMeans as KMeans_raw
+# from sklearn.cluster import MiniBatchKMeans as KMeans_raw
 from sklearn.decomposition import PCA as PCA_raw
 from sklearn.manifold import TSNE as TSNE_raw
 from umap import UMAP as UMAP_raw
@@ -71,8 +71,8 @@ class KMeans(KMeans_raw):
             tol=tol,
             verbose=verbose,
             random_state=random_state,
-            # copy_x=copy_x,
-            # algorithm=algorithm
+            copy_x=copy_x,  # exclude this for MiniBatchKMeans
+            algorithm=algorithm,  # exclude this for MiniBatchKMeans
         )
         LOGGER.debug(f"Kmeans init {my_argc}")
 
