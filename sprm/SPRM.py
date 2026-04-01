@@ -1,9 +1,11 @@
 import faulthandler
 import itertools
-import logging
+import multiprocessing as mp
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from subprocess import CalledProcessError, check_output
+
+import threadpoolctl
 
 from .outlinePCA import (
     bin_pca,
@@ -96,8 +98,11 @@ def analysis(
     options: Dict[str, Any],
     celltype_labels: Optional[pd.DataFrame],
     min_memory: bool,
+    threadpool_limit: Optional[int] = None,
 ) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
+    if threadpool_limit is not None:
+        threadpoolctl.threadpool_limits(limits=threadpool_limit)
 
     print("Reading in image and corresponding mask file...")
     print("Image name:", img_file.name)
@@ -419,6 +424,7 @@ def main(
     optional_img_dir: Optional[Path] = None,
     celltype_labels: Optional[list[Path]] = None,
     min_memory: bool = False,
+    threadpool_limit: Optional[int] = None,
 ):
     sprm_version = get_sprm_version()
     print("SPRM", sprm_version)
@@ -475,9 +481,15 @@ def main(
 
     ### CWL RUNS ###
     use_subprocess_isolation = len(img_files) > 1 and not options.get("debug")
-    executor = ProcessPoolExecutor if use_subprocess_isolation else ThreadPoolExecutor
-    print("Using", processes, "worker(s) with executor", executor.__name__)
-    with executor(max_workers=processes) as executor:
+    if use_subprocess_isolation:
+        executor = ProcessPoolExecutor(
+            max_workers=processes,
+            mp_context=mp.get_context("forkserver"),
+        )
+    else:
+        executor = ThreadPoolExecutor(max_workers=processes)
+    print("Using", processes, "worker(s) with executor", type(executor).__name__)
+    with executor:
         futures = []
         for img_file, mask_file, opt_img_file, cell_types in zip(
             img_files, mask_files, opt_img_files, cell_types_by_image
@@ -492,6 +504,7 @@ def main(
                     options,
                     cell_types,
                     min_memory,
+                    threadpool_limit,
                 )
             )
 
@@ -558,8 +571,6 @@ def argparse_wrapper():
         faulthandler.enable(all_threads=True)
 
     if argss.threadpool_limit is not None:
-        import threadpoolctl
-
         threadpoolctl.threadpool_limits(limits=argss.threadpool_limit)
         print(f"Limited threadpool to {argss.threadpool_limit} threads")
 
@@ -575,4 +586,5 @@ def argparse_wrapper():
         optional_img_dir=argss.optional_img_dir,
         celltype_labels=argss.celltype_labels,
         min_memory=argss.min_memory,
+        threadpool_limit=argss.threadpool_limit,
     )
