@@ -9,7 +9,7 @@ from scipy.io import mmread
 from os import walk
 
 from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
-from aicsimageio import AICSImage
+from bioio import BioImage
 
 from .SPRM_pkg import *
 from math import ceil, log2
@@ -32,7 +32,7 @@ def read_expr_img(img_dir:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3D
 
     model_dict = {2:Image2DModel, 3:Image3DModel}
     expr_img_path = find_ome_tiff(img_dir)
-    image = AICSImage(expr_img_path)
+    image = BioImage(expr_img_path)
     image_data_squeezed = image.data.squeeze()
     image_scale_factors = (2,) * ceil(
         log2(max(image_data_squeezed.shape[1:]) / desired_pixel_size_for_pyramid)
@@ -43,8 +43,8 @@ def read_expr_img(img_dir:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3D
 def read_mask_img(mask_dir:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
     model_dict = {2:Labels2DModel, 3:Labels3DModel}
     mask_img_path = find_ome_tiff(mask_dir)
-    aicsimage = AICSImage(mask_img_path)
-    mask_channel_names = aicsimage.channel_names
+    bioimage = BioImage(mask_img_path)
+    mask_channel_names = bioimage.channel_names
     mask_img_arr = tifffile.imread(mask_img_path)
     model = model_dict[num_dims]
     mask_dict = {}
