@@ -564,7 +564,11 @@ def cell_cluster(
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
-                score = silhouette_score(cell_matrix, preds)
+                try:
+                    score = silhouette_score(cell_matrix, preds)
+                except ValueError as e:
+                    LOGGER.exception("silhouette_score failed")
+                    score = -math.inf
                 cluster_score.append(score)
 
             max_value = max(cluster_score)
@@ -4460,6 +4464,11 @@ def DR_AllFeatures(
             print(e)
             print("halving dataset in tSNE for tSNE fit...")
             n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
+            if n_samples == 0:
+                # not much else to do here
+                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
+                tsne_all_OnlyCell = np.zeros((len(cellidx), numComp))
+                break
             idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
             matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
 
