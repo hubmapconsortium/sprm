@@ -4338,7 +4338,7 @@ def solve_svd(mtx_full, numComp, pcaMethod):
                 tries += 1
             else:
                 LOGGER.info("halving the features in tSNE for PCA fit...")
-                n_samples /= 2
+                n_samples //= 2
                 idx = np.random.choice(mtx_full_0, n_samples, replace=False)
 
     return m
