@@ -1,2 +1,5 @@
 anndata
+bioio
+bioio-ome-tiff
+bioio-tifffile
 spatialdata==0.4.0

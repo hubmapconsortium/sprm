@@ -11,7 +11,7 @@ from scipy.io import mmread
 from os import walk
 
 from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
-from aicsimageio import AICSImage
+from bioio import BioImage
 
 from math import ceil, log2
 
@@ -73,7 +73,7 @@ def read_expr_img(img_dir:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3D
 def read_mask_img(mask_dir:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
     model_dict = {2:Labels2DModel, 3:Labels3DModel}
     mask_img_path = find_ome_tiff(mask_dir)
-    aicsimage = AICSImage(mask_img_path)
+    bioimage = BioImage(mask_img_path)
     mask_channel_names = aicsimage.channel_names
     mask_img_arr = tifffile.imread(mask_img_path)
     model = model_dict[num_dims]
