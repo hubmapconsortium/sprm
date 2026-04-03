@@ -3,8 +3,11 @@ import itertools
 import multiprocessing as mp
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from math import ceil, log2
+
 from subprocess import CalledProcessError, check_output
 
+from .constants import desired_pixel_size_for_pyramid
 import threadpoolctl
 
 from .outlinePCA import (
@@ -40,7 +43,7 @@ DEFAULT_OUTPUT_PATH = Path("sprm_outputs")
 DEFAULT_OPTIONS_FILE = Path(__file__).parent / "options.txt"
 DEFAULT_TEMP_DIRECTORY = Path("temp")
 DOCKER_GIT_VERSION_PATH = Path("/opt/sprm-git-revision.json")
-
+ome_tiff_pattern = re.compile(r"(?P<basename>.*)\.ome\.tiff(f?)$")
 
 def get_sprm_version() -> str:
     """
@@ -79,7 +82,6 @@ def get_sprm_version() -> str:
         pass
 
     return "unknown"
-
 
 def get_cell_blk_sz(num_cells: int, im: IMGstruct, options: Dict[str, Any]) -> int:
     """
@@ -431,6 +433,8 @@ def main(
 
     # read in options.txt
     options = read_options(options_path, DEFAULT_OPTIONS_FILE)
+
+    image_dimension = options.get("image_dimension")
 
     # store results in a dir
     check_output_dir(output_dir, options)
