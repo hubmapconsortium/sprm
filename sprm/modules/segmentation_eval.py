@@ -5,8 +5,8 @@ Computes quality metrics for segmentation masks.
 This module is optional and can run standalone.
 """
 
-import json
 import importlib.resources
+import json
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
@@ -129,4 +129,3 @@ def run(
     print("=" * 60)
 
     return result
-

@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional, Set, Union
 import h5py
 import numpy as np
 
-from ..SPRM_pkg import compute_cell_centers
 from ..data_structures import IMGstruct, MaskStruct
+from ..SPRM_pkg import compute_cell_centers
 
 
 @dataclass
@@ -128,13 +128,9 @@ class CheckpointManager:
             return data
 
         if data is None and output_dir is None:
-            raise ValueError(
-                "Either data or output_dir must be provided to load core data"
-            )
+            raise ValueError("Either data or output_dir must be provided to load core data")
 
-        checkpoint_dir = (
-            CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
 
         return CheckpointManager.load_core_data(checkpoint_dir)
 
@@ -172,6 +168,7 @@ class CheckpointManager:
         def convert_to_native(obj):
             """Convert numpy types to native Python types for JSON serialization."""
             import numpy as np
+
             if isinstance(obj, (np.integer, np.int64, np.int32)):
                 return int(obj)
             elif isinstance(obj, (np.floating, np.float64, np.float32)):
@@ -257,23 +254,18 @@ class CheckpointManager:
             and (checkpoint_dir / "cell_lists.json").exists()
         )
 
-
     @staticmethod
     def save_shape_data(data: ShapeData, output_dir: Path):
         """Save ShapeData checkpoint."""
         checkpoint_dir = CheckpointManager.get_checkpoint_dir(output_dir)
 
         with h5py.File(checkpoint_dir / "shape_features.h5", "w") as f:
-            f.create_dataset(
-                "shape_vectors", data=data.shape_vectors, compression="gzip"
-            )
+            f.create_dataset("shape_vectors", data=data.shape_vectors, compression="gzip")
             f.create_dataset(
                 "norm_shape_vectors", data=data.norm_shape_vectors, compression="gzip"
             )
             if data.outline_vectors is not None:
-                f.create_dataset(
-                    "outline_vectors", data=data.outline_vectors, compression="gzip"
-                )
+                f.create_dataset("outline_vectors", data=data.outline_vectors, compression="gzip")
 
         # Save polygons as pickle if they exist
         if data.cell_polygons is not None:
@@ -288,9 +280,7 @@ class CheckpointManager:
         with h5py.File(checkpoint_dir / "shape_features.h5", "r") as f:
             shape_vectors = f["shape_vectors"][()]
             norm_shape_vectors = f["norm_shape_vectors"][()]
-            outline_vectors = (
-                f["outline_vectors"][()] if "outline_vectors" in f else None
-            )
+            outline_vectors = f["outline_vectors"][()] if "outline_vectors" in f else None
 
         cell_polygons = None
         if (checkpoint_dir / "cell_polygons.pkl").exists():
@@ -322,9 +312,7 @@ class CheckpointManager:
         if data is None and output_dir is None:
             return None
 
-        checkpoint_dir = (
-            CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
 
         if not CheckpointManager.exists_shape_data(
             checkpoint_dir.parent
@@ -367,9 +355,7 @@ class CheckpointManager:
         if data is None and output_dir is None:
             return None
 
-        checkpoint_dir = (
-            CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
 
         if not CheckpointManager.exists_spatial_data(checkpoint_dir.parent):
             return None
@@ -410,9 +396,7 @@ class CheckpointManager:
         if data is None and output_dir is None:
             return None
 
-        checkpoint_dir = (
-            CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
 
         if not CheckpointManager.exists_image_analysis_data(checkpoint_dir.parent):
             return None
@@ -425,18 +409,10 @@ class CheckpointManager:
         checkpoint_dir = CheckpointManager.get_checkpoint_dir(output_dir)
 
         with h5py.File(checkpoint_dir / "cell_features.h5", "w") as f:
-            f.create_dataset(
-                "mean_vector", data=data.mean_vector, compression="gzip"
-            )
-            f.create_dataset(
-                "covar_matrix", data=data.covar_matrix, compression="gzip"
-            )
-            f.create_dataset(
-                "total_vector", data=data.total_vector, compression="gzip"
-            )
-            f.create_dataset(
-                "texture_vectors", data=data.texture_vectors, compression="gzip"
-            )
+            f.create_dataset("mean_vector", data=data.mean_vector, compression="gzip")
+            f.create_dataset("covar_matrix", data=data.covar_matrix, compression="gzip")
+            f.create_dataset("total_vector", data=data.total_vector, compression="gzip")
+            f.create_dataset("texture_vectors", data=data.texture_vectors, compression="gzip")
 
             # Save texture channels as attribute
             f.attrs["texture_channels"] = json.dumps(data.texture_channels)
@@ -477,13 +453,8 @@ class CheckpointManager:
             return data
 
         if data is None and output_dir is None:
-            raise ValueError(
-                "Either data or output_dir must be provided to load cell features"
-            )
+            raise ValueError("Either data or output_dir must be provided to load cell features")
 
-        checkpoint_dir = (
-            CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
-        )
+        checkpoint_dir = CheckpointManager.get_checkpoint_dir(Path(data) if data else output_dir)
 
         return CheckpointManager.load_cell_features(checkpoint_dir)
-

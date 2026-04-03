@@ -2,8 +2,8 @@ import io
 import json
 import logging
 import math
-import time
 import re
+import time
 import warnings
 from bisect import bisect
 from collections import ChainMap, defaultdict
@@ -24,9 +24,9 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import scipy.sparse
-from bioio import BioImage
-from bioio import Writer
 from apng import APNG, PNG
+from bioio import BioImage
+from bioio.writers import OmeTiffWriter
 from lxml import etree
 from matplotlib import collections as mc
 from matplotlib import pyplot as plt
@@ -44,11 +44,17 @@ from skimage.filters import threshold_otsu
 from sklearn.decomposition import NMF
 from sklearn.metrics import silhouette_score
 
-from .wrapped_functions import UMAP, PCA, KMeans, TSNE
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
-from .data_structures import IMGstruct, MaskStruct, DiskIMGstruct, CellTable, CellTable3D
+from .data_structures import (
+    CellTable,
+    CellTable3D,
+    DiskIMGstruct,
+    IMGstruct,
+    MaskStruct,
+)
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
+from .wrapped_functions import PCA, TSNE, UMAP, KMeans
 
 """
 
@@ -445,9 +451,7 @@ def save_image(
         apng.save(file_path)
 
 
-def calculations(
-    coord_all, im: IMGstruct, t: int, bestz: List[int]
-) -> Dict[int, np.ndarray]:
+def calculations(coord_all, im: IMGstruct, t: int, bestz: List[int]) -> Dict[int, np.ndarray]:
     """
     Returns covariance matrix, mean vector, and total vector
     """
@@ -457,7 +461,7 @@ def calculations(
     ROI_dict = {}  # ROI matrices by cell ID
     channels_this_cell_dict = defaultdict(list)
     for ch_idx in range(im.img.dims.C):
-        cell_plane_dict = defaultdict(list) # planes of this channel by cell ID
+        cell_plane_dict = defaultdict(list)  # planes of this channel by cell ID
         for z_idx in range(im.img.dims.Z):
             slice = im.get_plane(ch_idx, z_idx)
             for cell_idx in range(len(coord_all)):
@@ -474,9 +478,7 @@ def calculations(
                     pix_array = slice[0, y, x].copy().ravel()
                     cell_plane_dict[cell_idx].append(pix_array)
         for cell_idx in cell_plane_dict:
-            channels_this_cell_dict[cell_idx].append(
-                np.concatenate(cell_plane_dict[cell_idx])
-            )
+            channels_this_cell_dict[cell_idx].append(np.concatenate(cell_plane_dict[cell_idx]))
     for cell_idx in channels_this_cell_dict:
         ROI = np.vstack(channels_this_cell_dict[cell_idx])
         ROI_dict[cell_idx] = ROI
@@ -489,7 +491,9 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
     Receives out_matrix and extracts information to output a vector:
     len # of cells with corresponding cluster number
     """
-    LOGGER.debug(f"enter cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype} seq {segnum}")
+    LOGGER.debug(
+        f"enter cell_cluster_format: {cell_matrix.shape} {cell_matrix.dtype} seq {segnum}"
+    )
     # extracting all cells through all timepoints --> 4D matrix
     # cell_matrix = outmatrix[:,0,:,:,:]
     # dims = get_dims(cell_matrix)
@@ -541,10 +545,13 @@ def cell_cluster(
     # kmeans clustering
     # check of clusters vs. n_sample wanted
     cluster_method, min_cluster, max_cluster, keep = options.get("num_cellclusters")
-    LOGGER.debug(f"Clustering cells for {s}: "
-          f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ...")
-    LOGGER.debug(f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}"
-          f" for {len(typelist)} types")
+    LOGGER.debug(
+        f"Clustering cells for {s}: "
+        f"{cluster_method} {min_cluster} {max_cluster} {keep} {options.get('texture_flag')} ..."
+    )
+    LOGGER.debug(
+        f"cell_matrix {cell_matrix.shape} {cell_matrix.dtype}" f" for {len(typelist)} types"
+    )
     LOGGER.debug(f"inCells {len(inCells)} {inCells[0:4]}")
     if max_cluster > cell_matrix.shape[0]:
         print("reducing cell clusters to ", cell_matrix.shape[0])
@@ -578,7 +585,7 @@ def cell_cluster(
             cellbycluster = cellbycluster.fit(cell_matrix)
 
         else:
-            #TODO: num_cellclusters and cluster_score are undefined on this branch
+            # TODO: num_cellclusters and cluster_score are undefined on this branch
             raise NotImplementedError("Only silhouette is currently supported")
             cellbycluster = KMeans(n_clusters=num_cellclusters).fit(cell_matrix)
 
@@ -698,7 +705,7 @@ def cell_map(
         # xml_string = generate_ome_xml_for_channels(map_legend)
 
         # convert to array C Z Y X
-        writer = Writer()
+        writer = OmeTiffWriter()
         writer.save(
             subtype_arr_np,
             output_dir / (mask.get_name() + "_subtype.ome.tiff"),
@@ -1008,7 +1015,7 @@ def CheckAdjacency_Distance(cell_center, cell, cellids_i, idx_i, adjmatrix, cell
 
 
 def CheckAdjacency_Distance_new(celledge, cellids_i, idx_i, adjmatrix, cellGraph, j):
-    """ i is used only to index into cellids (a list completion of short arrays)  and idx (an arange of ints)"""
+    """i is used only to index into cellids (a list completion of short arrays)  and idx (an arange of ints)"""
 
     k = idx_i
 
@@ -1106,23 +1113,12 @@ def AdjacencyMatrix_3D(
             for j in cellids[i]:
                 # for avg dist
                 CheckAdjacency_Distance(
-                    cell_center,
-                    ROI_coords[0],
-                    cellids[i],
-                    idx[i],
-                    adjmatrix_avg,
-                    cellGraph_avg,
-                    j
+                    cell_center, ROI_coords[0], cellids[i], idx[i], adjmatrix_avg, cellGraph_avg, j
                 )
 
                 # for min dist
                 CheckAdjacency_Distance_new(
-                    cellEdgeList,
-                    cellids[i],
-                    idx[i],
-                    adjacencyMatrix,
-                    cellGraph,
-                    j
+                    cellEdgeList, cellids[i], idx[i], adjacencyMatrix, cellGraph, j
                 )
 
     AdjacencyMatrix2Graph(
@@ -1171,10 +1167,8 @@ def get_footprint(cell_mtx, delta, x_dim, y_dim):
 
     c = np.array([xmax - xmin, ymax - ymin])
 
-    shifted_cell_mtx = np.stack((
-        cell_mtx[1] - xmin, cell_mtx[0] - ymin
-    ))
- 
+    shifted_cell_mtx = np.stack((cell_mtx[1] - xmin, cell_mtx[0] - ymin))
+
     return shifted_cell_mtx, c, xy
 
 
@@ -1202,7 +1196,7 @@ def alt_AdjacencyMatrix(
         delta = options.get("adj_matrix_delta")
     else:
         delta = len(window) + options.get("adj_matrix_delta")
-    
+
     # min_dist
     adjacencyMatrix = scipy.sparse.dok_matrix((numCells, numCells))
     cellGraph = defaultdict(set)
@@ -1218,17 +1212,15 @@ def alt_AdjacencyMatrix(
     cell_id_mask = mask.get_data()[0, 0, cell_off, 0, :, :]
 
     for cellid_edge, cell_edge_mtx in ROI_coords[cell_boundary_off].subset_iter(interior_set):
-        
-        win_coords, win_sz, win_xy = get_footprint(cell_edge_mtx, delta,
-                                                   mask.img.dims.X, mask.img.dims.Y)
+
+        win_coords, win_sz, win_xy = get_footprint(
+            cell_edge_mtx, delta, mask.img.dims.X, mask.img.dims.Y
+        )
         tempImg = np.zeros((windowSize[i][1], windowSize[i][0]))
         tempImg[win_coords[1, :], win_coords[0, :]] = 1
-    
+
         dilated_img = binary_dilation(tempImg, iterations=thr)
-        mask_cropped = maskImg[
-            win_xy[2]:win_xy[3],
-            win_xy[0]:win_xy[1]
-        ]
+        mask_cropped = maskImg[win_xy[2] : win_xy[3], win_xy[0] : win_xy[1]]
         masked_dilated_img = mask_cropped * dilaged_img  # element-wise mult
         cellids_in_footprint = np.unique(masked_dilated_img)
         np.delete(cellids_in_footprint, cellids_in_footprint == cellid_edge)
@@ -1237,10 +1229,9 @@ def alt_AdjacencyMatrix(
             continue  # no footprint
         else:
             for cellid_other in cellids_in_footprint:
-                if (cell_check(cell_id_mask,
-                               cell_center[cellid_edge], cellid_other)
-                    or cell_check(cell_id_mask,
-                                  cell_center[cellid_other], cellid_edge)):
+                if cell_check(cell_id_mask, cell_center[cellid_edge], cellid_other) or cell_check(
+                    cell_id_mask, cell_center[cellid_other], cellid_edge
+                ):
                     continue
                 else:
                     sub = cell_center[cellid_edge] - cell_center[cellid_other]
@@ -1261,9 +1252,7 @@ def alt_AdjacencyMatrix(
                     cellGraph[k].add(j)
                     cellGraph[j].add(k)
 
-                    
-        
-        
+
 def AdjacencyMatrix(
     mask,
     ROI_coords,
@@ -1343,12 +1332,10 @@ def AdjacencyMatrix(
     LOGGER.debug(f"lengths are {len(dimglist)} {len(maskcrop)} {len(nimglist)} {len(cellids)}")
     idx = np.arange(1, len(cellids) + 1)
     cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
-    
+
     LOGGER.debug(f"AdjacencyMatrix point 1; len(cellids) = {len(cellids)}")
-    cell = {ii+1:cell_mtx
-            for ii, cell_mtx in enumerate(ROI_coords[0].cells_only_iter())}
-    celledge = {ii+1:cell_mtx
-                for ii, cell_mtx in enumerate(cellEdgeList.cells_only_iter())}
+    cell = {ii + 1: cell_mtx for ii, cell_mtx in enumerate(ROI_coords[0].cells_only_iter())}
+    celledge = {ii + 1: cell_mtx for ii, cell_mtx in enumerate(cellEdgeList.cells_only_iter())}
     for i, cellids_i in enumerate(cellids):
         this_cell_ctr = cell_center[i]
         if cellids_i.size == 0:
@@ -1358,8 +1345,9 @@ def AdjacencyMatrix(
                 # exclude edge case where one cell's center lies in the other cell
                 if idx[i] not in cell or j not in cell:
                     continue
-                if (cell_check(cell_center[j], cell[idx[i]])
-                    or cell_check(cell_center[idx[i]], cell[j])):
+                if cell_check(cell_center[j], cell[idx[i]]) or cell_check(
+                    cell_center[idx[i]], cell[j]
+                ):
                     continue
                 else:
                     # for avg dist
@@ -1370,17 +1358,12 @@ def AdjacencyMatrix(
                         idx[i],
                         adjmatrix_avg,
                         cellGraph_avg,
-                        j
+                        j,
                     )
 
                 # for min dist
                 CheckAdjacency_Distance_new(
-                    celledge,
-                    cellids_i,
-                    idx[i],
-                    adjacencyMatrix,
-                    cellGraph,
-                    j
+                    celledge, cellids_i, idx[i], adjacencyMatrix, cellGraph, j
                 )
 
     LOGGER.debug("AdjacencyMatrix point 2")
@@ -1739,12 +1722,17 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             # Avoid noisy warnings for non-critical naming / dtype issues when writing demo HDF5.
             try:
                 from tables.exceptions import NaturalNameWarning, PerformanceWarning
+
                 warnings.filterwarnings("ignore", category=NaturalNameWarning)
                 warnings.filterwarnings("ignore", category=PerformanceWarning)
             except Exception:
                 pass
             with pd.HDFStore(output_dir / "out.hdf5") as store:
-                store.put(hdf_key, df, format="table")
+                store_put_kwargs = {}
+                if len(set(df.columns)) < df.shape[1]:
+                    # duplicate columns; need different output format
+                    store_put_kwargs["format"] = "table"
+                store.put(hdf_key, df, **store_put_kwargs)
 
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
@@ -1757,7 +1745,10 @@ def write_cell_polygs(
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str(
-            [[round(float(i), 4), round(float(j), 4)] for i, j in zip(polyg_list[i][:, 0], polyg_list[i][:, 1])]
+            [
+                [round(float(i), 4), round(float(j), 4)]
+                for i, j in zip(polyg_list[i][:, 0], polyg_list[i][:, 1])
+            ]
         )
         coord_pairs.append(tlist)
 
@@ -1849,6 +1840,7 @@ def clusterchannels(
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+    channvals[np.where(np.isnan(channvals))] = 0
 
     channvals_full = channvals.copy()
     tries = 0
@@ -1863,10 +1855,12 @@ def clusterchannels(
                 pca_channels = PCA(
                     n_components=options.get("num_channelPCA_components"), svd_solver="randomized"
                 )
-                tries += 1
             else:
                 print("halving the dataset...")
                 n_samples = int(channvals.shape[0] / 2)
+                if n_samples == 0:
+                    LOGGER.error("PCA failed repeatedly; giving up")
+                    break
                 idx = np.random.choice(channvals_full.shape[0], n_samples, replace=False)
                 channvals = channvals_full[idx, :]
                 # keepshape[1] = int(keepshape[1]/2) + 1
@@ -1874,6 +1868,7 @@ def clusterchannels(
                 # keepshape[3] = keepshape[3]/2
                 # pca_channels.fit(reduced_channvals)
                 # reducedim = pca_channels.transform(channvals)
+            tries += 1
 
     reducedim = m.transform(channvals_full)
     if options.get("debug"):
@@ -1979,9 +1974,9 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
     channelist = []
     snr_channels_list = []
     for ch_idx in range(im.img.dims.C):
-        all_pix = np.concatenate([im.get_plane(ch_idx, z_idx).copy()
-                                  for z_idx in range(im.img.dims.Z)],
-                                 axis = None)
+        all_pix = np.concatenate(
+            [im.get_plane(ch_idx, z_idx).copy() for z_idx in range(im.img.dims.Z)], axis=None
+        )
         LOGGER.debug(f"all_pix is {all_pix.shape} {all_pix.dtype}")
         all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
             np.float32, copy=False
@@ -2009,7 +2004,9 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         try:
             thresh = float(threshold_otsu(img_scaled))
         except Exception as excp:
-            print(f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold")
+            print(
+                f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold"
+            )
             thresh = float(np.median(img_scaled))
 
         fg = img_scaled[img_scaled > thresh]
@@ -2019,8 +2016,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         fbr = (mean_a / mean_b) if mean_b > 0 else 0.0
         channelist.append(fbr if np.isfinite(fbr) else 0.0)
 
-    snrs = np.stack([np.asarray(snr_channels_list),
-                     np.asarray(channelist)])
+    snrs = np.stack([np.asarray(snr_channels_list), np.asarray(channelist)])
 
     # check for non-finites
     snrs = np.nan_to_num(snrs, nan=0.0, posinf=0.0, neginf=0.0)
@@ -2052,11 +2048,12 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
     )
     channvals = channvals.transpose()
-    # for some reason, voxel values are occasionally NaNs (especially edge rows)
-    channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+
+    # for some reason, voxel values are occasionally NaNs (especially edge rows)
+    channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("debug"):
         print("Multichannel dimensions: ", channvals.shape)
@@ -2092,9 +2089,7 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     #     voxelbycluster = voxelbycluster.fit(channvals_random)
     # else:
 
-    voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters")).fit(
-        channvals_random
-    )
+    voxelbycluster = KMeans(n_clusters=options.get("num_voxelclusters")).fit(channvals_random)
 
     if options.get("debug"):
         print("random sample voxel cluster runtime: " + str(time.monotonic() - stime))
@@ -2264,9 +2259,9 @@ def write_ometiff(
     f = [output_dir / (im.get_name() + s[0]), output_dir / (im.get_name() + s[1])]
 
     check_file_exist(f)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(pcaimg, f[0], image_name=im.get_name(), dim_order=pca_dim_order)
-    writer = Writer()
+    writer = OmeTiffWriter()
     writer.save(superpixel, f[1], image_name=im.get_name(), dim_order=superpixel_dim_order)
 
 
@@ -2577,13 +2572,20 @@ def transform_df(df, ignore_column=None):
             continue
 
         df_copy_T = df_copy.transpose()
+        target_dtype = type(i)
+        mapping_array = np.array(range(clusters.max() + 1), dtype=target_dtype)
+        LOGGER.debug(f"mapping_array is {mapping_array.shape} {mapping_array.dtype}")
         for col in match_counter.index:
             LOGGER.debug(f"transform_df i={i} col={col} match_counter[col]={match_counter[col]}")
             if i != match_counter[col]:
-                target_dtype = type(i)
-                mapping = {i: target_dtype(match_counter[col]), target_dtype(match_counter[col]): i}
-                elts_mapped = df_copy_T.loc[col].map(lambda x: mapping.get(x, x))
-                df_copy_T.loc[col] = elts_mapped
+                repl_arr = mapping_array.copy()
+                repl_arr[i] = target_dtype(match_counter[col])
+                repl_arr[target_dtype(match_counter[col])] = i
+                raw_data = df_copy_T.loc[col].values  # view of the underlying numpy array
+                df_copy_T.loc[col] = repl_arr[raw_data]
+            else:
+                LOGGER.debug(f"i = {i} no action")
+            LOGGER.debug(f"transform_df col {col} complete")
         df_copy = df_copy_T.transpose()
 
         drop_rows.append(i)
@@ -3179,9 +3181,9 @@ def cell_analysis(
         if clustercells_shapevectors is not None:
             cluster_vector_dict["K-Means [Shape-Vectors]"] = clustercells_shapevectors
         if clustercells_norm_shapevectors is not None:
-            cluster_vector_dict[
-                "K-Means [Shape-Vectors Normalized]"
-            ] = clustercells_norm_shapevectors
+            cluster_vector_dict["K-Means [Shape-Vectors Normalized]"] = (
+                clustercells_norm_shapevectors
+            )
 
         all_cluster_df = pd.DataFrame(cluster_vector_dict, index=cellidx)
         clusterids_df = cell_cluster_IDs(
@@ -3275,7 +3277,7 @@ def read_options_single(options_path: Path) -> Dict[str, Union[int, str]]:
         for line in f:
             split = line.split()
             if len(split) < 3:
-                (key, value) = split
+                key, value = split
                 value = is_number(value)
                 options[key] = value
             else:
@@ -3414,14 +3416,12 @@ def quality_measures(
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
 
-        #im_data = im.get_data()
-        im_dims = (1, 1,
-                   im.img.dims.C, im.img.dims.Z,
-                   im.img.dims.Y, im.img.dims.X)
+        # im_data = im.get_data()
+        im_dims = (1, 1, im.img.dims.C, im.img.dims.Z, im.img.dims.Y, im.img.dims.X)
 
-        #im_channels = im_data[0, 0, :, bestz, :, :]
-        #print(f"shape info: im_data {im_data.shape}")
-        #print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
+        # im_channels = im_data[0, 0, :, bestz, :, :]
+        # print(f"shape info: im_data {im_data.shape}")
+        # print(f"shape info: im_channels {im_channels.shape} on bestz {bestz}")
         pixels = im_dims[-2] * im_dims[-1]
 
         # Image Quality Metrics that require cell segmentation
@@ -3439,7 +3439,9 @@ def quality_measures(
         total_intensity_cell = im.cache_get("total_intensity_cell")
         total_intensity_nuclei = im.cache_get("total_intensity_nuclei")
         total_intensity_per_chan = np.zeros((im.img.dims.C,))
-        LOGGER.debug(f"total_intensity_cell is {total_intensity_cell.shape} {total_intensity_cell.dtype}")
+        LOGGER.debug(
+            f"total_intensity_cell is {total_intensity_cell.shape} {total_intensity_cell.dtype}"
+        )
         LOGGER.debug(f"total_intensity_cell[0] is a {type(total_intensity_cell[0])}")
         total_intensity_per_chancell = np.zeros((im.img.dims.C,))
         total_intensity_per_chanbg = np.zeros((im.img.dims.C,))
@@ -3524,9 +3526,9 @@ def quality_measures(
             "Channel Statistics"
         ] = dict()
         struct["Image Information"]["Number of Channels"] = len(channels)
-        struct["Image Quality Metrics that require cell segmentation"][
-            "Number of Cells"
-        ] = cell_total[i]
+        struct["Image Quality Metrics that require cell segmentation"]["Number of Cells"] = (
+            cell_total[i]
+        )
         # struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Image Quality Metrics that require cell segmentation"][
             "Fraction of Image Occupied by Cells"
@@ -3747,9 +3749,9 @@ def quality_measures_3D(
             "Channel Statistics"
         ] = dict()
         struct["Image Information"]["Number of Channels"] = len(channels)
-        struct["Image Quality Metrics that require cell segmentation"][
-            "Number of Cells"
-        ] = cell_total[i]
+        struct["Image Quality Metrics that require cell segmentation"]["Number of Cells"] = (
+            cell_total[i]
+        )
         # struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Image Quality Metrics that require cell segmentation"][
             "Fraction of Image Occupied by Cells"
@@ -3822,10 +3824,7 @@ def quality_measures_3D(
 def check_shape(im, mask):
     # put in check here for matching dims
 
-    return (
-        (im.img.dims.X != mask.img.dims.X)
-        or (im.img.dims.Y != mask.img.dims.Y)
-    )
+    return (im.img.dims.X != mask.img.dims.X) or (im.img.dims.Y != mask.img.dims.Y)
 
 
 def reallocate_parallel(im, mask, ichan, options):
@@ -4001,8 +4000,7 @@ def normalize_image(img):
     if neg_count:
         # fail cleanly if we can't adjust the image values
         if img.data is None:
-            raise RuntimeError("Image bias normalization is not supported"
-                               " in min-memory mode")
+            raise RuntimeError("Image bias normalization is not supported" " in min-memory mode")
 
         # get average of negative and set that as the background or 0
         n_avg = -(neg_sum / neg_count)
@@ -4022,9 +4020,7 @@ def normalize_background(im, mask, ROI_coords):
         for i in range(img.shape[2]):
             img_ch = img[0, 0, i, :, :, :]
             bg_pix = ROI_coords[0].background()
-            bg_img_ch = img_ch[
-                bg_pix[0, :], bg_pix[1, :], bg_pix[2, :]
-            ]
+            bg_img_ch = img_ch[bg_pix[0, :], bg_pix[1, :], bg_pix[2, :]]
 
             avg = np.sum(bg_img_ch) / bg_pix.shape[1]
 
@@ -4050,7 +4046,7 @@ def normalize_background(im, mask, ROI_coords):
             elif avg < 1:
                 avg = 1
             print(f"avg for channel {i} is {avg}")
-            im.apply_scale(i, 1.0/avg)
+            im.apply_scale(i, 1.0 / avg)
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
@@ -4068,7 +4064,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_bestz(idx)
         return
     else:
-        if lower_bound == bestz[0] and upper_bound == lower_bound+1:
+        if lower_bound == bestz[0] and upper_bound == lower_bound + 1:
             return  # no change
         else:
             new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
@@ -4322,6 +4318,54 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     return texture, texture_featureNames
 
 
+def solve_svd(mtx_full, numComp, pcaMethod):
+    mtx_full_0 = mtx_full.shape[0]
+    n_samples = int(mtx_full_0)
+    idx = np.arange(mtx_full_0)
+    # try to solve full svd
+    tries = 0
+    while True:
+        try:
+            m = PCA(n_components=numComp, svd_solver=pcaMethod).fit(mtx_full[idx, :])
+            break
+        except Exception as e:
+            LOGGER.info(
+                f"Exception: {e} at try {tries} in solve_svd" f" using {n_samples} of {mtx_full_0}"
+            )
+
+            if tries == 0:
+                m = PCA(n_components=numComp, svd_solver="randomized").fit(mtx_full[idx, :])
+                tries += 1
+            else:
+                LOGGER.info("halving the features in tSNE for PCA fit...")
+                n_samples //= 2
+                idx = np.random.choice(mtx_full_0, n_samples, replace=False)
+
+    return m
+
+
+def solve_tsne(tsne, mtx_full):
+    mtx_full_0 = mtx_full.shape[0]
+    n_samples = int(mtx_full_0)
+    idx = np.arange(mtx_full_0)
+    while True:
+        try:
+            tsne_all_OnlyCell = tsne.fit_transform(mtx_full[idx, :])
+            break
+        except Exception as e:
+            LOGGER.exception(f"Caught exception using {n_samples} of {mtx_full_0}")
+            LOGGER.info("halving dataset in tSNE for tSNE fit...")
+            n_samples //= 2
+            if n_samples == 0:
+                # not much else to do here
+                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
+                tsne_all_OnlyCell = np.zeros((mtx_full_0, tsne.n_components))
+                break
+            idx = np.random.choice(mtx_full_0, n_samples, replace=False)
+
+    return tsne_all_OnlyCell
+
+
 def DR_AllFeatures(
     all_clusters,
     types_list,
@@ -4376,12 +4420,12 @@ def DR_AllFeatures(
 
     LOGGER.debug("DR_AllFeatures point 1")
     if options.get("tSNE_texture_calculation_skip"):
-        matrix_all_OnlyCell_original = np.concatenate(
+        matrix_all_OnlyCell = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape),
             axis=1,
         )
     else:
-        matrix_all_OnlyCell_original = np.concatenate(
+        matrix_all_OnlyCell = np.concatenate(
             (matrix_cov, matrix_total, matrix_meanAll, matrix_shape, matrix_texture),
             axis=1,
         )
@@ -4391,12 +4435,11 @@ def DR_AllFeatures(
         early_exaggeration = float(tsne_ee)
     except ValueError:
         if tsne_ee == "default":
-            early_exaggeration = len(matrix_all_OnlyCell_original) / 10
+            early_exaggeration = len(matrix_all_OnlyCell) / 10
         else:
             raise ValueError(f"Invalid tSNE_all_ee value: {tsne_ee}")
 
     LOGGER.debug("DR_AllFeatures point 2")
-    matrix_all_OnlyCell = matrix_all_OnlyCell_original.copy()
     if cmd == "zscore":
         matrix_all_OnlyCell = np.asarray(matrix_all_OnlyCell, dtype=float)
         matrix_all_OnlyCell = stats.zscore(matrix_all_OnlyCell, axis=0)
@@ -4418,33 +4461,13 @@ def DR_AllFeatures(
         )
 
     LOGGER.debug("DR_AllFeatures point 3")
-    matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # tol
+    matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     if tSNEInitialization == "pca":
-        # try to solve full svd
-        tries = 0
-        while True:
-            try:
-                m = PCA(n_components=numComp, svd_solver=pcaMethod).fit(matrix_all_OnlyCell)
-                break
-            except Exception as e:
-                print(e)
-                print("Exceptions caught: ", tries)
-                if tries == 0:
-                    m = PCA(n_components=numComp, svd_solver="randomized").fit(matrix_all_OnlyCell)
-                    tries += 1
-                else:
-                    print("halving the features in tSNE for PCA fit...")
-                    n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
-                    idx = np.random.choice(
-                        matrix_all_OnlyCell_full.shape[0], n_samples, replace=False
-                    )
-                    matrix_all_OnlyCell = matrix_all_OnlyCell_full[idx, :]
-
-        matrix_all_OnlyCell = m.transform(matrix_all_OnlyCell_full)
+        svd_mtx = solve_svd(matrix_all_OnlyCell, numComp=numComp, pcaMethod=pcaMethod)
+        matrix_all_OnlyCell = svd_mtx.transform(matrix_all_OnlyCell)
 
     LOGGER.debug("DR_AllFeatures point 4")
-    t_matrix_all_OnlyCell_full = matrix_all_OnlyCell.copy()
     # init tSNE
     tsne = TSNE(
         n_components=numComp,
@@ -4456,21 +4479,7 @@ def DR_AllFeatures(
     )
 
     LOGGER.debug("DR_AllFeatures point 5")
-    while True:
-        try:
-            tsne_all_OnlyCell = tsne.fit_transform(matrix_all_OnlyCell)
-            break
-        except Exception as e:
-            print(e)
-            print("halving dataset in tSNE for tSNE fit...")
-            n_samples = int(matrix_all_OnlyCell.shape[0] / 2)
-            if n_samples == 0:
-                # not much else to do here
-                LOGGER.warning("tSNE calculation failed repeatedly. Setting tSNE coordinates to 0")
-                tsne_all_OnlyCell = np.zeros((len(cellidx), numComp))
-                break
-            idx = np.random.choice(t_matrix_all_OnlyCell_full.shape[0], n_samples, replace=False)
-            matrix_all_OnlyCell = t_matrix_all_OnlyCell_full[idx, :]
+    tsne_all_OnlyCell = solve_tsne(tsne, matrix_all_OnlyCell)
 
     # 2D - Scatterplot
     plt.scatter(tsne_all_OnlyCell[:, 0], tsne_all_OnlyCell[:, 1], marker=".")
@@ -4502,8 +4511,7 @@ def DR_AllFeatures(
 
     # umap
     reducer = UMAP()
-    umap_features = matrix_all_OnlyCell_full.copy()
-    umap_embed = reducer.fit_transform(umap_features)
+    umap_embed = reducer.fit_transform(matrix_all_OnlyCell_full)
 
     LOGGER.debug("DR_AllFeatures point 9")
     # 2D umap

@@ -66,9 +66,7 @@ def run(
     # Check if checkpoint already exists
     if CheckpointManager.exists_shape_data(output_dir):
         print(f"Loading existing shape analysis checkpoint from {output_dir}")
-        return CheckpointManager.load_shape_data(
-            CheckpointManager.get_checkpoint_dir(output_dir)
-        )
+        return CheckpointManager.load_shape_data(CheckpointManager.get_checkpoint_dir(output_dir))
 
     print("=" * 60)
     print("SPRM Module 3: Shape Analysis")
@@ -98,9 +96,7 @@ def run(
     )
 
     print(f"Computing shape features using PCA...")
-    shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(
-        outline_vectors, options
-    )
+    shape_vectors, norm_shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
 
     print(f"Shape feature dimensions: {shape_vectors.shape}")
     print(f"Normalized shape feature dimensions: {norm_shape_vectors.shape}")
@@ -163,7 +159,4 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> ShapeData:
     ShapeData: Loaded shape analysis data
     """
     checkpoint_dir = Path(checkpoint_dir)
-    return CheckpointManager.load_shape_data(
-        CheckpointManager.get_checkpoint_dir(checkpoint_dir)
-    )
-
+    return CheckpointManager.load_shape_data(CheckpointManager.get_checkpoint_dir(checkpoint_dir))

@@ -225,10 +225,10 @@ def run(
     print(f"  Cluster range: {n_clusters_range[0]}-{n_clusters_range[1]}")
     print(f"  Method: {clustering_method}")
     print(f"  Shape clustering: {'enabled' if shape_data else 'disabled'}")
+    print(f"  Texture features: {'enabled' if not compat_options['skip_texture'] else 'disabled'}")
     print(
-        f"  Texture features: {'enabled' if not compat_options['skip_texture'] else 'disabled'}"
+        f"  Cell type labels: {'provided' if celltype_labels_df is not None else 'not provided'}"
     )
-    print(f"  Cell type labels: {'provided' if celltype_labels_df is not None else 'not provided'}")
 
     # Initialize list for storing cluster dataframes
     df_all_cluster_list = []
@@ -280,4 +280,3 @@ def run(
         cluster_scores=None,  # Saved to CSV files
         celltype_assignments=celltype_labels_df,
     )
-

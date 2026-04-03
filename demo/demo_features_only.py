@@ -22,6 +22,7 @@ MASK_FILE = Path("mask/mask_demo.tiff")
 OPTIONS_FILE = Path("../sprm/options.txt")
 OUTPUT_DIR = Path("demo_features_only_outputs")
 
+
 def main():
     """Run SPRM pipeline to extract only mean and total features."""
 
@@ -33,10 +34,7 @@ def main():
     print("Step 1/2: Core Preprocessing")
     print("Loading images and extracting ROIs...")
     core = modules.preprocessing.run(
-        img_file=IMG_FILE,
-        mask_file=MASK_FILE,
-        output_dir=OUTPUT_DIR,
-        options=OPTIONS_FILE
+        img_file=IMG_FILE, mask_file=MASK_FILE, output_dir=OUTPUT_DIR, options=OPTIONS_FILE
     )
     num_cells = len(core.interior_cells) + len(core.edge_cells)
     print(f"✓ Extracted {len(core.roi_coords)} ROIs with {num_cells} cells")
@@ -70,4 +68,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

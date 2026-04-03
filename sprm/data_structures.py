@@ -1,9 +1,10 @@
 from __future__ import annotations
-import logging
+
 import itertools
+import logging
 from pathlib import Path
 from sys import getsizeof
-from typing import Dict, Union, Any
+from typing import Any, Dict, Union
 
 import numpy as np
 from bioio import BioImage
@@ -18,16 +19,14 @@ class CellTable:
         assert all([dim == 1 for dim in [s, t, z]]), "bad mask shape"
         plane = mask.get_plane(cidx, 0)[0, :, :]
         indices = np.indices(plane.shape).astype(np.int32)
-        recs = np.rec.fromarrays(
-            [plane, indices[1], indices[0]],
-            names="cellid, x, y")
+        recs = np.rec.fromarrays([plane, indices[1], indices[0]], names="cellid, x, y")
         recs = recs.reshape(-1)
         LOGGER.debug(f"recs is {recs.shape} {recs.dtype}")
         LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])} {np.max(recs['y'])}")
         recs.sort(kind="heapsort", order=["cellid", "y", "x"])
         LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])} {np.max(recs['y'])}")
         entries, counts = np.unique(recs["cellid"], return_counts=True)
-        self.counts= np.stack((entries, counts), axis=1).copy()
+        self.counts = np.stack((entries, counts), axis=1).copy()
         self.vals = np.vstack((recs["y"], recs["x"])).copy()
 
     def __iter__(self):
@@ -35,8 +34,7 @@ class CellTable:
         coord_offset = 0
         while cell_offset < len(self.counts):
             cell_id, cell_sz = self.counts[cell_offset]
-            yield (cell_id,
-                   self.vals[:, coord_offset:coord_offset+cell_sz])
+            yield (cell_id, self.vals[:, coord_offset : coord_offset + cell_sz])
             cell_offset += 1
             coord_offset += cell_sz
 
@@ -61,7 +59,7 @@ class CellTable:
                 yield cell_id, cell_mtx
 
     def background(self):
-        return self.vals[:, 0:self.counts[0][1]]
+        return self.vals[:, 0 : self.counts[0][1]]
 
     def __len__(self):
         return len(self.counts)
@@ -79,17 +77,12 @@ class CellTable:
     @classmethod
     def load(cls, fname: str):
         npzfile = np.load(fname)
-        if ("vals" not in npzfile.files
-            or "counts" not in npzfile.files):
-            raise RuntimeError(
-                f"{fname} is not a {cls.__name__}"
-            )
+        if "vals" not in npzfile.files or "counts" not in npzfile.files:
+            raise RuntimeError(f"{fname} is not a {cls.__name__}")
         inst = cls.__new__(cls)
         inst.vals = npzfile["vals"].copy()
         if inst.vals.shape[0] != 2:
-            raise RuntimeError(
-                f"{fname} has the wrong shape to be a {cls.__name__}"
-            )
+            raise RuntimeError(f"{fname} has the wrong shape to be a {cls.__name__}")
         inst.counts = npzfile["counts"].copy()
         return inst
 
@@ -101,17 +94,21 @@ class CellTable3D:
         vol = mask.get_data()[0, 0, 0, :, :, :]
         indices = np.indices(vol.shape).astype(np.int32)
         recs = np.rec.fromarrays(
-            [vol, indices[2], indices[1], indices[0]],
-            names="cellid, x, y, z")
+            [vol, indices[2], indices[1], indices[0]], names="cellid, x, y, z"
+        )
         recs = recs.reshape(-1)
         LOGGER.debug(f"recs is {recs.shape} {recs.dtype}")
-        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
-                    f" {np.max(recs['y'])} {np.max(recs['z'])}")
+        LOGGER.debug(
+            f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
+            f" {np.max(recs['y'])} {np.max(recs['z'])}"
+        )
         recs.sort(kind="heapsort", order=["cellid", "z", "y", "x"])
-        LOGGER.debug(f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
-                    f" {np.max(recs['y'])} {np.max(recs['z'])}")
+        LOGGER.debug(
+            f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
+            f" {np.max(recs['y'])} {np.max(recs['z'])}"
+        )
         entries, counts = np.unique(recs["cellid"], return_counts=True)
-        self.counts= np.stack((entries, counts), axis=1).copy()
+        self.counts = np.stack((entries, counts), axis=1).copy()
         self.vals = np.vstack((recs["z"], recs["y"], recs["x"])).copy()
 
     def __iter__(self):
@@ -119,8 +116,7 @@ class CellTable3D:
         coord_offset = 0
         while cell_offset < len(self.counts):
             cell_id, cell_sz = self.counts[cell_offset]
-            yield (cell_id,
-                   self.vals[:, coord_offset:coord_offset+cell_sz])
+            yield (cell_id, self.vals[:, coord_offset : coord_offset + cell_sz])
             cell_offset += 1
             coord_offset += cell_sz
 
@@ -145,7 +141,7 @@ class CellTable3D:
                 yield cell_id, cell_mtx
 
     def background(self):
-        return self.vals[:, 0:self.counts[0]]
+        return self.vals[:, 0 : self.counts[0]]
 
     def __len__(self):
         return len(self.counts)
@@ -163,17 +159,12 @@ class CellTable3D:
     @classmethod
     def load(cls, fname: str):
         npzfile = np.load(fname)
-        if ("vals" not in npzfile.files
-            or "counts" not in npzfile.files):
-            raise RuntimeError(
-                f"{fname} is not a {cls.__name__}"
-            )
+        if "vals" not in npzfile.files or "counts" not in npzfile.files:
+            raise RuntimeError(f"{fname} is not a {cls.__name__}")
         inst = cls.__new__(cls)
         inst.vals = npzfile["vals"].copy()
         if inst.vals.shape[0] != 3:
-            raise RuntimeError(
-                f"{fname} has the wrong shape to be a {cls.__name__}"
-            )
+            raise RuntimeError(f"{fname} has the wrong shape to be a {cls.__name__}")
         inst.counts = npzfile["counts"].copy()
         return inst
 
@@ -196,8 +187,8 @@ class IMGstruct:
         self.channel_labels = self.read_channel_names()
         self.channel_dict = {name: idx for idx, name in enumerate(self.channel_labels)}
         self.cached_data = {}
-        
-    def cache_set(self, key: str, val: Any)-> None:
+
+    def cache_set(self, key: str, val: Any) -> None:
         if isinstance(val, np.ndarray):
             LOGGER.info(f"size of cached object <{key}> is {getsizeof(val)} {val.nbytes}")
         else:
@@ -492,7 +483,7 @@ class MaskStruct(IMGstruct):
 
 class DiskIMGstruct(IMGstruct):
 
-    def __init__(self, path:Path, options):
+    def __init__(self, path: Path, options):
         self.img = self.read_img(path, options)
         self.data = None
         self.path = path
@@ -506,20 +497,21 @@ class DiskIMGstruct(IMGstruct):
         LOGGER.debug(f"scale_factors: {self.scale_factors}")
 
     def get_data(self):
-        raise(NotImplementedError("Disk-based images are a work in progress!"))
+        raise (NotImplementedError("Disk-based images are a work in progress!"))
 
     def get_plane(self, channel: Union[int, str], slice: int) -> np.ndarray:
         if isinstance(channel, str):
             ch_idx = self.channel_dict[channel]
             LOGGER.debug(f"Accessing {channel} -> {ch_idx} {slice} from dims {self.img.dims}")
-            return self.scale_factors[ch_idx] * self.img.get_image_dask_data("ZYX", T=0, C=ch_idx, Z=[slice]).compute().astype(np.float32)
+            return self.scale_factors[ch_idx] * self.img.get_image_dask_data(
+                "ZYX", T=0, C=ch_idx, Z=[slice]
+            ).compute().astype(np.float32)
         else:
             ch_name = self.img.channel_names[channel]
             LOGGER.debug(f"Accessing {channel} ({ch_name}) {slice} dims {self.img.dims}")
-            return (self.scale_factors[channel]
-                    * self.img.get_image_dask_data(
-                        "ZYX", T=0, C=channel, Z=[slice]
-                    ).compute().astype(np.float32))
+            return self.scale_factors[channel] * self.img.get_image_dask_data(
+                "ZYX", T=0, C=channel, Z=[slice]
+            ).compute().astype(np.float32)
 
     def apply_scale(self, channel: Union[int, str], factor: float) -> None:
         if factor == 1.0:
@@ -530,4 +522,3 @@ class DiskIMGstruct(IMGstruct):
             ch_idx = channel
         LOGGER.debug(f"scaling channel {ch_idx} by {factor}")
         self.scale_factors[ch_idx] *= factor
-

@@ -19,7 +19,7 @@ from ..SPRM_pkg import (
     reallocate_and_merge_intensities,
     save_all,
 )
-from .checkpoint_manager import CheckpointManager, CellFeatures, CoreData, ShapeData
+from .checkpoint_manager import CellFeatures, CheckpointManager, CoreData, ShapeData
 
 
 def run(
@@ -144,9 +144,7 @@ def run(
     if compute_texture:
         print("Computing GLCM texture features...")
         print(f"  Angles: {glcm_angles}, Distances: {glcm_distances}")
-        textures = glcmProcedure(
-            im, mask, output_dir, baseoutputfilename, roi_coords, options
-        )
+        textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, roi_coords, options)
         print(f"  Texture matrix shape: {textures[0].shape}")
     else:
         print("Skipping texture computation (using zeros)")
@@ -165,8 +163,7 @@ def run(
             )
             df.index.name = "ID"
             df.to_csv(
-                output_dir
-                / (baseoutputfilename + "-" + mask.channel_labels[i] + "_1_texture.csv")
+                output_dir / (baseoutputfilename + "-" + mask.channel_labels[i] + "_1_texture.csv")
             )
 
     # Initialize feature matrices
@@ -181,7 +178,10 @@ def run(
         for j in range(0, mask.get_data().shape[2]):
             masked_imgs_coord = roi_coords[j]
             # Filter to only interior cells
-            masked_imgs_coord = [cell_mtx for cell_idx, cell_mtx in masked_imgs_coord.subset_iter(set(interior_cells))]
+            masked_imgs_coord = [
+                cell_mtx
+                for cell_idx, cell_mtx in masked_imgs_coord.subset_iter(set(interior_cells))
+            ]
 
             # Build matrices for this mask channel
             covar_matrix = build_matrix(im, mask, len(masked_imgs_coord), j, covar_matrix)
@@ -277,4 +277,3 @@ def load_checkpoint(checkpoint_dir: Union[Path, str]) -> CellFeatures:
     return CheckpointManager.load_cell_features(
         CheckpointManager.get_checkpoint_dir(checkpoint_dir)
     )
-
