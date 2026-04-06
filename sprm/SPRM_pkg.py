@@ -2471,7 +2471,7 @@ def cell_subtype_assignment(
         subtype_columns.append(cn)
 
         # add to cell_cluster csv
-        clusters_df[cn] = 0
+        clusters_df[cn] = ""
         mask = (matched.T > thresh).T
 
         for j, indices in enumerate(idxs):
