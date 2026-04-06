@@ -801,7 +801,7 @@ def nb_populate_dict(cell_num, cell_num_idx):
     return d
 
 
-def get_coordinates(mask, options):
+def get_coordinates(mask: MaskStruct, options):
     channel_coords = []
     # channel_coords_np = []
     LOGGER.debug("Entering get_coordinates")
@@ -812,6 +812,7 @@ def get_coordinates(mask, options):
     cell_num = np.unique(mask_data)
     maxvalue = len(cell_num)
     mask.set_cell_index(cell_num[1:])
+    mask.all_cells = cell_num[1:].copy()
 
     if maxvalue - 1 != np.max(mask_data):
         LOGGER.debug("Conditional block start")
@@ -1141,8 +1142,8 @@ def AdjacencyMatrix_3D(
         output_dir / (baseoutputfilename + "_AdjacencyMatrix_avg.mtx"), adjmatrix_avg_csr
     )
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
-        for i in range(numCells):
-            print(i, file=f)
+        for cell in mask.all_cells:
+            print(cell, file=f)
 
     return adjacencyMatrix_csr, dict(cellGraph)
 
@@ -1388,8 +1389,8 @@ def AdjacencyMatrix(
         output_dir / (baseoutputfilename + "_AdjacencyMatrix_avg.mtx"), adjmatrix_avg_csr
     )
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
-        for i in range(numCells):
-            print(i, file=f)
+        for cell in mask.all_cells:
+            print(cell, file=f)
 
     LOGGER.debug("AdjacencyMatrix end")
     return adjacencyMatrix_csr, dict(cellGraph)
