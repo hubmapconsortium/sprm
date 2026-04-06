@@ -47,7 +47,7 @@ outputs:
     type: Directory
     label: "SPRM output"
   sdata_zarrs:
-    outputSource: create_spatial_data/sdata_zarr
+    outputSource: create_spatial_data/sdata_zarrs
     type: Directory[]
 
 steps:
