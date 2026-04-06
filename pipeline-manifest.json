@@ -480,7 +480,7 @@
 		"edam_ontology_term": "EDAM_1.24.format_3752"
 	},
 	{
-		"pattern": "sprm_output.zarr/",
+		"pattern": "*sprm_output.zarr/",
 		"description": "Zarr store containing serialized SpatialData object",
 		"edam_ontology_term": "EDAM_1.24.format_4006",
 		"is_data_product":  true
