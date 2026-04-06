@@ -105,7 +105,7 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     adjacency_matrix_labels_path = sprm_dir / Path(f"{expr_img_path.name}_AdjacencyMatrixRowColLabels.txt")
 
     adjacency_matrix = load_adjacency_matrix_and_labels(adjacency_matrix_path, adjacency_matrix_labels_path, adata)
-    #adata.obsp['adjacency_matrix'] = adjacency_matrix
+    adata.obsp['adjacency_matrix'] = adjacency_matrix
 
     tsne_csv = sprm_dir / Path(f"{expr_img_path.name}-tSNE_allfeatures.csv")
 
