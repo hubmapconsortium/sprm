@@ -21,6 +21,8 @@ desired_pixel_size_for_pyramid = 250
 def load_adjacency_matrix_and_labels(
     adjacency_file: Path, label_file: Path, adata: anndata.AnnData
 ):
+    print(adjacency_file)
+    print(label_file)
     adjacency_matrix = mmread(adjacency_file).tocsc()
     labels = pd.read_csv(
         label_file, header=None, names=["cell_id"], delim_whitespace=True
@@ -100,10 +102,9 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     for column in cluster_df.columns:
         adata.obs[column] = cluster_df[column]
 
-    adjacency_matrix_path = sprm_dir / Path(f"{expr_img_path.name}-AdjacencyMatrix.mtx")
+    adjacency_matrix_path = sprm_dir / Path(f"{expr_img_path.name}_AdjacencyMatrix.mtx")
 
-    adjacency_matrix_labels_path = sprm_dir / Path(f"{expr_img_path.name}-AdjacencyMatrixRowColLabels.txt")
-
+    adjacency_matrix_labels_path = sprm_dir / Path(f"{expr_img_path.name}_AdjacencyMatrixRowColLabels.txt")
 
     adjacency_matrix = load_adjacency_matrix_and_labels(adjacency_matrix_path, adjacency_matrix_labels_path, adata)
     adata.obsp['adjacency_matrix'] = adjacency_matrix
@@ -126,10 +127,10 @@ def main(
 ):
     expr_image_paths = find_ome_tiffs(img_dir)
     for expr_image in expr_image_paths:
-        expr_img, scale_factors = read_expr_img(img_dir, num_dims)
-        mask_path = mask_dir / expr_image.name.replace("_expr","_mask")
+        expr_img, scale_factors = read_expr_img(expr_image, num_dims)
+        mask_path = mask_dir / expr_image.name.replace("expr","mask")
         mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
-        table = read_table(sprm_dir)
+        table = read_table(sprm_dir, expr_image)
 
         sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, table=table)
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
