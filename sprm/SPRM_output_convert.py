@@ -47,21 +47,20 @@ def sanitize_column_names(df:pd.DataFrame)->pd.DataFrame:
         df = df.drop(column, axis=1, inplace=False)
     return df
 
-def find_ome_tiff(directory: Path)->Path:
-    return find_file(directory, "*.ome.tif*")
+def find_ome_tiffs(directory: Path)->Path:
+    return find_files(directory, "*.ome.tif*")
 
-def find_file(directory: Path, pattern:str) -> Path:
+def find_files(directory: Path, pattern:str) -> Path:
     for dirpath_str, dirnames, filenames in walk(directory):
         dirpath = Path(dirpath_str)
         for filename in filenames:
             filepath = dirpath / filename
             if filepath.match(pattern):
-                return filepath
+                yield filepath
 
-def read_expr_img(img_dir:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3DModel], Tuple]:
+def read_expr_img(expr_img_path:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3DModel], Tuple]:
 
     model_dict = {2:Image2DModel, 3:Image3DModel}
-    expr_img_path = find_ome_tiff(img_dir)
     image = BioImage(expr_img_path)
     image_data_squeezed = image.data.squeeze()
     image_scale_factors = (2,) * ceil(
@@ -70,20 +69,19 @@ def read_expr_img(img_dir:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3D
     model = model_dict[num_dims]
     return model.parse(image_data_squeezed, c_coords=image.channel_names, scale_factors=image_scale_factors), image_scale_factors
 
-def read_mask_img(mask_dir:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
+def read_mask_img(mask_path:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
     model_dict = {2:Labels2DModel, 3:Labels3DModel}
-    mask_img_path = find_ome_tiff(mask_dir)
-    bioimage = BioImage(mask_img_path)
+    bioimage = BioImage(mask_path)
     mask_channel_names = bioimage.channel_names
-    mask_img_arr = tifffile.imread(mask_img_path)
+    mask_img_arr = tifffile.imread(mask_path)
     model = model_dict[num_dims]
     mask_dict = {}
     for i in range(len(mask_channel_names)):
         mask_dict[mask_channel_names[i]] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
     return mask_dict
 
-def read_table(sprm_dir)->TableModel:
-    mean_csv = find_file(sprm_dir, '*cell_channel_mean.csv')
+def read_table(sprm_dir, expr_img_path)->TableModel:
+    mean_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_mean.csv")
     mean_df = pd.read_csv(mean_csv)
     features = list(mean_df.columns)[1:]
     observations = list(mean_df.ID)
@@ -92,22 +90,26 @@ def read_table(sprm_dir)->TableModel:
     x = mean_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata = anndata.AnnData(X=x, obs=obs, var=var)
 
-    total_csv = find_file(sprm_dir, '*cell_channel_total.csv')
+    total_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_total.csv")
     total_df = pd.read_csv(total_csv)
     adata.layers["total"] = total_df.drop("ID", axis =1, inplace=False).to_numpy()
     
-    cluster_csv = find_file(sprm_dir, '*cell_cluster.csv')
+    cluster_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_cluster.csv")
+
     cluster_df = pd.read_csv(cluster_csv).set_index('ID',drop=True, inplace=False)
     for column in cluster_df.columns:
         adata.obs[column] = cluster_df[column]
 
-    adjacency_matrix_path = find_file(sprm_dir, "*AdjacencyMatrix.mtx")
-    adjacency_matrix_labels_path = find_file(sprm_dir, '*AdjacencyMatrixRowColLabels.txt')
+    adjacency_matrix_path = sprm_dir / Path(f"{expr_img_path.name}-AdjacencyMatrix.mtx")
+
+    adjacency_matrix_labels_path = sprm_dir / Path(f"{expr_img_path.name}-AdjacencyMatrixRowColLabels.txt")
+
 
     adjacency_matrix = load_adjacency_matrix_and_labels(adjacency_matrix_path, adjacency_matrix_labels_path, adata)
     adata.obsp['adjacency_matrix'] = adjacency_matrix
 
-    tsne_csv = find_file(sprm_dir, "*tSNE_allfeatures.csv")
+    tsne_csv = sprm_dir / Path(f"{expr_img_path.name}-tSNE_allfeatures.csv")
+
     tsne_df = pd.read_csv(tsne_csv)
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
@@ -122,12 +124,15 @@ def main(
     sprm_dir: Path,
     num_dims: int,
 ):
-    expr_img, scale_factors = read_expr_img(img_dir, num_dims)
-    mask_img_dict = read_mask_img(mask_dir, num_dims, scale_factors)
-    table = read_table(sprm_dir)
+    expr_image_paths = find_ome_tiffs(img_dir)
+    for expr_image in expr_image_paths:
+        expr_img, scale_factors = read_expr_img(img_dir, num_dims)
+        mask_path = mask_dir / expr_image.name.replace("_expr","_mask")
+        mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
+        table = read_table(sprm_dir)
 
-    sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, table=table)
-    sdata.write("sprm_output.zarr")
+        sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, table=table)
+        sdata.write(f"{expr_image.stem}_sprm_output.zarr")
 
 
 p = ArgumentParser()

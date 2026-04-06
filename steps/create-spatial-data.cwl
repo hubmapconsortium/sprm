@@ -32,7 +32,7 @@ inputs:
       prefix: "--num-dims"
 
 outputs:
-  sdata_zarr:
-    type: Directory
+  sdata_zarrs:
+    type: Directory[]
     outputBinding:
-      glob: sprm_output.zarr
+      glob: "*sprm_output.zarr"

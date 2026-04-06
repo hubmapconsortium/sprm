@@ -8,8 +8,6 @@ RUN apt-get update \
     python3-pip\
  && rm -rf /var/cache/apt/*
 
-COPY sprm/SPRM_output_convert.py /opt
-
 COPY docker/spatialdata-conversion/requirements.txt /opt/requirements.txt
 RUN pip3 install -r /opt/requirements.txt \
  && rm -rf /root/.cache/pip
@@ -21,6 +19,8 @@ RUN cd sprm \
  && python3 -m pip install . \
  && cd .. \
  && rm -rf sprm /root/cache/.pip
+
+COPY sprm/SPRM_output_convert.py /opt
 
 ENV OPENBLAS_NUM_THREADS=64
 

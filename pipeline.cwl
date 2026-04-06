@@ -46,9 +46,9 @@ outputs:
     outputSource: sprm/output_dir
     type: Directory
     label: "SPRM output"
-  sdata_zarr:
+  sdata_zarrs:
     outputSource: create_spatial_data/sdata_zarr
-    type: Directory
+    type: Directory[]
 
 steps:
   ome_tiff_normalize_expr:
@@ -100,6 +100,6 @@ steps:
         source: sprm/output_dir
       num_dims:
         source: num_dims
-    out: [sdata_zarr]
+    out: [sdata_zarrs]
     run: steps/create-spatial-data.cwl
     label: "Conversion to spatialdata format"
