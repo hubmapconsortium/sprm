@@ -84,11 +84,16 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     mean_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_mean.csv")
     mean_df = pd.read_csv(mean_csv)
     features = list(mean_df.columns)[1:]
-    observations = list(mean_df.ID)
+    observations = [int(i) for i in list(mean_df.ID)]
     var = pd.DataFrame(index=features)
     obs = pd.DataFrame(index=observations)
     x = mean_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata = anndata.AnnData(X=x, obs=obs, var=var)
+
+    adata.obs.index = [int(i) for i in adata.obs.index]
+    adata.obs['cell_id'] = adata.obs.index
+    adata.obs['region'] = 'cells'
+    adata.uns['spatialdata_attrs'] = {'instance_key': 'cell_id', 'region': 'cells', 'region_key': 'region'}
 
     total_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_total.csv")
     total_df = pd.read_csv(total_csv)
