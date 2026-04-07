@@ -23,7 +23,7 @@ def load_adjacency_matrix_and_labels(
 ):
     adjacency_matrix = mmread(adjacency_file).tocsc()
     labels = pd.read_csv(
-        label_file, header=None, names=["cell_id"], delim_whitespace=True
+        label_file, header=None, names=["cell_id"], sep=r'\s+'
     )
 
     adata_cell_ids = adata.obs.index.astype(int).to_list()

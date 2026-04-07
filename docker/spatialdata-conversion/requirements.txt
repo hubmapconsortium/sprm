@@ -1,5 +1,5 @@
-anndata
+anndata==0.12.5
 bioio
 bioio-ome-tiff
 bioio-tifffile
-spatialdata==0.4.0
+spatialdata==0.7.2
