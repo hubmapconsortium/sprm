@@ -120,10 +120,10 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
-    print(adata.obs.columns)
     adata.obs = sanitize_column_names(adata.obs)
-    print(adata.obs.columns)
-
+    for column in adata.obs.columns:
+        if column not in {'cell_id'}:
+            adata.obs[column] = adata.obs[column].astype('category')
     return TableModel.parse(adata)
 
 def main(
