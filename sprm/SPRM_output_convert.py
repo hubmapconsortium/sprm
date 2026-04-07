@@ -42,6 +42,8 @@ def load_adjacency_matrix_and_labels(
 
 def sanitize_column_names(df:pd.DataFrame)->pd.DataFrame:
     for column in df.columns:
+        if '[' not in column and ' ' not in column:
+            continue
         sanitized_column = column.replace('[', '').replace(']', '').replace(' ', '-')
         df[sanitized_column] = df[column]
         df = df.drop(column, axis=1, inplace=False)
@@ -118,7 +120,9 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
+    print(adata.obs.columns)
     adata.obs = sanitize_column_names(adata.obs)
+    print(adata.obs.columns)
 
     return TableModel.parse(adata)
 
