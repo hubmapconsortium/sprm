@@ -139,7 +139,7 @@ def main(
         mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
         table = read_table(sprm_dir, expr_image)
 
-        sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, table=table)
+        sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, tables={'table':table})
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
 
 
