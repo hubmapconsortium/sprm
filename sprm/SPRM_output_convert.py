@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+
+import anndata
+import pandas as pd
+import spatialdata
+import tifffile
+from argparse import ArgumentParser
+from pathlib import Path
+from typing import Union, Dict, Tuple
+from scipy.io import mmread
+from os import walk
+
+from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels3DModel, PointsModel, TableModel
+from bioio import BioImage
+
+from math import ceil, log2
+
+desired_pixel_size_for_pyramid = 250
+
+
+def load_adjacency_matrix_and_labels(
+    adjacency_file: Path, label_file: Path, adata: anndata.AnnData
+):
+    adjacency_matrix = mmread(adjacency_file).tocsc()
+    labels = pd.read_csv(
+        label_file, header=None, names=["cell_id"], sep=r'\s+'
+    )
+
+    adata_cell_ids = adata.obs.index.astype(int).to_list()
+    filtered_labels = labels[labels["cell_id"].isin(adata_cell_ids)]
+    filtered_cell_ids = filtered_labels["cell_id"].values
+
+    label_to_index_map = pd.Series(
+        labels.index.values, index=labels["cell_id"].astype(int)
+    )
+    filtered_indices = label_to_index_map[filtered_cell_ids].values
+
+    # Adjust indices to fit the zero-based indexing
+    adjusted_indices = filtered_indices - 1
+    filtered_matrix = adjacency_matrix[adjusted_indices, :][:, adjusted_indices]
+    return filtered_matrix
+
+def sanitize_column_names(df:pd.DataFrame)->pd.DataFrame:
+    for column in df.columns:
+        if '[' not in column and ' ' not in column:
+            continue
+        sanitized_column = column.replace('[', '').replace(']', '').replace(' ', '-')
+        df[sanitized_column] = df[column]
+        df = df.drop(column, axis=1, inplace=False)
+    return df
+
+def find_ome_tiffs(directory: Path)->Path:
+    return find_files(directory, "*.ome.tif*")
+
+def find_files(directory: Path, pattern:str) -> Path:
+    for dirpath_str, dirnames, filenames in walk(directory):
+        dirpath = Path(dirpath_str)
+        for filename in filenames:
+            filepath = dirpath / filename
+            if filepath.match(pattern):
+                yield filepath
+
+def read_expr_img(expr_img_path:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3DModel], Tuple]:
+
+    model_dict = {2:Image2DModel, 3:Image3DModel}
+    image = BioImage(expr_img_path)
+    image_data_squeezed = image.data.squeeze()
+    image_scale_factors = (2,) * ceil(
+        log2(max(image_data_squeezed.shape[1:]) / desired_pixel_size_for_pyramid)
+    )
+    model = model_dict[num_dims]
+    return model.parse(image_data_squeezed, c_coords=image.channel_names, scale_factors=image_scale_factors), image_scale_factors
+
+def read_mask_img(mask_path:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
+    model_dict = {2:Labels2DModel, 3:Labels3DModel}
+    bioimage = BioImage(mask_path)
+    mask_channel_names = bioimage.channel_names
+    mask_img_arr = tifffile.imread(mask_path)
+    model = model_dict[num_dims]
+    mask_dict = {}
+    for i in range(len(mask_channel_names)):
+        mask_dict[mask_channel_names[i]] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
+    return mask_dict
+
+def read_table(sprm_dir, expr_img_path)->TableModel:
+    mean_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_mean.csv")
+    mean_df = pd.read_csv(mean_csv)
+    features = list(mean_df.columns)[1:]
+    observations = [int(i) for i in list(mean_df.ID)]
+    var = pd.DataFrame(index=features)
+    obs = pd.DataFrame(index=observations)
+    x = mean_df.drop('ID', axis=1, inplace=False).to_numpy()
+    adata = anndata.AnnData(X=x, obs=obs, var=var)
+
+    adata.obs.index = [int(i) for i in adata.obs.index]
+    adata.obs['cell_id'] = adata.obs.index
+    adata.obs['region'] = 'cells'
+    adata.uns['spatialdata_attrs'] = {'instance_key': 'cell_id', 'region': 'cells', 'region_key': 'region'}
+
+    total_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_total.csv")
+    total_df = pd.read_csv(total_csv)
+    adata.layers["total"] = total_df.drop("ID", axis =1, inplace=False).to_numpy()
+    
+    cluster_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_cluster.csv")
+
+    cluster_df = pd.read_csv(cluster_csv).set_index('ID',drop=True, inplace=False)
+    for column in cluster_df.columns:
+        adata.obs[column] = cluster_df[column]
+
+    adjacency_matrix_path = sprm_dir / Path(f"{expr_img_path.name}_AdjacencyMatrix.mtx")
+
+    adjacency_matrix_labels_path = sprm_dir / Path(f"{expr_img_path.name}_AdjacencyMatrixRowColLabels.txt")
+
+    adjacency_matrix = load_adjacency_matrix_and_labels(adjacency_matrix_path, adjacency_matrix_labels_path, adata)
+    adata.obsp['adjacency_matrix'] = adjacency_matrix
+
+    tsne_csv = sprm_dir / Path(f"{expr_img_path.name}-tSNE_allfeatures.csv")
+
+    tsne_df = pd.read_csv(tsne_csv)
+    tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
+    adata.obsm["tSNE"] = tsne_coords
+
+    adata.obs = sanitize_column_names(adata.obs)
+    for column in adata.obs.columns:
+        if column not in {'cell_id'}:
+            adata.obs[column] = adata.obs[column].astype('category')
+    return TableModel.parse(adata)
+
+def main(
+    img_dir: Path,
+    mask_dir: Path,
+    sprm_dir: Path,
+    num_dims: int,
+):
+    expr_image_paths = find_ome_tiffs(img_dir)
+    for expr_image in expr_image_paths:
+        expr_img, scale_factors = read_expr_img(expr_image, num_dims)
+        mask_path = mask_dir / expr_image.name.replace("expr","mask")
+        mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
+        table = read_table(sprm_dir, expr_image)
+
+        sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, tables={'table':table})
+        sdata.write(f"{expr_image.stem}_sprm_output.zarr")
+
+
+p = ArgumentParser()
+p.add_argument("--img-dir", type=Path, required=True)
+p.add_argument("--mask-dir", type=Path, required=True)
+p.add_argument("--sprm-dir", type=Path, required=True)
+p.add_argument("--num-dims", type=int, required=True)
+
+args = p.parse_args()
+
+
+main(
+    img_dir=args.img_dir,
+    mask_dir=args.mask_dir,
+    sprm_dir=args.sprm_dir,
+    num_dims=args.num_dims,
+
+)

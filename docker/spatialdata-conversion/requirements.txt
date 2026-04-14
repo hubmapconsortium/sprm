@@ -1,0 +1,11 @@
+anndata==0.12.7
+bioio
+bioio-ome-tiff
+bioio-tifffile
+dask==2025.12.0
+ome-zarr==0.13.0
+spatialdata==0.7.2
+xarray==2025.12.0
+xarray-spatial==0.5.3
+zarr==3.1.5
+

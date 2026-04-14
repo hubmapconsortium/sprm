@@ -347,6 +347,9 @@ class MaskStruct(IMGstruct):
         self.interior_cells = []
         self.edge_cells = []
         self.cell_index = []
+        # Distinct from cell_index, which is updated to only include cell IDs
+        # that are usable for analysis
+        self.all_cells = []
         self.bad_cells = set()
         self.ROI = []
 
