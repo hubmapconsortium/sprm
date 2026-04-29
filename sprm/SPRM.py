@@ -169,9 +169,9 @@ def analysis(
     seg_metrics = None
     if eval_pathway:
         if options.get("image_dimension") == "3D":
-            seg_metrics = single_method_eval_3D(im, mask, output_dir)
+            seg_metrics = single_method_eval_3D(im, mask, output_dir, options)
         else:
-            seg_metrics = single_method_eval(im, mask, output_dir)
+            seg_metrics = single_method_eval(im, mask, output_dir, options)
         if eval_pathway == 1:
             # only perform evaluation on single segmentation method
             struct = {"Segmentation Evaluation Metrics v1.5": seg_metrics}

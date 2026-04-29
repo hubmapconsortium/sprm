@@ -11,11 +11,11 @@ from scipy import interpolate, stats
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
 from skimage import measure
-from sklearn.metrics import pairwise_distances_argmin_min, silhouette_score
+from sklearn.metrics import pairwise_distances_argmin_min
 
 from .constants import figure_save_params
 from .data_structures import MaskStruct
-from .wrapped_functions import PCA, KMeans
+from .wrapped_functions import PCA, KMeans, bounded_silhouette_score
 
 """
 
@@ -43,7 +43,7 @@ def shape_cluster(cell_matrix, typelist, all_clusters, s, options, output_dir, i
             preds = cellbycluster.fit_predict(cell_matrix)
             cluster_list.append(cellbycluster)
 
-            score = silhouette_score(cell_matrix, preds)
+            score = bounded_silhouette_score(cell_matrix, preds, options)
             cluster_score.append(score)
 
         max_value = max(cluster_score)
@@ -248,7 +248,7 @@ def pca_cluster_shape(features, polyg, output_dir, options):
 def kmeans_cluster_shape(shape_vector, outline_vectors, output_dir, options):
     fig = plt.figure()
     num_cluster, kmeans_labels, cluster_centers = get_silhouette_score(
-        shape_vector, "PCs-outlines-cluster-silhouette-scores", output_dir
+        shape_vector, "PCs-outlines-cluster-silhouette-scores", output_dir, options
     )
     # rgb
     phi = np.linspace(0, 2 * np.pi, num_cluster + 1)
@@ -822,7 +822,7 @@ def showshapesbycluster(mask, nseg, cellbycluster, filename):
         plt.savefig(f"{filename}-cellshapescluster{k}.pdf", **figure_save_params)
 
 
-def get_silhouette_score(d, s, o):
+def get_silhouette_score(d, s, o, options):
     n = np.arange(2, 11)
     silhouette_avg = []
     for num_clusters in n:
@@ -832,7 +832,7 @@ def get_silhouette_score(d, s, o):
         cluster_labels = kmeans.labels_
 
         # silhouette score
-        silhouette_avg.append(silhouette_score(d, cluster_labels))
+        silhouette_avg.append(bounded_silhouette_score(d, cluster_labels, options))
 
     plt.plot(n, silhouette_avg, "bx-")
     plt.xlabel("Number of Clusters")

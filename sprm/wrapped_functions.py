@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans as KMeans_raw
 # from sklearn.cluster import MiniBatchKMeans as KMeans_raw
 from sklearn.decomposition import PCA as PCA_raw
 from sklearn.manifold import TSNE as TSNE_raw
+from sklearn.metrics import silhouette_score as silhouette_score_raw
 from umap import UMAP as UMAP_raw
 
 LOGGER = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ ADDL_OPTS = frozendict()
 UMAP_ADDL_OPTS = ADDL_OPTS
 PCA_ADDL_OPTS = ADDL_OPTS
 KMEANS_ADDL_OPTS = ADDL_OPTS
+SILHOUETTE_ADDL_OPTS = ADDL_OPTS
 
 
 def UMAP(*argv, **argc):
@@ -87,3 +89,24 @@ def TSNE(*argv, **argc):
     my_argc = dict(KMEANS_ADDL_OPTS)
     my_argc.update(argc)
     return TSNE_raw(*argv, **my_argc)
+
+
+def silhouette_score(x, labels, *argv, **argc):
+    my_argc = dict(SILHOUETTE_ADDL_OPTS)
+    my_argc.update(argc)
+    LOGGER.debug(f"silhouette_score begin {x.shape} {x.dtype}")
+    rslt = silhouette_score_raw(x, labels, *argv, **my_argc)
+    LOGGER.debug(f"silhouette_score end: {rslt}")
+    return rslt
+
+
+def bounded_silhouette_score(cell_matrix, preds, options):
+    """
+    Run silhouette_score, restricting the number of samples if the value
+    specified in options is less than the input matrix length.
+    """
+    max_samples = options.get("silhouette_max_samples", None)
+    if max_samples and max_samples < cell_matrix.shape[0]:
+        return silhouette_score(cell_matrix, preds, sample_size=max_samples)
+    else:
+        return silhouette_score(cell_matrix, preds)

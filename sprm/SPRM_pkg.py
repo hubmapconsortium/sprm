@@ -42,7 +42,6 @@ from scipy.spatial import KDTree
 from skimage.feature.texture import graycomatrix, graycoprops
 from skimage.filters import threshold_otsu
 from sklearn.decomposition import NMF
-from sklearn.metrics import silhouette_score
 
 from .constants import FILENAMES_TO_IGNORE, INTEGER_PATTERN, figure_save_params
 from .data_structures import (
@@ -54,7 +53,7 @@ from .data_structures import (
 )
 from .ims_sparse_allchan import findpixelfractions
 from .ims_sparse_allchan import reallocateIMS as reallo
-from .wrapped_functions import PCA, TSNE, UMAP, KMeans
+from .wrapped_functions import PCA, TSNE, UMAP, KMeans, bounded_silhouette_score
 
 """
 
@@ -572,7 +571,7 @@ def cell_cluster(
                 cluster_list.append(cellbycluster)
 
                 try:
-                    score = silhouette_score(cell_matrix, preds)
+                    score = bounded_silhouette_score(cell_matrix, preds, options)
                 except ValueError as e:
                     LOGGER.exception("silhouette_score failed")
                     score = -math.inf
@@ -2080,7 +2079,7 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     #         preds = voxelbycluster.fit_predict(channvals_random)
     #         cluster_list.append(voxelbycluster)
     #
-    #         score = silhouette_score(channvals_random, preds)
+    #         score = bounded_silhouette_score(channvals_random, preds, options)
     #         cluster_score.append(score)
     #
     #     max_value = max(cluster_score)
