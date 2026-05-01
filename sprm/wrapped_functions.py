@@ -100,13 +100,27 @@ def silhouette_score(x, labels, *argv, **argc):
     return rslt
 
 
+def _silhouette_scaled_sample_count(cell_matrix, options):
+    """
+    Return the number of samples to use for silhouette_score, based on the
+    value specified in options and the input matrix length.
+    """
+    n0 = options.get("silhouette_sample_break", None)
+    if not n0 or n0 >= cell_matrix.shape[0]:
+        return None  # no need to restrict samples
+    else:
+        alpha = 1.0/(1.0 + cell_matrix.shape[0] - n0)
+        n = ((alpha * cell_matrix.shape[0])
+             + (1.0 - alpha) * (n0 + np.sqrt(float(cell_matrix.shape[0] - n0))))
+        return int(n)
+
+
 def bounded_silhouette_score(cell_matrix, preds, options):
     """
     Run silhouette_score, restricting the number of samples if the value
     specified in options is less than the input matrix length.
     """
-    max_samples = options.get("silhouette_max_samples", None)
-    if max_samples and max_samples < cell_matrix.shape[0]:
-        return silhouette_score(cell_matrix, preds, sample_size=max_samples)
+    if n_samples := _silhouette_scaled_sample_count(cell_matrix, options):
+        return silhouette_score(cell_matrix, preds, sample_size=n_samples)
     else:
         return silhouette_score(cell_matrix, preds)
