@@ -38,4 +38,4 @@ adj_matrix_delta 3
 image_dimension 2D
 apng_delay 100
 subtype_thresh 0.1
-silhouette_max_samples 100000
+silhouette_samples_break 50000
