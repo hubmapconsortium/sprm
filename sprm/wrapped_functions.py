@@ -1,6 +1,7 @@
 import logging
 
 from frozendict import frozendict
+import numpy as np
 from sklearn.cluster import KMeans as KMeans_raw
 
 # from sklearn.cluster import MiniBatchKMeans as KMeans_raw
