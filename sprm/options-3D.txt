@@ -1,2 +1,3 @@
 run_outlinePCA 0
 image_dimension 3D
+silhouette_samples_break 50000
