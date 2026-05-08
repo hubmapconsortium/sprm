@@ -1,11 +1,13 @@
 import logging
 
 from frozendict import frozendict
+import numpy as np
 from sklearn.cluster import KMeans as KMeans_raw
 
 # from sklearn.cluster import MiniBatchKMeans as KMeans_raw
 from sklearn.decomposition import PCA as PCA_raw
 from sklearn.manifold import TSNE as TSNE_raw
+from sklearn.metrics import silhouette_score as silhouette_score_raw
 from umap import UMAP as UMAP_raw
 
 LOGGER = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ ADDL_OPTS = frozendict()
 UMAP_ADDL_OPTS = ADDL_OPTS
 PCA_ADDL_OPTS = ADDL_OPTS
 KMEANS_ADDL_OPTS = ADDL_OPTS
+SILHOUETTE_ADDL_OPTS = ADDL_OPTS
 
 
 def UMAP(*argv, **argc):
@@ -87,3 +90,43 @@ def TSNE(*argv, **argc):
     my_argc = dict(KMEANS_ADDL_OPTS)
     my_argc.update(argc)
     return TSNE_raw(*argv, **my_argc)
+
+
+def silhouette_score(x, labels, *argv, **argc):
+    my_argc = dict(SILHOUETTE_ADDL_OPTS)
+    my_argc.update(argc)
+    LOGGER.debug(f"silhouette_score begin {x.shape} {x.dtype}")
+    rslt = silhouette_score_raw(x, labels, *argv, **my_argc)
+    LOGGER.debug(f"silhouette_score end: {rslt}")
+    return rslt
+
+
+def _silhouette_scaled_sample_count(cell_matrix, options):
+    """
+    Return the number of samples to use for silhouette_score, based on the
+    value specified in options and the input matrix length.
+    """
+    n0 = options.get("silhouette_samples_break", None)
+    if not n0 or n0 >= cell_matrix.shape[0]:
+        return None  # no need to restrict samples
+    else:
+        alpha = 1.0 / (1.0 + cell_matrix.shape[0] - n0)
+        n = (alpha * cell_matrix.shape[0]) + (1.0 - alpha) * (
+            n0 + np.sqrt(float(cell_matrix.shape[0] - n0))
+        )
+        return int(n)
+
+
+def bounded_silhouette_score(cell_matrix, preds, options):
+    """
+    Run silhouette_score, restricting the number of samples if the value
+    specified in options is less than the input matrix length.
+    """
+    if n_samples := _silhouette_scaled_sample_count(cell_matrix, options):
+        LOGGER.debug(
+            f"bounded_silhouette_score: reducing {cell_matrix.shape[0]} to {n_samples} samples"
+        )
+        return silhouette_score(cell_matrix, preds, sample_size=n_samples)
+    else:
+        LOGGER.debug(f"bounded_silhouette_score: using full {cell_matrix.shape[0]} samples")
+        return silhouette_score(cell_matrix, preds)

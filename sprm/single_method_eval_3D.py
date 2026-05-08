@@ -5,7 +5,6 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import xmltodict
-from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from .single_method_eval import (
@@ -22,7 +21,7 @@ from .single_method_eval import (
     uniformity_CV,
     weighted_by_cluster,
 )
-from .wrapped_functions import PCA, KMeans
+from .wrapped_functions import PCA, KMeans, bounded_silhouette_score
 
 """
 Companion to SPRM.py
@@ -109,7 +108,7 @@ def cell_type(mask, channels):
     return label_list
 
 
-def cell_uniformity(mask, channels, label_list):
+def cell_uniformity(mask, channels, label_list, options):
     n = len(channels)
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
@@ -147,7 +146,7 @@ def cell_uniformity(mask, channels, label_list):
         if c == 1:
             silhouette.append(1)
         else:
-            silhouette.append(silhouette_score(feature_matrix_z, labels))
+            silhouette.append(bounded_silhouette_score(feature_matrix_z, labels, options))
         for i in range(c):
             cluster_feature_matrix = feature_matrix[np.where(labels == i)[0], :]
             cluster_feature_matrix_z = feature_matrix_z[np.where(labels == i)[0], :]
@@ -158,7 +157,9 @@ def cell_uniformity(mask, channels, label_list):
     return CV, fraction, silhouette[1:]
 
 
-def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
+def single_method_eval_3D(
+    img, mask, output_dir: Path, options: Dict[str, Any]
+) -> Tuple[Dict[str, Any], float, float]:
     if not img.data:
         raise NotImplementedError("Not implemented for disk-based images")
     print("Calculating single-method metrics 3D v1.5 for", img.path)
@@ -269,7 +270,7 @@ def single_method_eval_3D(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], 
         else:
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
-                current_mask, img_channels, cell_type_labels
+                current_mask, img_channels, cell_type_labels, options
             )
             avg_cell_CV = np.average(cell_CV)
             avg_cell_fraction = np.average(cell_fraction)

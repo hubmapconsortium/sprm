@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
 
+from .preprocessing import build_legacy_options
+
 from ..single_method_eval import single_method_eval
 from ..single_method_eval_3D import single_method_eval_3D
 from ..SPRM_pkg import NumpyEncoder
@@ -87,10 +89,11 @@ def run(
     # Run appropriate evaluation based on dimension
     print(f"Computing segmentation metrics ({image_dimension})...")
     with _force_sprm_pickle_from_source_tree():
+        options = build_legacy_options()
         if image_dimension == "3D":
-            eval_result = single_method_eval_3D(im, mask, output_dir)
+            eval_result = single_method_eval_3D(im, mask, output_dir, options)
         else:
-            eval_result = single_method_eval(im, mask, output_dir)
+            eval_result = single_method_eval(im, mask, output_dir, options)
 
     # The legacy evaluators return a tuple:
     # (metrics_dict, fraction_background, inv_background_cv, background_pca)
