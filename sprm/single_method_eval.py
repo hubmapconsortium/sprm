@@ -19,11 +19,10 @@ from scipy.stats import variation
 from skimage.filters import threshold_mean
 from skimage.morphology import area_closing, closing, disk
 from skimage.segmentation import morphological_geodesic_active_contour as MorphGAC
-from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_info
 
-from .wrapped_functions import PCA, KMeans
+from .wrapped_functions import PCA, KMeans, bounded_silhouette_score
 
 """
 Companion to SPRM.py
@@ -329,7 +328,7 @@ def cell_type(mask, img, bestz):
     return label_list
 
 
-def cell_uniformity(mask, img, bestz, label_list):
+def cell_uniformity(mask, img, bestz, label_list, options):
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
@@ -378,7 +377,9 @@ def cell_uniformity(mask, img, bestz, label_list):
                 if n_labels < 2 or n_labels >= n_samples:
                     silhouette.append(0.0)
                 else:
-                    silhouette.append(float(silhouette_score(feature_matrix_z, labels)))
+                    silhouette.append(
+                        float(bounded_silhouette_score(feature_matrix_z, labels, options))
+                    )
             except Exception as excp:
                 LOGGER.warn(
                     f"cell_uniformity: silhouette_score failed for c={c}: {excp}; using 0.0"
@@ -509,7 +510,9 @@ def get_quality_score(features, model):
     return score if np.isfinite(score) else 0.0
 
 
-def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
+def single_method_eval(
+    img, mask, output_dir: Path, options: Dict[str, Any]
+) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
@@ -654,7 +657,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
             # img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
-                current_mask, img, bestz, cell_type_labels
+                current_mask, img, bestz, cell_type_labels, options
             )
             avg_cell_CV = np.average(cell_CV)
             avg_cell_fraction = np.average(cell_fraction)

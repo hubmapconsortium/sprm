@@ -57,6 +57,58 @@ def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
     centers_df.to_csv(centers_path, index_label="ID")
 
 
+def build_legacy_options(options: Optional[Union[Path, str, Dict]] = None) -> Dict[str, Any]:
+    """
+    Build a legacy options dictionary from the provided options parameter.
+
+    This is used to maintain compatibility with older code that expects a flat options dict.
+
+    Parameters
+    ----------
+    options : Path, str, dict, or None, default None
+        Options for preprocessing. Can be:
+        - Path/str to options.txt file (will be read)
+        - Dictionary of options (already loaded)
+        - None (use defaults)
+    Returns
+    -------
+    Dict[str, Any]: A flat dictionary of options with defaults applied.
+    """
+    if options is None:
+        return {
+            "image_dimension": "2D",
+            "debug": False,
+            "interior_cells_only": 1,
+            "valid_cell_threshold": 10,
+        }
+    elif isinstance(options, (str, Path)):
+        print(f"Reading options from: {options}")
+        options_dict = dict(read_options(Path(options)))
+        # Set defaults for missing fields
+        if "image_dimension" not in options_dict:
+            options_dict["image_dimension"] = "2D"
+        if "debug" not in options_dict:
+            options_dict["debug"] = False
+        if "interior_cells_only" not in options_dict:
+            options_dict["interior_cells_only"] = 1
+        if "valid_cell_threshold" not in options_dict:
+            options_dict["valid_cell_threshold"] = 10
+        return options_dict
+    elif isinstance(options, dict):
+        # Set defaults for missing fields
+        if "image_dimension" not in options:
+            options["image_dimension"] = "2D"
+        if "debug" not in options:
+            options["debug"] = False
+        if "interior_cells_only" not in options:
+            options["interior_cells_only"] = 1
+        if "valid_cell_threshold" not in options:
+            options["valid_cell_threshold"] = 10
+        return options
+    else:
+        raise TypeError(f"options must be None, Path, str, or dict, got {type(options)}")
+
+
 def run(
     img_file: Union[Path, str],
     mask_file: Union[Path, str],
@@ -118,36 +170,7 @@ def run(
     print("=" * 60)
 
     # Handle options parameter
-    if options is None:
-        # Create minimal options dict with defaults
-        options = {
-            "image_dimension": image_dimension,
-            "debug": debug,
-            "interior_cells_only": 1,  # Default behavior
-            "valid_cell_threshold": 10,  # Minimum valid cells
-        }
-    elif isinstance(options, (str, Path)):
-        # Read options from file
-        print(f"Reading options from: {options}")
-        options = dict(read_options(Path(options)))
-        # Override with function parameters if provided
-        if image_dimension != "2D":
-            options["image_dimension"] = image_dimension
-        if debug:
-            options["debug"] = debug
-    elif isinstance(options, dict):
-        # Use provided options dict directly
-        # Set defaults for required fields if not present
-        if "image_dimension" not in options:
-            options["image_dimension"] = image_dimension
-        if "debug" not in options:
-            options["debug"] = debug
-        if "interior_cells_only" not in options:
-            options["interior_cells_only"] = 1
-        if "valid_cell_threshold" not in options:
-            options["valid_cell_threshold"] = 10
-    else:
-        raise TypeError(f"options must be None, Path, str, or dict, got {type(options)}")
+    options = build_legacy_options(options)
 
     # Load image and mask
     print(f"Reading image file: {img_file.name}")
