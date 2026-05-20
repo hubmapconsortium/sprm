@@ -62,7 +62,7 @@ def find_files(directory: Path, pattern:str) -> Path:
             if filepath.match(pattern):
                 yield filepath
 
-def read_expr_img(expr_img_path:Path, num_dims:int)->Tuple[Union[Image2DModel, Image3DModel], Tuple]:
+def read_expr_img(expr_img_path:Path, num_dims:int, nmf:bool=False)->Tuple[Union[Image2DModel, Image3DModel], Tuple]:
 
     model_dict = {2:Image2DModel, 3:Image3DModel}
     image = BioImage(expr_img_path)
@@ -71,17 +71,23 @@ def read_expr_img(expr_img_path:Path, num_dims:int)->Tuple[Union[Image2DModel, I
         log2(max(image_data_squeezed.shape[1:]) / desired_pixel_size_for_pyramid)
     )
     model = model_dict[num_dims]
-    return model.parse(image_data_squeezed, c_coords=image.channel_names, scale_factors=image_scale_factors), image_scale_factors
+    if nmf:
+        return model.parse(image_data_squeezed, scale_factors=image_scale_factors, dims=['y','x', 'c']), image_scale_factors
+    else:
+        return model.parse(image_data_squeezed, c_coords=image.channel_names, scale_factors=image_scale_factors), image_scale_factors
 
-def read_mask_img(mask_path:Path, num_dims:int, scale_factors: Tuple)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
+def read_mask_img(mask_path:Path, num_dims:int, scale_factors: Tuple, superpixel:bool=False)->Dict[str, Union[Labels2DModel, Labels3DModel]]:
     model_dict = {2:Labels2DModel, 3:Labels3DModel}
     bioimage = BioImage(mask_path)
     mask_channel_names = bioimage.channel_names
     mask_img_arr = tifffile.imread(mask_path)
     model = model_dict[num_dims]
     mask_dict = {}
-    for i in range(len(mask_channel_names)):
-        mask_dict[mask_channel_names[i]] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
+    if superpixel:
+        mask_dict["superpixel"] = model.parse(data=bioimage.data.squeeze(), scale_factors=scale_factors)
+    else:
+        for i in range(len(mask_channel_names)):
+            mask_dict[mask_channel_names[i]] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
     return mask_dict
 
 def read_table(sprm_dir, expr_img_path, spatialdata_dir)->TableModel:
@@ -126,18 +132,8 @@ def read_table(sprm_dir, expr_img_path, spatialdata_dir)->TableModel:
     for covariance_matrix_path in covariance_matrix_paths:
         a = np.ndarray((len(adata.var.index), len(adata.var.index), len(adata.obs.index)))
         matrix = np.load(spatialdata_dir / covariance_matrix_path)
-        headers = pd.read_csv(sprm_dir / covariance_matrix_path.replace('npy', 'csv'), header=None, nrows=1).iloc[0]
-        for i, header in enumerate(headers):
-            if ':' not in column:
-                continue
-            header_split = header.split(':')
-            var_one = header_split[0]
-            var_two = header_split[1]
-            a[adata.var.index.get_loc(var_one)][adata.var.index.get_loc(var_two)] = matrix[:,i]
-        adata.varp[covariance_matrix_path.replace(expr_img_path.name, '').replace('.npy', '')] = a
-
-
-        
+        a = matrix.reshape((len(adata.obs.index), len(adata.var.index), len(adata.var.index))).transpose((1, 2, 0))
+        adata.varp[covariance_matrix_path.replace(f'{expr_img_path.name}-', '').replace('.npy', '')] = a
 
     adata.obs = sanitize_column_names(adata.obs)
     for column in adata.obs.columns:
@@ -158,8 +154,26 @@ def main(
         mask_path = mask_dir / expr_image.name.replace("expr","mask")
         mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
         table = read_table(sprm_dir, expr_image, spatialdata_dir)
-
-        sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, tables={'table':table})
+        images_dict = {"expr":expr_img}
+        
+        pca_path = sprm_dir / (expr_image.name +'-channel_pca.ome.tiff')
+        if pca_path.exists():
+            print('path exists')
+            pca_img, scale_factors = read_expr_img(pca_path, num_dims)
+            images_dict["pca"] = pca_img
+        super_pixel_path = sprm_dir / (expr_image.name + '-superpixel.ome.tiff')
+        if super_pixel_path.exists():
+            print('superpixel path exists')
+            super_pixel_mask = read_mask_img(super_pixel_path, num_dims, scale_factors, superpixel=True)
+            mask_img_dict.update(super_pixel_mask)
+        nmf_path = sprm_dir / (expr_image.name + '_nmf_top3.png')
+        if nmf_path.exists():
+            print("path exists")
+            nmf_img, scale_factors = read_expr_img(nmf_path, num_dims, nmf=True)
+            images_dict["nmf"] = nmf_img
+    
+#        print(mask_img_dict)
+        sdata = spatialdata.SpatialData(images=images_dict, labels=mask_img_dict, tables={'table':table})
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
 
 
