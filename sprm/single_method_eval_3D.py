@@ -160,7 +160,7 @@ def cell_uniformity(mask, channels, label_list, options):
 def single_method_eval_3D(
     img, mask, output_dir: Path, options: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], float, float]:
-    if not img.data:
+    if img.data is None:
         raise NotImplementedError("Not implemented for disk-based images")
     print("Calculating single-method metrics 3D v1.5 for", img.path)
 
