@@ -161,11 +161,6 @@ def main(
 
         sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, tables={'table':table})
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
-        sdata.write(f"{expr_image.stem}_sprm_output.zarr.zip")
-#        source_store = zarr.DirectoryStore(f"{expr_image.stem}_sprm_output.zarr")
-#        dest_store = zarr.ZipStore(f"{expr_image.stem}_sprm_output.zarr.zip")
-#        zarr.copy_store(source_store, dest_store)
-#        dest_store.close()
 
 
 p = ArgumentParser()
