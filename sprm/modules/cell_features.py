@@ -225,21 +225,22 @@ def run(
     shape_vectors = shape_data.shape_vectors if shape_data else None
     norm_shape_vectors = shape_data.norm_shape_vectors if shape_data else None
 
-    # Save all features to CSV files
-    print("Writing feature matrices to CSV files...")
-    save_all(
-        filename=baseoutputfilename,
-        im=im,
-        mask=mask,
-        output_dir=output_dir,
-        cellidx=cellidx,
-        options=options,
-        mean_vector=mean_vector,
-        covar_matrix=covar_matrix,
-        total_vector=total_vector,
-        outline_vectors=shape_vectors,
-        norm_shape_vectors=norm_shape_vectors,
-    )
+    # commented out for STELLAR
+    # # Save all features to CSV files
+    # print("Writing feature matrices to CSV files...")
+    # save_all(
+    #     filename=baseoutputfilename,
+    #     im=im,
+    #     mask=mask,
+    #     output_dir=output_dir,
+    #     cellidx=cellidx,
+    #     options=options,
+    #     mean_vector=mean_vector,
+    #     covar_matrix=covar_matrix,
+    #     total_vector=total_vector,
+    #     outline_vectors=shape_vectors,
+    #     norm_shape_vectors=norm_shape_vectors,
+    # )
 
     # Create CellFeatures object
     cell_features = CellFeatures(
