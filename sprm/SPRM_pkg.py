@@ -10,7 +10,7 @@ from collections import ChainMap, defaultdict
 from contextlib import contextmanager
 from itertools import chain, combinations, product
 from multiprocessing import Lock
-from os import walk
+from os import walk, makedirs
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -1665,7 +1665,9 @@ def write_2_file(
         print(s)
         df = pd.DataFrame(data=sub_matrix, columns=header)
         mtx = df.to_numpy()
-        np.save(output_dir / (s + '.npy'), mtx)
+
+        Path('for_spatialdata').mkdir(exist_ok=True)
+        np.save(Path('for_spatialdata') / (s + '.npy'), mtx)
     write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
 
 

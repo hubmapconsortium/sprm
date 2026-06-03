@@ -76,3 +76,7 @@ outputs:
     type: Directory
     outputBinding:
       glob: sprm_outputs
+  spatialdata_dir:
+    type: Directory
+    outputBinding:
+      glob: for_spatialdata

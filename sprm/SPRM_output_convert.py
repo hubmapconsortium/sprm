@@ -14,6 +14,8 @@ from spatialdata.models import Image2DModel, Image3DModel, Labels2DModel, Labels
 from bioio import BioImage
 
 from math import ceil, log2
+import zarr
+import numpy as np
 
 desired_pixel_size_for_pyramid = 250
 
@@ -82,7 +84,7 @@ def read_mask_img(mask_path:Path, num_dims:int, scale_factors: Tuple)->Dict[str,
         mask_dict[mask_channel_names[i]] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
     return mask_dict
 
-def read_table(sprm_dir, expr_img_path)->TableModel:
+def read_table(sprm_dir, expr_img_path, spatialdata_dir)->TableModel:
     mean_csv = sprm_dir / Path(f"{expr_img_path.name}-cell_channel_mean.csv")
     mean_df = pd.read_csv(mean_csv)
     features = list(mean_df.columns)[1:]
@@ -120,6 +122,23 @@ def read_table(sprm_dir, expr_img_path)->TableModel:
     tsne_coords = tsne_df.drop('ID', axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
+    covariance_matrix_paths = [f"{expr_img_path.name}-cell_channel_covar.npy", f"{expr_img_path.name}-nuclei_channel_covar.npy", f"{expr_img_path.name}-cell_boundaries_channel_covar.npy", f"{expr_img_path.name}-nucleus_boundaries_channel_covar.npy"]
+    for covariance_matrix_path in covariance_matrix_paths:
+        a = np.ndarray((len(adata.var.index), len(adata.var.index), len(adata.obs.index)))
+        matrix = np.load(spatialdata_dir / covariance_matrix_path)
+        headers = pd.read_csv(sprm_dir / covariance_matrix_path.replace('npy', 'csv'), header=None, nrows=1).iloc[0]
+        for i, header in enumerate(headers):
+            if ':' not in column:
+                continue
+            header_split = header.split(':')
+            var_one = header_split[0]
+            var_two = header_split[1]
+            a[adata.var.index.get_loc(var_one)][adata.var.index.get_loc(var_two)] = matrix[:,i]
+        adata.varp[covariance_matrix_path.replace(expr_img_path.name, '').replace('.npy', '')] = a
+
+
+        
+
     adata.obs = sanitize_column_names(adata.obs)
     for column in adata.obs.columns:
         if column not in {'cell_id'}:
@@ -130,23 +149,30 @@ def main(
     img_dir: Path,
     mask_dir: Path,
     sprm_dir: Path,
-    num_dims: int,
+    spatialdata_dir: Path=None,
+    num_dims: int=2,
 ):
     expr_image_paths = find_ome_tiffs(img_dir)
     for expr_image in expr_image_paths:
         expr_img, scale_factors = read_expr_img(expr_image, num_dims)
         mask_path = mask_dir / expr_image.name.replace("expr","mask")
         mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
-        table = read_table(sprm_dir, expr_image)
+        table = read_table(sprm_dir, expr_image, spatialdata_dir)
 
         sdata = spatialdata.SpatialData(images={"expr":expr_img}, labels=mask_img_dict, tables={'table':table})
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
+        sdata.write(f"{expr_image.stem}_sprm_output.zarr.zip")
+#        source_store = zarr.DirectoryStore(f"{expr_image.stem}_sprm_output.zarr")
+#        dest_store = zarr.ZipStore(f"{expr_image.stem}_sprm_output.zarr.zip")
+#        zarr.copy_store(source_store, dest_store)
+#        dest_store.close()
 
 
 p = ArgumentParser()
 p.add_argument("--img-dir", type=Path, required=True)
 p.add_argument("--mask-dir", type=Path, required=True)
 p.add_argument("--sprm-dir", type=Path, required=True)
+p.add_argument("--spatialdata-dir", type=Path, required=False)
 p.add_argument("--num-dims", type=int, required=True)
 
 args = p.parse_args()
@@ -156,6 +182,7 @@ main(
     img_dir=args.img_dir,
     mask_dir=args.mask_dir,
     sprm_dir=args.sprm_dir,
+    spatialdata_dir=args.spatialdata_dir,
     num_dims=args.num_dims,
 
 )
