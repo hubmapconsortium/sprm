@@ -24,11 +24,16 @@ inputs:
     inputBinding:
       position: 2
       prefix: "--sprm-dir"
+  spatialdata_dir:
+    type: Directory
+    inputBinding:
+      position: 3
+      prefix: "--spatialdata-dir"
   num_dims:
     type: int?
     default: 2
     inputBinding:
-      position: 3
+      position: 4
       prefix: "--num-dims"
 
 outputs:
