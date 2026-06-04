@@ -18,7 +18,6 @@ from .single_method_eval import (
     get_physical_dimension_func,
     get_quality_score,
     thresholding,
-    uniformity_CV,
     weighted_by_cluster,
 )
 from .wrapped_functions import PCA, KMeans, bounded_silhouette_score
@@ -47,6 +46,24 @@ def fraction(img_bi, mask_bi):
     foreground_fraction = foreground / foreground_all
     mask_fraction = foreground / mask_all
     return foreground_fraction, background_fraction, mask_fraction
+
+
+def uniformity_CV(loc, channels) -> float:
+    CV = []
+    for channel in channels:
+        channel = channel.astype(np.float32, copy=False)
+        mean = float(np.mean(channel))
+        if mean and np.isfinite(mean):
+            channel = channel / mean
+        intensity = channel[tuple(loc.T)] if loc.size else np.array([], dtype=np.float32)
+        if intensity.size == 0:
+            CV.append(0.0)
+        else:
+            CV.append(float(np.std(intensity)))
+    if len(CV) == 0:
+        return 0.0
+    val = float(np.average(CV))
+    return val if np.isfinite(val) else 0.0
 
 
 def uniformity_fraction(loc, channels) -> float:
@@ -160,7 +177,7 @@ def cell_uniformity(mask, channels, label_list, options):
 def single_method_eval_3D(
     img, mask, output_dir: Path, options: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], float, float]:
-    if not img.data:
+    if img.data is None:
         raise NotImplementedError("Not implemented for disk-based images")
     print("Calculating single-method metrics 3D v1.5 for", img.path)
 
