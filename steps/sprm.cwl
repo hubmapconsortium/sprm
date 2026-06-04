@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm:2.2.2
+    dockerPull: hubmap/sprm:latest
   NetworkAccess:
     networkAccess: true
 requirements:
@@ -76,3 +76,7 @@ outputs:
     type: Directory
     outputBinding:
       glob: sprm_outputs
+  spatialdata_dir:
+    type: Directory
+    outputBinding:
+      glob: for_spatialdata

@@ -10,7 +10,7 @@ from collections import ChainMap, defaultdict
 from contextlib import contextmanager
 from itertools import chain, combinations, product
 from multiprocessing import Lock
-from os import walk
+from os import walk, makedirs
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -1661,6 +1661,13 @@ def write_2_file(
     sub_matrix, s: str, img: IMGstruct, output_dir: Path, cellidx: list, options: Dict
 ):
     header, sub_matrix = get_df_format(sub_matrix, s, img, options)
+    if 'covar' in s:
+        print(s)
+        df = pd.DataFrame(data=sub_matrix, columns=header)
+        mtx = df.to_numpy()
+
+        Path('for_spatialdata').mkdir(exist_ok=True)
+        np.save(Path('for_spatialdata') / (s + '.npy'), mtx)
     write_2_csv(header, sub_matrix, s, output_dir, cellidx, options)
 
 
@@ -1717,6 +1724,8 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
             part = "_" + part
         safe_parts.append(part)
     hdf_key = "/".join(safe_parts)
+    if 'covar' in hdf_key:
+        return
     with hdf5_lock:
         with warnings.catch_warnings():
             # Avoid noisy warnings for non-critical naming / dtype issues when writing demo HDF5.

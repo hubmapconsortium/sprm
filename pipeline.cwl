@@ -87,7 +87,7 @@ steps:
         source: min_memory
       processes:
         source: processes
-    out: [output_dir]
+    out: [output_dir, spatialdata_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
   create_spatial_data:
@@ -98,6 +98,8 @@ steps:
         source: ome_tiff_normalize_mask/output_dir
       sprm_dir:
         source: sprm/output_dir
+      spatialdata_dir:
+        source: sprm/spatialdata_dir
       num_dims:
         source: num_dims
     out: [sdata_zarrs]
