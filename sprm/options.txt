@@ -1,5 +1,5 @@
 debug 0
-image_analysis 1
+image_analysis 0
 num_cellclusters silhouette 3 10 1
 num_voxelclusters 3
 num_markers 3
