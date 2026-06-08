@@ -7,7 +7,7 @@ This module is required for all other modules.
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 
 import pandas as pd
 
