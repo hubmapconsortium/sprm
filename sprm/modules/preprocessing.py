@@ -57,7 +57,7 @@ def _ensure_cell_centers(core_data: CoreData, output_dir: Path):
     centers_df.to_csv(centers_path, index_label="ID")
 
 
-def build_legacy_options(options: Optional[Union[Path, str, Dict]] = None) -> Dict[str, Any]:
+def build_legacy_options(options: Optional[Union[Path, str, Dict]] = None) -> Dict[str, any]:
     """
     Build a legacy options dictionary from the provided options parameter.
 
