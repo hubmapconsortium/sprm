@@ -29,15 +29,13 @@ inputs:
     inputBinding:
       position: 3
       prefix: "--spatialdata-dir"
-  num_dims:
-    type: int?
-    default: 2
-    inputBinding:
-      position: 4
-      prefix: "--num-dims"
 
 outputs:
   sdata_zarrs:
     type: Directory[]
     outputBinding:
       glob: "*sprm_output.zarr"
+  segmentation_metadata_json:
+    type: File
+    outputBinding:
+      glob: "segmentation-metadata.json"
