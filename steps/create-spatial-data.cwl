@@ -29,12 +29,6 @@ inputs:
     inputBinding:
       position: 3
       prefix: "--spatialdata-dir"
-  num_dims:
-    type: int?
-    default: 2
-    inputBinding:
-      position: 4
-      prefix: "--num-dims"
 
 outputs:
   sdata_zarrs:

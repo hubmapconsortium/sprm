@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from argparse import ArgumentParser
 from math import ceil, log2
 from os import walk
@@ -11,7 +10,6 @@ import numpy as np
 import pandas as pd
 import spatialdata
 import tifffile
-import zarr
 from bioio import BioImage
 from scipy.io import mmread
 from spatialdata.models import (
@@ -19,7 +17,6 @@ from spatialdata.models import (
     Image3DModel,
     Labels2DModel,
     Labels3DModel,
-    PointsModel,
     TableModel,
 )
 
@@ -69,15 +66,15 @@ def find_files(directory: Path, pattern: str) -> Iterable[Path]:
 
 
 def read_expr_img(
-    expr_img_path: Path, num_dims: int, nmf: bool = False
+    expr_img_path: Path, nmf: bool = False
 ) -> tuple[Union[Image2DModel, Image3DModel], tuple[int, ...]]:
-    model_dict = {2: Image2DModel, 3: Image3DModel}
     image = BioImage(expr_img_path)
     image_data_squeezed = image.data.squeeze()
     image_scale_factors = (2,) * ceil(
         log2(max(image_data_squeezed.shape[1:]) / desired_pixel_size_for_pyramid)
     )
-    model = model_dict[num_dims]
+    is_3d = image.dims.Z > 1
+    model = Image3DModel if is_3d else Image2DModel
     if nmf:
         return (
             model.parse(
@@ -97,17 +94,17 @@ def read_expr_img(
 
 
 def read_mask_img(
-    mask_path: Path, num_dims: int, scale_factors: tuple[int, ...], superpixel: bool = False
+    mask_path: Path, scale_factors: tuple[int, ...], superpixel: bool = False
 ) -> dict[str, Union[Labels2DModel, Labels3DModel]]:
-    model_dict = {2: Labels2DModel, 3: Labels3DModel}
-    bioimage = BioImage(mask_path)
-    mask_channel_names = bioimage.channel_names
+    image = BioImage(mask_path)
+    mask_channel_names = image.channel_names
     mask_img_arr = tifffile.imread(mask_path)
-    model = model_dict[num_dims]
+    is_3d = image.dims.Z > 1
+    model = Labels3DModel if is_3d else Labels2DModel
     mask_dict = {}
     if superpixel:
         mask_dict["superpixel"] = model.parse(
-            data=bioimage.data.squeeze(), scale_factors=scale_factors
+            data=image.data.squeeze(), scale_factors=scale_factors
         )
     else:
         for i, ch in enumerate(mask_channel_names):
@@ -189,37 +186,36 @@ def main(
     mask_dir: Path,
     sprm_dir: Path,
     spatialdata_dir: Optional[Path] = None,
-    num_dims: int = 2,
 ):
     expr_image_paths = find_ome_tiffs(img_dir)
     for expr_image in expr_image_paths:
-        expr_img, scale_factors = read_expr_img(expr_image, num_dims)
+        expr_img, scale_factors = read_expr_img(expr_image)
         mask_path = mask_dir / expr_image.name.replace("expr", "mask")
-        mask_img_dict = read_mask_img(mask_path, num_dims, scale_factors)
+        mask_img_dict = read_mask_img(mask_path, scale_factors)
         table = read_table(sprm_dir, expr_image, spatialdata_dir)
         images_dict = {"expr": expr_img}
 
         pca_path = sprm_dir / (expr_image.name + "-channel_pca.ome.tiff")
         if pca_path.exists():
             print("path exists")
-            pca_img, scale_factors = read_expr_img(pca_path, num_dims)
+            pca_img, scale_factors = read_expr_img(pca_path)
             images_dict["pca"] = pca_img
         super_pixel_path = sprm_dir / (expr_image.name + "-superpixel.ome.tiff")
         if super_pixel_path.exists():
             print("superpixel path exists")
-            super_pixel_mask = read_mask_img(
-                super_pixel_path, num_dims, scale_factors, superpixel=True
-            )
+            super_pixel_mask = read_mask_img(super_pixel_path, scale_factors, superpixel=True)
             mask_img_dict.update(super_pixel_mask)
         nmf_path = sprm_dir / (expr_image.name + "_nmf_top3.png")
         if nmf_path.exists():
             print("path exists")
-            nmf_img, scale_factors = read_expr_img(nmf_path, num_dims, nmf=True)
+            nmf_img, scale_factors = read_expr_img(nmf_path, nmf=True)
             images_dict["nmf"] = nmf_img
 
         #        print(mask_img_dict)
         sdata = spatialdata.SpatialData(
-            images=images_dict, labels=mask_img_dict, tables={"table": table}
+            images=images_dict,
+            labels=mask_img_dict,
+            tables={"table": table},
         )
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
 
@@ -230,7 +226,6 @@ if __name__ == "__main__":
     p.add_argument("--mask-dir", type=Path, required=True)
     p.add_argument("--sprm-dir", type=Path, required=True)
     p.add_argument("--spatialdata-dir", type=Path, required=False)
-    p.add_argument("--num-dims", type=int, required=True)
     args = p.parse_args()
 
     main(
@@ -238,5 +233,4 @@ if __name__ == "__main__":
         mask_dir=args.mask_dir,
         sprm_dir=args.sprm_dir,
         spatialdata_dir=args.spatialdata_dir,
-        num_dims=args.num_dims,
     )

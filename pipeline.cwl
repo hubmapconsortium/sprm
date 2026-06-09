@@ -37,9 +37,6 @@ inputs:
   processes:
     label: "Number of images to process in parallel (default: 1)"
     type: int?
-  num_dims:
-    label: "Number of dimensions associated with the data"
-    type: int?
 
 outputs:
   sprm_output:
@@ -100,8 +97,6 @@ steps:
         source: sprm/output_dir
       spatialdata_dir:
         source: sprm/spatialdata_dir
-      num_dims:
-        source: num_dims
     out: [sdata_zarrs]
     run: steps/create-spatial-data.cwl
     label: "Conversion to spatialdata format"
