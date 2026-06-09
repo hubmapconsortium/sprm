@@ -10,12 +10,12 @@ baseCommand: /opt/SPRM_output_convert.py
 
 inputs:
   image_dir:
-    type: Directory[]
+    type: Directory
     inputBinding:
       position: 0
       prefix: "--img-dir"
   mask_dir:
-    type: Directory[]
+    type: Directory
     inputBinding:
       position: 1
       prefix: "--mask-dir"
