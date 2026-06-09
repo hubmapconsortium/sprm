@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+import json
 from argparse import ArgumentParser
+from collections import defaultdict
 from math import ceil, log2
 from os import walk
 from pathlib import Path
+from statistics import mean
 from typing import Iterable, Optional, Union
+from xml.etree import ElementTree
 
 import anndata
 import numpy as np
@@ -181,12 +185,70 @@ def read_table(sprm_dir: Path, expr_img_path: Path, spatialdata_dir: Path) -> Ta
     return TableModel.parse(adata)
 
 
+def get_segmentation_channels(ome_tiff: Path) -> dict[str, list[str]]:
+    ome_xml = tifffile.tiffcomment(ome_tiff)
+    t = ElementTree.fromstring(ome_xml)
+    ome_namespace = t.tag.split("}")[0].lstrip("{")
+    nsmap = {"OME": ome_namespace}
+    xpath_pieces = [
+        "OME:StructuredAnnotations",
+        "OME:XMLAnnotation",
+        "OME:Value",
+        "OME:OriginalMetadata",
+        "OME:Key[.='SegmentationChannels']",
+        "..",
+        "OME:Value",
+    ]
+    annotation_node = t.find("/".join(xpath_pieces), nsmap)
+    metadata = defaultdict(list)
+    for ch_node in annotation_node:
+        tag = ch_node.tag.split("}")[1]
+        key = f"{tag}SegmentationChannels"
+        metadata[key].append(ch_node.text.strip())
+    return dict(metadata)
+
+
+def get_sprm_qc_measures(sprm_dir: Path, image_name: str):
+    sprm_qc_json = sprm_dir / f"{image_name}-SPRM_Image_Quality_Measures.json"
+    with open(sprm_qc_json) as f:
+        qc_data = json.load(f)
+    zscore_parent = qc_data["Image Quality Metrics not requiring image segmentation"]
+    mean_snz = mean(zscore_parent["Signal To Noise Z-Score"].values())
+    seg_eval_data = qc_data["Segmentation Evaluation Metrics"]
+    mc_data = seg_eval_data.get("Matched Cell")
+    acvf = mc_data.get("1/(AvgCVForegroundOutsideCells+1)")
+    quality_score = seg_eval_data["QualityScore"]
+    return {
+        "QualityScore": quality_score,
+        "Mean_SNZ": mean_snz,
+        "ACVF": acvf,
+    }
+
+
+def write_segmentation_metadata_json(img_dir: Path, sprm_dir: Path):
+    channel_metadata = {
+        image.name: get_segmentation_channels(image) for image in img_dir.glob("*.ome.tiff")
+    }
+    sprm_qc = {image: get_sprm_qc_measures(sprm_dir, image) for image in channel_metadata}
+
+    metadata_reshaped = []
+    for image, channels in channel_metadata.items():
+        image_metadata = {"Image": image}
+        image_metadata |= channels
+        image_metadata |= sprm_qc[image]
+        metadata_reshaped.append(image_metadata)
+
+    with open("segmentation-metadata.json", "w") as f:
+        json.dump(metadata_reshaped, f)
+
+
 def main(
     img_dir: Path,
     mask_dir: Path,
     sprm_dir: Path,
     spatialdata_dir: Optional[Path] = None,
 ):
+    write_segmentation_metadata_json(img_dir, sprm_dir)
     expr_image_paths = find_ome_tiffs(img_dir)
     for expr_image in expr_image_paths:
         expr_img, scale_factors = read_expr_img(expr_image)

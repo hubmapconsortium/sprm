@@ -35,3 +35,7 @@ outputs:
     type: Directory[]
     outputBinding:
       glob: "*sprm_output.zarr"
+  segmentation_metadata_json:
+    type: File
+    outputBinding:
+      glob: "segmentation-metadata.json"
