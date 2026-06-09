@@ -224,20 +224,19 @@ def main(
         sdata.write(f"{expr_image.stem}_sprm_output.zarr")
 
 
-p = ArgumentParser()
-p.add_argument("--img-dir", type=Path, required=True)
-p.add_argument("--mask-dir", type=Path, required=True)
-p.add_argument("--sprm-dir", type=Path, required=True)
-p.add_argument("--spatialdata-dir", type=Path, required=False)
-p.add_argument("--num-dims", type=int, required=True)
+if __name__ == "__main__":
+    p = ArgumentParser()
+    p.add_argument("--img-dir", type=Path, required=True)
+    p.add_argument("--mask-dir", type=Path, required=True)
+    p.add_argument("--sprm-dir", type=Path, required=True)
+    p.add_argument("--spatialdata-dir", type=Path, required=False)
+    p.add_argument("--num-dims", type=int, required=True)
+    args = p.parse_args()
 
-args = p.parse_args()
-
-
-main(
-    img_dir=args.img_dir,
-    mask_dir=args.mask_dir,
-    sprm_dir=args.sprm_dir,
-    spatialdata_dir=args.spatialdata_dir,
-    num_dims=args.num_dims,
-)
+    main(
+        img_dir=args.img_dir,
+        mask_dir=args.mask_dir,
+        sprm_dir=args.sprm_dir,
+        spatialdata_dir=args.spatialdata_dir,
+        num_dims=args.num_dims,
+    )
