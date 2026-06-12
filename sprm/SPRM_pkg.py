@@ -1973,46 +1973,62 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
     zlist = []
     channelist = []
     snr_channels_list = []
+    bins = np.arange(256, dtype=np.float64)
     for ch_idx in range(im.img.dims.C):
-        all_pix = np.concatenate(
-            [im.get_plane(ch_idx, z_idx).copy() for z_idx in range(im.img.dims.Z)], axis=None
-        )
-        LOGGER.debug(f"all_pix is {all_pix.shape} {all_pix.dtype}")
-        all_pix = np.nan_to_num(all_pix, nan=0.0, posinf=0.0, neginf=0.0).astype(
-            np.float32, copy=False
-        )
+        hist = np.zeros(256, dtype=np.int64)
+        for z_idx in range(im.img.dims.Z):
+            plane = im.get_plane(ch_idx, z_idx)
+            plane = np.nan_to_num(plane, nan=0.0, posinf=255.0, neginf=0.0)
+            plane = np.clip(plane, 0, 255).astype(np.uint8, copy=False)
+            hist += np.bincount(plane.reshape(-1), minlength=256)
 
-        mean = float(all_pix.mean()) if all_pix.size else 0.0
-        std = float(all_pix.std(ddof=0)) if all_pix.size else 0.0
-        snr = mean / std if std > 0 else 0.0
-        snr_channels_list.append(snr if np.isfinite(snr) else 0.0)
-
-        # Robust Otsu-like foreground/background ratio (avoid NaN ranges / empty slices)
-        if all_pix.size == 0 or float(np.var(all_pix)) == 0.0:
+        count = int(hist.sum())
+        LOGGER.debug(f"histogrammed {count} pixels for channel {ch_idx}")
+        if count == 0:
+            snr_channels_list.append(0.0)
             channelist.append(0.0)
             continue
 
-        max_img = float(np.max(all_pix))
+        total = float(np.dot(hist, bins))
+        mean = total / count
+        variance = float(np.dot(hist, bins * bins)) / count - mean * mean
+        std = float(np.sqrt(max(variance, 0.0)))
+        snr = mean / std if std > 0 else 0.0
+        snr_channels_list.append(snr if np.isfinite(snr) else 0.0)
+
+        # Robust Otsu-like foreground/background ratio from the histogram.
+        if variance == 0.0:
+            channelist.append(0.0)
+            continue
+
+        nonzero_bins = np.flatnonzero(hist)
+        max_img = float(nonzero_bins[-1]) if nonzero_bins.size else 0.0
         if (not np.isfinite(max_img)) or max_img <= 0.0:
             channelist.append(0.0)
             continue
 
-        # Scale into a stable range for thresholding (uint16-ish), but keep float for skimage.
-        scale = 65535.0 / max_img
-        img_scaled = np.nan_to_num(all_pix * scale, nan=0.0, posinf=0.0, neginf=0.0)
+        weights_1 = np.cumsum(hist).astype(np.float64)
+        weights_2 = count - weights_1
+        means_1 = np.divide(
+            np.cumsum(hist * bins),
+            weights_1,
+            out=np.zeros_like(weights_1),
+            where=weights_1 > 0,
+        )
+        reverse_weighted = np.cumsum((hist * bins)[::-1])[::-1]
+        means_2 = np.divide(
+            reverse_weighted,
+            weights_2,
+            out=np.zeros_like(weights_2),
+            where=weights_2 > 0,
+        )
+        between = weights_1[:-1] * weights_2[:-1] * (means_1[:-1] - means_2[:-1]) ** 2
+        thresh = int(np.argmax(between)) if between.size else 0
 
-        try:
-            thresh = float(threshold_otsu(img_scaled))
-        except Exception as excp:
-            print(
-                f"SNR: threshold_otsu failed for channel {ch_idx}: {excp}; using median threshold"
-            )
-            thresh = float(np.median(img_scaled))
-
-        fg = img_scaled[img_scaled > thresh]
-        bg = img_scaled[img_scaled <= thresh]
-        mean_a = float(fg.mean()) if fg.size else 0.0
-        mean_b = float(bg.mean()) if bg.size else 0.0
+        fg_count = int(hist[thresh + 1 :].sum())
+        bg_count = int(hist[: thresh + 1].sum())
+        mean_a = float(np.dot(hist[thresh + 1 :], bins[thresh + 1 :]) / fg_count) if fg_count else 0.0
+        mean_b = float(np.dot(hist[: thresh + 1], bins[: thresh + 1]) / bg_count) if bg_count else 0.0
         fbr = (mean_a / mean_b) if mean_b > 0 else 0.0
         channelist.append(fbr if np.isfinite(fbr) else 0.0)
 
@@ -3622,15 +3638,24 @@ def quality_measures_3D(
 
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
+        if ROI_coords is None:
+            raise RuntimeError(
+                "quality_measures_3D requires mask ROI coordinates; run get_coordinates() "
+                "and mask.set_ROI() before calling it."
+            )
 
         im_data = im.get_data()
         im_dims = im_data.shape
+        channel_data = im_data[0, 0, :, :, :, :]
+        pixels = im_dims[-3] * im_dims[-2] * im_dims[-1]
 
-        im_channels = im_data[0, 0, :, bestz, :, :]
-        pixels = im_dims[-2] * im_dims[-1]
-        bgpixels = ROI_coords[0][0]
-        cells = ROI_coords[0][1:]
-        nuclei = ROI_coords[1][1:]
+        cell_coords = np.concatenate(
+            [arr for arr in ROI_coords[0].cells_only_iter()], axis=1
+        ).astype(np.int32, copy=False)
+        nuclei_coords = np.concatenate(
+            [arr for arr in ROI_coords[1].cells_only_iter()], axis=1
+        ).astype(np.int32, copy=False)
+        bgpixel_count = pixels - cell_coords.shape[1]
 
         # Image Quality Metrics that require cell segmentation
         struct["Image Quality Metrics that require cell segmentation"] = dict()
@@ -3644,18 +3669,7 @@ def quality_measures_3D(
         # get cytoplasm coords
         # cytoplasm = find_cytoplasm(ROI_coords)
 
-        # dims are z c y x
-        total_intensity_per_chan = im_channels
-        total_intensity_per_chan = np.reshape(
-            total_intensity_per_chan,
-            (
-                total_intensity_per_chan.shape[1],
-                total_intensity_per_chan.shape[0]
-                * total_intensity_per_chan.shape[2]
-                * total_intensity_per_chan.shape[3],
-            ),
-        )
-        total_intensity_per_chan = np.sum(total_intensity_per_chan, axis=1)
+        total_intensity_per_chan = np.sum(channel_data, axis=(1, 2, 3))
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -3664,35 +3678,18 @@ def quality_measures_3D(
         #
         # cytoplasm = np.delete(cytoplasm, idx_ndims).tolist()
 
-        # cell total intensity per channel
-        # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
-        # total_intensity_file = get_paths(total_intensity_path)
-        # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_cell = np.concatenate(cells, axis=1)
-        total_intensity_per_chancell = np.sum(
-            im_channels[
-                total_intensity_cell[0], :, total_intensity_cell[1], total_intensity_cell[2]
-            ],
-            axis=0,
-        )
-        # total_intensity_per_chancell = np.sum(total_intensity[:, 1:], axis=0)
-
-        total_intensity_per_chanbg = np.sum(
-            im_channels[bgpixels[0], :, bgpixels[1], bgpixels[2]], axis=0
+        total_intensity_per_chancell = np.asarray(
+            [
+                channel_data[ch, cell_coords[0], cell_coords[1], cell_coords[2]].sum()
+                for ch in range(channel_data.shape[0])
+            ]
         )
 
-        # total_intensity_nuclei_path = output_dir / (img_name + '-nuclei_channel_total.csv')
-        # total_intensity_nuclei_file = get_paths(total_intensity_nuclei_path)
-        # total_intensity_nuclei = pd.read_csv(total_intensity_nuclei_file[0]).to_numpy()
-        # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
-
-        # nuclei total intensity per channel
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
-        total_intensity_nuclei_per_chan = np.sum(
-            im_channels[
-                total_intensity_nuclei[0], :, total_intensity_nuclei[1], total_intensity_nuclei[2]
-            ],
-            axis=0,
+        total_intensity_nuclei_per_chan = np.asarray(
+            [
+                channel_data[ch, nuclei_coords[0], nuclei_coords[1], nuclei_coords[2]].sum()
+                for ch in range(channel_data.shape[0])
+            ]
         )
 
         # cytoplasm total intensity per channel
@@ -3703,9 +3700,17 @@ def quality_measures_3D(
         nuc_cell_avgR = total_intensity_nuclei_per_chan / total_intensity_per_chancell
 
         if options.get("normalize_bg"):
+            bgpixels = ROI_coords[0].background()
+            total_intensity_per_chanbg = np.asarray(
+                [
+                    channel_data[ch, bgpixels[0], bgpixels[1], bgpixels[2]].sum()
+                    for ch in range(channel_data.shape[0])
+                ]
+            )
+            bgpixel_count = bgpixels.shape[1]
             cell_bg_avgR = (
                 total_intensity_per_chancell
-                / (total_intensity_per_chanbg / bgpixels.shape[1])
+                / (total_intensity_per_chanbg / bgpixel_count)
                 / cell_total[i]
             )
         else:
@@ -3752,10 +3757,10 @@ def quality_measures_3D(
         struct["Image Quality Metrics that require cell segmentation"]["Number of Cells"] = (
             cell_total[i]
         )
-        # struct["Number of Background Pixels"] = bgpixels.shape[1]
+        # struct["Number of Background Pixels"] = bgpixel_count
         struct["Image Quality Metrics that require cell segmentation"][
             "Fraction of Image Occupied by Cells"
-        ] = (pixels - bgpixels.shape[1]) / pixels
+        ] = (pixels - bgpixel_count) / pixels
 
         struct["Image Quality Metrics not requiring image segmentation"][
             "Total Intensity"
@@ -3879,6 +3884,12 @@ def reallocate_and_merge_intensities(
         im.set_channel_labels(channel_list)
 
     # prune for NaNs
+    if options.get("skip_nan_scan"):
+        return
+
+    if im.get_data is None or getattr(im, "data", None) is None:
+        return
+
     nan_count = 0
     for c_idx, z_idx, slice in im.get_img_channel_generator():
         nan_count += np.isnan(slice).sum()
