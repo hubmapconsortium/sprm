@@ -37,9 +37,6 @@ inputs:
   processes:
     label: "Number of images to process in parallel (default: 1)"
     type: int?
-  num_dims:
-    label: "Number of dimensions associated with the data"
-    type: int?
 
 outputs:
   sprm_output:
@@ -49,6 +46,9 @@ outputs:
   sdata_zarrs:
     outputSource: create_spatial_data/sdata_zarrs
     type: Directory[]
+  segmentation_metadata_json:
+    outputSource: create_spatial_data/segmentation_metadata_json
+    type: File
 
 steps:
   ome_tiff_normalize_expr:
@@ -87,7 +87,7 @@ steps:
         source: min_memory
       processes:
         source: processes
-    out: [output_dir]
+    out: [output_dir, spatialdata_dir]
     run: steps/sprm.cwl
     label: "SPRM analysis"
   create_spatial_data:
@@ -98,8 +98,8 @@ steps:
         source: ome_tiff_normalize_mask/output_dir
       sprm_dir:
         source: sprm/output_dir
-      num_dims:
-        source: num_dims
-    out: [sdata_zarrs]
+      spatialdata_dir:
+        source: sprm/spatialdata_dir
+    out: [sdata_zarrs, segmentation_metadata_json]
     run: steps/create-spatial-data.cwl
     label: "Conversion to spatialdata format"
