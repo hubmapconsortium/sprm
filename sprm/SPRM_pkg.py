@@ -1017,14 +1017,19 @@ def CheckAdjacency_Distance(cell_center, cell, cellids_i, idx_i, adjmatrix, cell
 def CheckAdjacency_Distance_new(celledge, cellids_i, idx_i, adjmatrix, cellGraph, j):
     """i is used only to index into cellids (a list completion of short arrays)  and idx (an arange of ints)"""
 
-    k = idx_i
+    k = int(idx_i)
+    j = int(j)
 
+    if k not in celledge or j not in celledge:
+        return
     a = np.asarray(celledge[j])
     b = np.asarray(celledge[k])
+    if a.size == 0 or b.size == 0:
+        return
     tree = KDTree(a.T)
     dist, _ = tree.query(b.T, k=[1])  # k desired number of neighbors
 
-    distance = np.argmin(dist)
+    distance = np.min(dist)
 
     adjmatrix[k, j] = distance
     adjmatrix[j, k] = distance
@@ -1106,19 +1111,23 @@ def AdjacencyMatrix_3D(
     idx = np.arange(1, len(cellids) + 1)
     cellids = [np.delete(x, x == y) for x, y in zip(cellids, idx)]
 
-    for i in range(len(cellids)):
-        if cellids[i].size == 0:
+    cell = {ii + 1: cell_mtx for ii, cell_mtx in enumerate(ROI_coords[0].cells_only_iter())}
+    celledge = {ii + 1: cell_mtx for ii, cell_mtx in enumerate(cellEdgeList.cells_only_iter())}
+    for i, cellids_i in enumerate(cellids):
+        if cellids_i.size == 0:
             continue
         else:
-            for j in cellids[i]:
+            for j in cellids_i:
+                if idx[i] not in cell or j not in cell:
+                    continue
                 # for avg dist
                 CheckAdjacency_Distance(
-                    cell_center, ROI_coords[0], cellids[i], idx[i], adjmatrix_avg, cellGraph_avg, j
+                    cell_center, ROI_coords[0], cellids_i, idx[i], adjmatrix_avg, cellGraph_avg, j
                 )
 
                 # for min dist
                 CheckAdjacency_Distance_new(
-                    cellEdgeList, cellids[i], idx[i], adjacencyMatrix, cellGraph, j
+                    celledge, cellids_i, idx[i], adjacencyMatrix, cellGraph, j
                 )
 
     AdjacencyMatrix2Graph(
