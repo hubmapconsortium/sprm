@@ -486,7 +486,7 @@
 		"is_data_product":  true
 	},
 	{
-		"pattern": ".*sprm_output.zarr.zip/",
+		"pattern": ".*sprm_output.zarr.zip",
 		"description": "zipped Zarr store containing serialized SpatialData object",
 		"edam_ontology_term": "EDAM_1.24.format_3987",
 		"is_data_product":  true
