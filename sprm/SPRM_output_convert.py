@@ -7,6 +7,7 @@ from math import ceil, log2
 from os import walk
 from pathlib import Path
 from statistics import mean
+from subprocess import run
 from typing import Iterable, Optional, Sequence, Union
 from xml.etree import ElementTree
 
@@ -327,7 +328,9 @@ def main(
             labels=mask_img_dict,
             tables={"table": table},
         )
-        sdata.write(f"{expr_image.stem}_sprm_output.zarr", overwrite=True)
+        zarr_dir_name = f"{expr_image.stem}_sprm_output.zarr"
+        sdata.write(zarr_dir_name, overwrite=True)
+        run(["zip", "-r", zarr_dir_name + ".zip", zarr_dir_name])
 
 
 if __name__ == "__main__":

@@ -43,9 +43,9 @@ outputs:
     outputSource: sprm/output_dir
     type: Directory
     label: "SPRM output"
-  sdata_zarrs:
-    outputSource: create_spatial_data/sdata_zarrs
-    type: Directory[]
+  sdata_zarr_zips:
+    outputSource: create_spatial_data/sdata_zarr_zips
+    type: File[]
   segmentation_metadata_json:
     outputSource: create_spatial_data/segmentation_metadata_json
     type: File
@@ -100,6 +100,6 @@ steps:
         source: sprm/output_dir
       spatialdata_dir:
         source: sprm/spatialdata_dir
-    out: [sdata_zarrs, segmentation_metadata_json]
+    out: [sdata_zarr_zips, segmentation_metadata_json]
     run: steps/create-spatial-data.cwl
     label: "Conversion to spatialdata format"
