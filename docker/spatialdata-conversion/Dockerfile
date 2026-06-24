@@ -8,6 +8,7 @@ RUN apt-get update \
     python3-pip \
     python3-venv \
     python-is-python3 \
+    zip \
  && rm -rf /var/cache/apt/*
 
 RUN python3 -m venv /opt/venv

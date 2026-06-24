@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import json
+import re
 from argparse import ArgumentParser
 from collections import defaultdict
 from math import ceil, log2
 from os import walk
 from pathlib import Path
 from statistics import mean
-from typing import Iterable, Optional, Union
+from subprocess import run
+from typing import Iterable, Optional, Sequence, Union
 from xml.etree import ElementTree
 
 import anndata
@@ -24,7 +26,48 @@ from spatialdata.models import (
     TableModel,
 )
 
+# TODO: deduplicate. Currently there's complete separation between this
+#   file and SPRM "proper"
+
+integer_pattern = re.compile(r"(\d+)")
+filenames_to_ignore = frozenset({".DS_Store", "manifest.json"})
 desired_pixel_size_for_pyramid = 250
+
+
+def try_parse_int(value: str) -> Union[int, str]:
+    if value.isdigit():
+        return int(value)
+    return value
+
+
+def alphanum_sort_key(path: Path) -> Sequence[Union[int, str]]:
+    """
+    By: Matt Ruffalo
+    Produces a sort key for file names, alternating strings and integers.
+    Always [string, (integer, string)+] in quasi-regex notation.
+    >>> alphanum_sort_key(Path('s1 1 t.tiff'))
+    ['s', 1, ' ', 1, ' t.tiff']
+    >>> alphanum_sort_key(Path('0_4_reg001'))
+    ['', 0, '_', 4, '_reg', 1, '']
+    """
+    return [try_parse_int(c) for c in integer_pattern.split(path.name)]
+
+
+def get_paths(img_dir: Path) -> list[Path]:
+    if img_dir.is_dir():
+        img_files = []
+
+        for dirpath_str, _, filenames in walk(img_dir):
+            dirpath = Path(dirpath_str)
+            filenames_usable = set(filenames) - filenames_to_ignore
+            img_files.extend(dirpath / filename for filename in filenames_usable)
+    else:
+        # assume it's a pattern, like Path('some/dir/*.tiff')
+        # don't need to filter filenames, because the user passed a
+        # glob pattern of exactly what is wanted
+        img_files = list(img_dir.parent.glob(img_dir.name))
+
+    return sorted(img_files, key=alphanum_sort_key)
 
 
 def load_adjacency_matrix_and_labels(
@@ -82,7 +125,9 @@ def read_expr_img(
     if nmf:
         return (
             model.parse(
-                image_data_squeezed, scale_factors=image_scale_factors, dims=["y", "x", "c"]
+                image_data_squeezed,
+                scale_factors=image_scale_factors,
+                dims=["y", "x", "c"],
             ),
             image_scale_factors,
         )
@@ -108,11 +153,15 @@ def read_mask_img(
     mask_dict = {}
     if superpixel:
         mask_dict["superpixel"] = model.parse(
-            data=image.data.squeeze(), scale_factors=scale_factors
+            data=image.data.squeeze(),
+            scale_factors=scale_factors,
         )
     else:
         for i, ch in enumerate(mask_channel_names):
-            mask_dict[ch] = model.parse(data=mask_img_arr[i], scale_factors=scale_factors)
+            mask_dict[ch] = model.parse(
+                data=mask_img_arr[i],
+                scale_factors=scale_factors,
+            )
     return mask_dict
 
 
@@ -249,11 +298,11 @@ def main(
     spatialdata_dir: Optional[Path] = None,
 ):
     write_segmentation_metadata_json(img_dir, sprm_dir)
-    expr_image_paths = find_ome_tiffs(img_dir)
-    for expr_image in expr_image_paths:
+    expr_image_paths = get_paths(img_dir)
+    mask_image_paths = get_paths(mask_dir)
+    for expr_image, mask_image in zip(expr_image_paths, mask_image_paths):
         expr_img, scale_factors = read_expr_img(expr_image)
-        mask_path = mask_dir / expr_image.name.replace("expr", "mask")
-        mask_img_dict = read_mask_img(mask_path, scale_factors)
+        mask_img_dict = read_mask_img(mask_image, scale_factors)
         table = read_table(sprm_dir, expr_image, spatialdata_dir)
         images_dict = {"expr": expr_img}
 
@@ -279,7 +328,9 @@ def main(
             labels=mask_img_dict,
             tables={"table": table},
         )
-        sdata.write(f"{expr_image.stem}_sprm_output.zarr")
+        zarr_dir_name = f"{expr_image.stem}_sprm_output.zarr"
+        sdata.write(zarr_dir_name, overwrite=True)
+        run(["zip", "-r", zarr_dir_name + ".zip", zarr_dir_name])
 
 
 if __name__ == "__main__":

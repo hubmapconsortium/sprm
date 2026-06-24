@@ -91,25 +91,32 @@ class CellTable3D:
     def __init__(self, mask: MaskStruct, cidx: int):
         s, t, c, z, y, x = mask.get_data().shape
         assert all([dim == 1 for dim in [s, t]]), "bad mask shape"
-        vol = mask.get_data()[0, 0, 0, :, :, :]
-        indices = np.indices(vol.shape).astype(np.int32)
-        recs = np.rec.fromarrays(
-            [vol, indices[2], indices[1], indices[0]], names="cellid, x, y, z"
-        )
-        recs = recs.reshape(-1)
-        LOGGER.debug(f"recs is {recs.shape} {recs.dtype}")
-        LOGGER.debug(
-            f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
-            f" {np.max(recs['y'])} {np.max(recs['z'])}"
-        )
-        recs.sort(kind="heapsort", order=["cellid", "z", "y", "x"])
-        LOGGER.debug(
-            f"maxes: {np.max(recs['cellid'])} {np.max(recs['x'])}"
-            f" {np.max(recs['y'])} {np.max(recs['z'])}"
-        )
-        entries, counts = np.unique(recs["cellid"], return_counts=True)
-        self.counts = np.stack((entries, counts), axis=1).copy()
-        self.vals = np.vstack((recs["z"], recs["y"], recs["x"])).copy()
+        vol = mask.get_data()[0, 0, cidx, :, :, :]
+        self._background_shape = vol.shape
+        self._background_mask = vol == 0
+
+        flat = vol.reshape(-1)
+        foreground_idx = np.flatnonzero(flat)
+        if foreground_idx.size == 0:
+            self.counts = np.array([[0, 0]], dtype=np.int64)
+            self.vals = np.zeros((3, 0), dtype=np.int32)
+            return
+
+        labels = flat[foreground_idx]
+        order = np.argsort(labels, kind="stable")
+        labels = labels[order]
+        foreground_idx = foreground_idx[order]
+
+        entries, counts = np.unique(labels, return_counts=True)
+        background = np.array([[0, 0]], dtype=np.int64)
+        self.counts = np.vstack((background, np.stack((entries, counts), axis=1))).copy()
+
+        yyxx = self._background_shape[1] * self._background_shape[2]
+        zs = (foreground_idx // yyxx).astype(np.int32, copy=False)
+        rem = foreground_idx % yyxx
+        ys = (rem // self._background_shape[2]).astype(np.int32, copy=False)
+        xs = (rem % self._background_shape[2]).astype(np.int32, copy=False)
+        self.vals = np.vstack((zs, ys, xs)).copy()
 
     def __iter__(self):
         cell_offset = 0
@@ -128,7 +135,7 @@ class CellTable3D:
         """
         Like cell_iter but excludes the background "cell" at index 0
         """
-        return itertools.islice(self.cell_iter(), 1)
+        return itertools.islice(self.cell_iter(), 1, None)
 
     def subset_iter(self, restriction_set: set):
         """
@@ -141,7 +148,7 @@ class CellTable3D:
                 yield cell_id, cell_mtx
 
     def background(self):
-        return self.vals[:, 0 : self.counts[0]]
+        return np.vstack(np.nonzero(self._background_mask)).astype(np.int32, copy=False)
 
     def __len__(self):
         return len(self.counts)

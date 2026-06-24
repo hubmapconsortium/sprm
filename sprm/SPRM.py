@@ -87,7 +87,10 @@ def get_cell_blk_sz(num_cells: int, im: IMGstruct, options: Dict[str, Any]) -> i
     many cells should be calculated in each block of the calculation?
     This function provides a way to balance memory use and run time.
     """
-    return num_cells // 10  # TODO: make a smarter calculation
+    configured = options.get("feature_cell_block_size")
+    if configured:
+        return max(1, int(configured))
+    return max(1, min(500, num_cells // 10))  # TODO: make a smarter calculation
 
 
 def analysis(
@@ -319,14 +322,29 @@ def analysis(
             total_vector = build_vector(im, mask, len(inCell_set), j, total_vector)
 
             LOGGER.debug(f"for {t} {j} masked_imgs_coord is {len(masked_imgs_coord)}")
+            progress_path = output_dir / (baseoutputfilename + "-feature_progress.tsv")
+            if not progress_path.exists():
+                with open(progress_path, "w") as progress_file:
+                    progress_file.write(
+                        "time_s\ttimepoint\tmask_channel\tblock_start\tblock_end\tcell_count\n"
+                    )
             mic_iter = masked_imgs_coord.subset_iter(inCell_set)
             for blk_min in range(0, len(inCell_set), cell_blk_sz):
+                block_start_time = time.monotonic()
                 indexed_mic_this_block = itertools.islice(mic_iter, 0, cell_blk_sz)
                 ordered_indices = []
                 mic_list = []
                 for ii, cell_arr in indexed_mic_this_block:
                     ordered_indices.append(ii)
                     mic_list.append(cell_arr)
+                if not mic_list:
+                    continue
+                block_end = blk_min + len(mic_list)
+                print(
+                    f"Feature block start: t={t} mask_channel={j} "
+                    f"cells={blk_min}:{block_end} block_size={len(mic_list)}",
+                    flush=True,
+                )
                 index_trans_tbl = {ii: elt for ii, elt in enumerate(ordered_indices)}
                 ROI_dict = calculations(mic_list, im, t, bestz)
 
@@ -345,6 +363,16 @@ def analysis(
                     covar_matrix[t, j, cell_idx + blk_min, :, :] = cov_m
                     mean_vector[t, j, cell_idx + blk_min, :, :] = mu_v
                     total_vector[t, j, cell_idx + blk_min, :, :] = total
+                block_dt = time.monotonic() - block_start_time
+                print(
+                    f"Feature block done: t={t} mask_channel={j} "
+                    f"cells={blk_min}:{block_end} elapsed_s={block_dt:.1f}",
+                    flush=True,
+                )
+                with open(progress_path, "a") as progress_file:
+                    progress_file.write(
+                        f"{block_dt:.3f}\t{t}\t{j}\t{blk_min}\t{block_end}\t{len(mic_list)}\n"
+                    )
 
             LOGGER.debug(
                 f"cell stats info: covar_matrix {covar_matrix.shape} {covar_matrix.dtype}"
@@ -384,9 +412,6 @@ def analysis(
                 np.int32
             ),
         )
-        ROI_coords = None
-        mask.set_ROI(ROI_coords)
-
         cell_analysis(
             im=im,
             mask=mask,

@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm-spatialdata-conversion:2.2.4
+    dockerPull: hubmap/sprm-spatialdata-conversion:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: /opt/SPRM_output_convert.py
@@ -31,10 +31,10 @@ inputs:
       prefix: "--spatialdata-dir"
 
 outputs:
-  sdata_zarrs:
-    type: Directory[]
+  sdata_zarr_zips:
+    type: File[]
     outputBinding:
-      glob: "*sprm_output.zarr"
+      glob: "*sprm_output.zarr.zip"
   segmentation_metadata_json:
     type: File
     outputBinding:
