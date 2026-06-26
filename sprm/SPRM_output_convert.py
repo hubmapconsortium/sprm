@@ -211,6 +211,12 @@ def read_table(sprm_dir: Path, expr_img_path: Path, spatialdata_dir: Path) -> Ta
     tsne_coords = tsne_df.drop("ID", axis=1, inplace=False).to_numpy()
     adata.obsm["tSNE"] = tsne_coords
 
+    umap_csv = sprm_dir / Path(f"{expr_img_path.name}-UMAP_allfeatures.csv")
+
+    umap_df = pd.read_csv(umap_csv)
+    umap_coords = umap_df.drop("ID", axis=1, inplace=False).to_numpy()
+    adata.obsm["UMAP"] = umap_coords
+
     covariance_matrix_paths = [
         f"{expr_img_path.name}-cell_channel_covar.npy",
         f"{expr_img_path.name}-nuclei_channel_covar.npy",
