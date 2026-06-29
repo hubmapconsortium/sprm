@@ -217,15 +217,17 @@ def read_table(sprm_dir: Path, expr_img_path: Path, spatialdata_dir: Path) -> Ta
         f"{expr_img_path.name}-cell_boundaries_channel_covar.npy",
         f"{expr_img_path.name}-nucleus_boundaries_channel_covar.npy",
     ]
-    for covariance_matrix_path in covariance_matrix_paths:
-        a = np.ndarray((len(adata.var.index), len(adata.var.index), len(adata.obs.index)))
-        matrix = np.load(spatialdata_dir / covariance_matrix_path)
-        a = matrix.reshape(
-            (len(adata.obs.index), len(adata.var.index), len(adata.var.index))
-        ).transpose((1, 2, 0))
-        adata.varp[
-            covariance_matrix_path.replace(f"{expr_img_path.name}-", "").replace(".npy", "")
-        ] = a
+
+    if spatialdata_dir:
+        for covariance_matrix_path in covariance_matrix_paths:
+            a = np.ndarray((len(adata.var.index), len(adata.var.index), len(adata.obs.index)))
+            matrix = np.load(spatialdata_dir / covariance_matrix_path)
+            a = matrix.reshape(
+                (len(adata.obs.index), len(adata.var.index), len(adata.var.index))
+            ).transpose((1, 2, 0))
+            adata.varp[
+                covariance_matrix_path.replace(f"{expr_img_path.name}-", "").replace(".npy", "")
+            ] = a
 
     adata.obs = sanitize_column_names(adata.obs)
     for column in adata.obs.columns:
