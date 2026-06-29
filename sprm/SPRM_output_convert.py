@@ -220,7 +220,7 @@ def read_table(sprm_dir: Path, expr_img_path: Path, spatialdata_dir: Path) -> Ta
 
     for covariance_matrix_path in covariance_matrix_paths:
         a = np.ndarray((len(adata.var.index), len(adata.var.index), len(adata.obs.index)))
-        matrix = np.load(spatialdata_dir / covariance_matrix_path) if covariance_matrix_path else pd.read_csv(sprm_dir\
+        matrix = np.load(spatialdata_dir / covariance_matrix_path) if spatialdata_dir else pd.read_csv(sprm_dir\
             / covariance_matrix_path.replace(".npy", ".csv")).drop("ID", axis=1, inplace=False).to_numpy()
         a = matrix.reshape(
             (len(adata.obs.index), len(adata.var.index), len(adata.var.index))
