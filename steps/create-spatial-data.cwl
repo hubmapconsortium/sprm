@@ -25,7 +25,7 @@ inputs:
       position: 2
       prefix: "--sprm-dir"
   spatialdata_dir:
-    type: Directory
+    type: Directory?
     inputBinding:
       position: 3
       prefix: "--spatialdata-dir"
