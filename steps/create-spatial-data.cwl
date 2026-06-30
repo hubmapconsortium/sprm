@@ -3,7 +3,7 @@ class: CommandLineTool
 label: SPRM analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/sprm-spatialdata-conversion:2.2.5
+    dockerPull: hubmap/sprm-spatialdata-conversion:latest
   NetworkAccess:
     networkAccess: true
 baseCommand: /opt/SPRM_output_convert.py
@@ -25,7 +25,7 @@ inputs:
       position: 2
       prefix: "--sprm-dir"
   spatialdata_dir:
-    type: Directory
+    type: Directory?
     inputBinding:
       position: 3
       prefix: "--spatialdata-dir"
