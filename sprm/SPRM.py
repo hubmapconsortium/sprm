@@ -90,7 +90,11 @@ def get_cell_blk_sz(num_cells: int, im: IMGstruct, options: Dict[str, Any]) -> i
     configured = options.get("feature_cell_block_size")
     if configured:
         return max(1, int(configured))
-    return max(1, min(500, num_cells // 10))  # TODO: make a smarter calculation
+    num_chan = im.img.dims.C
+    sz = min(num_cells // num_chan, num_cells // 10)
+    sz = max(sz, 500)
+    LOGGER.debug(f"{num_cells} cells, {num_chan} channels -> block size = {sz}")
+    return sz
 
 
 def analysis(
